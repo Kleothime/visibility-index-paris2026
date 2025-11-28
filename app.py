@@ -337,37 +337,35 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
     if not api_key or not api_key.strip():
         return {"available": False, "videos": [], "total_views": 0, "error": "Pas de clé API"}
     
+    search_url = "https://www.googleapis.com/youtube/v3/search"
+    all_videos = []
+    seen_ids = set()
+    
+    # Dates pour le filtre
+    published_after = start_date.strftime("%Y-%m-%dT00:00:00Z")
+    published_before = (end_date + timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
+    
+    # Recherche 1 : Par pertinence
+    params_relevance = {
+        "part": "snippet",
+        "q": search_term,
+        "type": "video",
+        "order": "relevance",
+        "maxResults": 50,
+        "regionCode": "FR",
+        "relevanceLanguage": "fr",
+        "publishedAfter": published_after,
+        "publishedBefore": published_before,
+        "key": api_key
+    }
+    
+    response1 = None
+    error_msg = None
+    
     try:
-        search_url = "https://www.googleapis.com/youtube/v3/search"
-        all_videos = []
-        seen_ids = set()
+        response1 = requests.get(search_url, params=params_relevance, timeout=15)
         
-        # Dates pour le filtre
-        published_after = start_date.strftime("%Y-%m-%dT00:00:00Z")
-        published_before = (end_date + timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
-        
-        # Recherche 1 : Par pertinence
-        params_relevance = {
-            "part": "snippet",
-            "q": search_term,
-            "type": "video",
-            "order": "relevance",
-            "maxResults": 50,
-            "regionCode": "FR",
-            "relevanceLanguage": "fr",
-            "publishedAfter": published_after,
-            "publishedBefore": published_before,
-            "key": api_key
-        }
-        
-        response1 = None
-        error1 = None
-        try:
-            response1 = requests.get(search_url, params=params_relevance, timeout=15)
-        except Exception as e:
-            error1 = str(e)
-        
-        if response1 and response1.status_code == 200:
+        if response1.status_code == 200:
             data = response1.json()
             for item in data.get("items", []):
                 vid_id = item.get("id", {}).get("videoId", "")
@@ -380,15 +378,34 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
                         "channel": item.get("snippet", {}).get("channelTitle", ""),
                         "published": pub_date
                     })
-        elif response1:
-            # Récupérer le message d'erreur de l'API
+        else:
+            # Erreur API - récupérer le message
             try:
                 err_data = response1.json()
-                error1 = err_data.get("error", {}).get("message", f"HTTP {response1.status_code}")
+                err_detail = err_data.get("error", {})
+                error_msg = err_detail.get("message", "")
+                if not error_msg:
+                    errors = err_detail.get("errors", [])
+                    if errors:
+                        error_msg = errors[0].get("reason", f"HTTP {response1.status_code}")
+                    else:
+                        error_msg = f"HTTP {response1.status_code}"
             except:
-                error1 = f"HTTP {response1.status_code}"
-        
-        # Recherche 2 : Par nombre de vues
+                error_msg = f"HTTP {response1.status_code}"
+                
+    except requests.exceptions.Timeout:
+        error_msg = "Timeout (15s)"
+    except requests.exceptions.ConnectionError as e:
+        error_msg = f"Connexion refusée: {str(e)[:50]}"
+    except Exception as e:
+        error_msg = f"Exception: {str(e)[:50]}"
+    
+    # Si erreur sur la première requête, retourner immédiatement avec l'erreur
+    if error_msg and not all_videos:
+        return {"available": False, "videos": [], "total_views": 0, "error": error_msg}
+    
+    # Recherche 2 : Par nombre de vues (seulement si la première a réussi)
+    if response1 and response1.status_code == 200:
         params_views = {
             "part": "snippet",
             "q": search_term,
@@ -402,98 +419,93 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
             "key": api_key
         }
         
-        response2 = None
         try:
             response2 = requests.get(search_url, params=params_views, timeout=15)
-        except Exception:
-            pass
-        
-        if response2 and response2.status_code == 200:
-            for item in response2.json().get("items", []):
-                vid_id = item.get("id", {}).get("videoId", "")
-                if vid_id and vid_id not in seen_ids:
-                    seen_ids.add(vid_id)
-                    pub_date = item.get("snippet", {}).get("publishedAt", "")[:10]
-                    all_videos.append({
-                        "id": vid_id,
-                        "title": item.get("snippet", {}).get("title", ""),
-                        "channel": item.get("snippet", {}).get("channelTitle", ""),
-                        "published": pub_date
-                    })
-        
-        # Vérifier si au moins une requête a réussi
-        r1_ok = response1 and response1.status_code == 200
-        r2_ok = response2 and response2.status_code == 200
-        
-        if not r1_ok and not r2_ok:
-            return {"available": False, "videos": [], "total_views": 0, "error": error1 or "API inaccessible"}
-        
-        # Filtrer par nom dans le titre
-        name_parts = search_term.lower().split()
-        filtered_videos = []
-        video_ids = []
-        
-        for v in all_videos:
-            title_lower = v["title"].lower()
-            # Garder si au moins une partie du nom (>= 3 chars) est dans le titre
-            if any(part in title_lower for part in name_parts if len(part) >= 3):
-                video_ids.append(v["id"])
-                filtered_videos.append({
-                    "id": v["id"],
-                    "title": v["title"],
-                    "channel": v["channel"],
-                    "published": v["published"],
-                    "url": f"https://www.youtube.com/watch?v={v['id']}"
-                })
-        
-        # Récupérer les stats (vues, durée)
-        total_views = 0
-        if video_ids:
-            try:
-                stats_url = "https://www.googleapis.com/youtube/v3/videos"
-                stats_params = {
-                    "part": "statistics,contentDetails",
-                    "id": ",".join(video_ids[:50]),
-                    "key": api_key
-                }
-                
-                stats_response = requests.get(stats_url, params=stats_params, timeout=10)
-                
-                if stats_response.status_code == 200:
-                    stats_items = stats_response.json().get("items", [])
-                    stats_map = {item["id"]: item for item in stats_items}
-                    
-                    for v in filtered_videos:
-                        if v["id"] in stats_map:
-                            item = stats_map[v["id"]]
-                            views = int(item.get("statistics", {}).get("viewCount", 0))
-                            duration = item.get("contentDetails", {}).get("duration", "")
-                            
-                            v["views"] = views
-                            v["duration"] = duration
-                            v["is_short"] = _is_short(duration)
-                            total_views += views
-            except Exception:
-                pass  # Continuer sans les stats
-        
-        # Trier par vues
-        filtered_videos.sort(key=lambda x: x.get("views", 0), reverse=True)
-        
-        # Stats
-        shorts_count = sum(1 for v in filtered_videos if v.get("is_short", False))
-        long_count = len(filtered_videos) - shorts_count
-        
-        return {
-            "available": True,
-            "videos": filtered_videos,
-            "total_views": total_views,
-            "count": len(filtered_videos),
-            "shorts_count": shorts_count,
-            "long_count": long_count
-        }
+            
+            if response2.status_code == 200:
+                for item in response2.json().get("items", []):
+                    vid_id = item.get("id", {}).get("videoId", "")
+                    if vid_id and vid_id not in seen_ids:
+                        seen_ids.add(vid_id)
+                        pub_date = item.get("snippet", {}).get("publishedAt", "")[:10]
+                        all_videos.append({
+                            "id": vid_id,
+                            "title": item.get("snippet", {}).get("title", ""),
+                            "channel": item.get("snippet", {}).get("channelTitle", ""),
+                            "published": pub_date
+                        })
+        except:
+            pass  # Ignorer les erreurs de la 2ème requête
     
-    except Exception as e:
-        return {"available": False, "videos": [], "total_views": 0, "error": str(e)[:50]}
+    if not all_videos:
+        return {"available": False, "videos": [], "total_views": 0, "error": error_msg or "Aucune vidéo trouvée"}
+    
+    # Filtrer par nom dans le titre
+    name_parts = search_term.lower().split()
+    filtered_videos = []
+    video_ids = []
+    
+    for v in all_videos:
+        title_lower = v["title"].lower()
+        # Garder si au moins une partie du nom (>= 3 chars) est dans le titre
+        if any(part in title_lower for part in name_parts if len(part) >= 3):
+            video_ids.append(v["id"])
+            filtered_videos.append({
+                "id": v["id"],
+                "title": v["title"],
+                "channel": v["channel"],
+                "published": v["published"],
+                "url": f"https://www.youtube.com/watch?v={v['id']}"
+            })
+    
+    if not filtered_videos:
+        return {"available": False, "videos": [], "total_views": 0, "error": "Aucune vidéo avec le nom dans le titre"}
+    
+    # Récupérer les stats (vues, durée)
+    total_views = 0
+    if video_ids:
+        try:
+            stats_url = "https://www.googleapis.com/youtube/v3/videos"
+            stats_params = {
+                "part": "statistics,contentDetails",
+                "id": ",".join(video_ids[:50]),
+                "key": api_key
+            }
+            
+            stats_response = requests.get(stats_url, params=stats_params, timeout=10)
+            
+            if stats_response.status_code == 200:
+                stats_items = stats_response.json().get("items", [])
+                stats_map = {item["id"]: item for item in stats_items}
+                
+                for v in filtered_videos:
+                    if v["id"] in stats_map:
+                        item = stats_map[v["id"]]
+                        views = int(item.get("statistics", {}).get("viewCount", 0))
+                        duration = item.get("contentDetails", {}).get("duration", "")
+                        
+                        v["views"] = views
+                        v["duration"] = duration
+                        v["is_short"] = _is_short(duration)
+                        total_views += views
+        except Exception:
+            pass  # Continuer sans les stats
+    
+    # Trier par vues
+    filtered_videos.sort(key=lambda x: x.get("views", 0), reverse=True)
+    
+    # Stats
+    shorts_count = sum(1 for v in filtered_videos if v.get("is_short", False))
+    long_count = len(filtered_videos) - shorts_count
+    
+    return {
+        "available": True,
+        "videos": filtered_videos,
+        "total_views": total_views,
+        "count": len(filtered_videos),
+        "shorts_count": shorts_count,
+        "long_count": long_count
+    }
 
 
 # =============================================================================
@@ -1003,3 +1015,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
