@@ -893,7 +893,7 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
     
     status.text("Chargement Google Trends...")
     names = [CANDIDATES[cid]["name"] for cid in candidate_ids]
-    trends = get_google_trends(names)
+    trends = get_google_trends(names, start_date, end_date)
     
     # Afficher un warning si Trends échoue
     if not trends["success"]:
