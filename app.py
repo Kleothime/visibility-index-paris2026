@@ -741,7 +741,7 @@ def collect_data(candidates: List[str], start_date: date, end_date: date, youtub
         
         youtube = get_youtube_data(name, youtube_key) if youtube_key else {"available": False}
         
-                trends_score = 0
+        trends_score = 0
         trends_ts = {}
         trends_ok = False
 
