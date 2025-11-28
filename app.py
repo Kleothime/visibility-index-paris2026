@@ -357,93 +357,95 @@ def get_all_press_coverage(candidate_name: str, search_terms: List[str], start_d
     }
 
 
+
 @st.cache_data(ttl=3600, show_spinner=False)
 @st.cache_data(ttl=3600, show_spinner=False)
-def get_google_trends(keywords: List[str]) -> Dict:
-    """Google Trends via pytrends - avec gestion robuste"""
+def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> Dict:
+    """
+    Google Trends (pytrends) — scores comparables pour >5 candidats
+    Méthode fiable : requêtes 2-par-2 avec un "anchor" (référence).
+    """
     try:
         from pytrends.request import TrendReq
         import time
-        
-        # Initialisation simple sans paramètres problématiques
-        pytrends = TrendReq(hl='fr-FR', tz=60)
-        
-        scores = {}
+
+        if not keywords:
+            return {"success": False, "scores": {}, "errors": ["keywords vides"]}
+
+        # Anchor = 1er nom (chez toi, généralement Rachida Dati)
+        anchor = keywords[0]
+        timeframe = f"{start_date.strftime('%Y-%m-%d')} {end_date.strftime('%Y-%m-%d')}"
+
+        pytrends = TrendReq(
+            hl="fr-FR",
+            tz=60,
+            timeout=(10, 25),
+            retries=4,
+            backoff_factor=1.2
+        )
+
+        ratios = {anchor: 1.0}
         errors = []
-        
-        # Requête groupée pour avoir les proportions relatives
-        try:
-            pytrends.build_payload(keywords[:5], timeframe='today 1-m', geo='FR')
-            time.sleep(1)  # Délai pour éviter rate limiting
-            df = pytrends.interest_over_time()
-            
-            if df is not None and not df.empty:
-                if 'isPartial' in df.columns:
-                    df = df.drop(columns=['isPartial'])
-                
-                for kw in keywords[:5]:
-                    if kw in df.columns:
-                        vals = df[kw].tolist()
-                        recent = vals[-7:] if len(vals) >= 7 else vals
-                        avg = round(sum(recent) / len(recent), 1) if recent else 0
-                        scores[kw] = avg
-            else:
-                errors.append("DataFrame vide")
-                
-        except Exception as e:
-            err_msg = str(e)[:50]
-            errors.append(f"Requête groupée: {err_msg}")
-        
-        # Pour les candidats restants (au-delà de 5)
-        for kw in keywords[5:]:
-            scores[kw] = 0
-        
-        # Pour les candidats à 0 ou manquants, faire une requête individuelle
-        for kw in keywords[:5]:
-            if kw not in scores or scores[kw] == 0:
-                try:
-                    time.sleep(2)  # Délai plus long
-                    pytrends.build_payload([kw], timeframe='today 1-m', geo='FR')
-                    df_solo = pytrends.interest_over_time()
-                    
-                    if df_solo is not None and not df_solo.empty and kw in df_solo.columns:
-                        vals = df_solo[kw].tolist()
-                        recent = vals[-7:] if len(vals) >= 7 else vals
-                        avg_solo = round(sum(recent) / len(recent), 1) if recent else 0
-                        
-                        if avg_solo > 0:
-                            max_existing = max(scores.values()) if scores and max(scores.values()) > 0 else 50
-                            estimated = round(avg_solo * (max_existing / 100), 1)
-                            scores[kw] = max(estimated, 1)
-                except Exception as e:
-                    if kw not in scores:
-                        scores[kw] = 0
-        
-        # S'assurer que tous les keywords ont un score
+
         for kw in keywords:
-            if kw not in scores:
-                scores[kw] = 0
-        
-        success = len(scores) > 0 and any(v > 0 for v in scores.values())
-        
-        return {
-            "success": success,
-            "scores": scores,
-            "errors": errors if errors else None
+            if kw == anchor:
+                continue
+
+            try:
+                time.sleep(1.2)  # évite les 429 / blocages
+                pytrends.build_payload([kw, anchor], timeframe=timeframe, geo="FR")
+                df = pytrends.interest_over_time()
+
+                if df is None or df.empty or kw not in df.columns or anchor not in df.columns:
+                    ratios[kw] = 0.0
+                    continue
+
+                if "isPartial" in df.columns:
+                    df = df.drop(columns=["isPartial"])
+
+                kw_mean = float(df[kw].mean())
+                anchor_mean = float(df[anchor].mean())
+
+                if anchor_mean <= 0 or kw_mean <= 0:
+                    ratios[kw] = 0.0
+                else:
+                    ratios[kw] = kw_mean / anchor_mean
+
+            except Exception as e:
+                ratios[kw] = 0.0
+                errors.append(f"{kw}: {str(e)[:80]}")
+
+        # Normalisation finale 0–100 (comparables entre tous)
+        max_ratio = max(ratios.values()) if ratios else 0.0
+        scores = {
+            k: (round((v / max_ratio) * 100, 1) if max_ratio > 0 else 0.0)
+            for k, v in ratios.items()
         }
-    
+
+        # garantir tous les keywords présents
+        for kw in keywords:
+            scores.setdefault(kw, 0.0)
+
+        return {
+            "success": (max_ratio > 0 and any(x > 0 for x in scores.values())),
+            "scores": scores,
+            "errors": errors if errors else None,
+            "meta": {"anchor": anchor, "timeframe": timeframe, "geo": "FR"}
+        }
+
     except ImportError:
         return {
-            "success": False, 
-            "scores": {kw: 0 for kw in keywords}, 
+            "success": False,
+            "scores": {kw: 0.0 for kw in keywords},
             "error": "pytrends non installé"
         }
     except Exception as e:
         return {
-            "success": False, 
-            "scores": {kw: 0 for kw in keywords}, 
-            "error": str(e)[:50]
+            "success": False,
+            "scores": {kw: 0.0 for kw in keywords},
+            "error": str(e)[:120]
         }
+
 
 
 def _is_short(duration: str) -> bool:
