@@ -90,10 +90,10 @@ CANDIDATES = {
 }
 
 # =============================================================================
-# SONDAGES OFFICIELS
+# SONDAGES OFFICIELS (instituts neutres uniquement)
 # =============================================================================
 
-# Derniers sondages publiés (source: instituts de sondage)
+# Derniers sondages publiés (source: instituts de sondage indépendants)
 SONDAGES = [
     {
         "date": "2025-06-21",
@@ -115,7 +115,7 @@ SONDAGES = [
         "institut": "IFOP-Fiducial",
         "media": "Le Figaro / Sud Radio",
         "sample": 1037,
-        "hypothese": "Hypothèse principale",
+        "hypothese": "Hypothèse avec Bournazel candidat",
         "scores": {
             "Rachida Dati": 27,
             "Emmanuel Grégoire": 18,
@@ -123,21 +123,6 @@ SONDAGES = [
             "Pierre-Yves Bournazel": 15,
             "Sophia Chikirou": 12,
             "Thierry Mariani": 7,
-        }
-    },
-    {
-        "date": "2025-11-21",
-        "institut": "Verian",
-        "media": "Renaissance",
-        "sample": 1000,
-        "hypothese": "Hypothèse principale",
-        "scores": {
-            "Emmanuel Grégoire": 22,
-            "Rachida Dati": 21,
-            "David Belliard": 16,
-            "Sophia Chikirou": 14,
-            "Pierre-Yves Bournazel": 12,
-            "Thierry Mariani": 8,
         }
     },
 ]
@@ -374,31 +359,75 @@ def get_all_press_coverage(candidate_name: str, search_terms: List[str], start_d
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_google_trends(keywords: List[str]) -> Dict:
-    """Google Trends via pytrends"""
+    """Google Trends via pytrends - avec gestion robuste"""
     try:
         from pytrends.request import TrendReq
+        import time
         
-        pytrends = TrendReq(hl='fr-FR', tz=60, timeout=(10, 25))
-        pytrends.build_payload(keywords[:5], timeframe='today 1-m', geo='FR')
-        df = pytrends.interest_over_time()
-        
-        if df.empty:
-            return {"success": False, "scores": {}}
-        
-        if 'isPartial' in df.columns:
-            df = df.drop(columns=['isPartial'])
+        pytrends = TrendReq(hl='fr-FR', tz=60, timeout=(10, 25), retries=2, backoff_factor=0.5)
         
         scores = {}
-        for kw in keywords[:5]:
-            if kw in df.columns:
-                vals = df[kw].tolist()
-                recent = vals[-7:] if len(vals) >= 7 else vals
-                scores[kw] = round(sum(recent) / len(recent), 1) if recent else 0
+        errors = []
         
-        return {"success": True, "scores": scores}
+        # Requête groupée pour avoir les proportions relatives
+        try:
+            pytrends.build_payload(keywords[:5], timeframe='today 1-m', geo='FR')
+            df = pytrends.interest_over_time()
+            
+            if not df.empty:
+                if 'isPartial' in df.columns:
+                    df = df.drop(columns=['isPartial'])
+                
+                for kw in keywords[:5]:
+                    if kw in df.columns:
+                        vals = df[kw].tolist()
+                        recent = vals[-7:] if len(vals) >= 7 else vals
+                        avg = round(sum(recent) / len(recent), 1) if recent else 0
+                        scores[kw] = avg
+        except Exception as e:
+            errors.append(f"Requête groupée: {str(e)[:30]}")
+        
+        # Pour les candidats à 0 ou manquants, faire une requête individuelle
+        for kw in keywords[:5]:
+            if kw not in scores or scores[kw] == 0:
+                try:
+                    time.sleep(1)  # Éviter rate limiting
+                    pytrends.build_payload([kw], timeframe='today 1-m', geo='FR')
+                    df_solo = pytrends.interest_over_time()
+                    
+                    if not df_solo.empty and kw in df_solo.columns:
+                        vals = df_solo[kw].tolist()
+                        recent = vals[-7:] if len(vals) >= 7 else vals
+                        avg_solo = round(sum(recent) / len(recent), 1) if recent else 0
+                        
+                        if avg_solo > 0:
+                            # Score individuel - on estime le ratio par rapport au leader
+                            max_existing = max(scores.values()) if scores else 50
+                            # Si le candidat a 50 en solo et le max groupe est 80, son score relatif est environ 50*(50/100)=25
+                            estimated = round(avg_solo * (max_existing / 100), 1)
+                            scores[kw] = max(estimated, 1)  # Minimum 1 si détecté
+                except Exception as e:
+                    errors.append(f"{kw}: {str(e)[:20]}")
+                    if kw not in scores:
+                        scores[kw] = 0
+        
+        # S'assurer que tous les keywords ont un score
+        for kw in keywords:
+            if kw not in scores:
+                scores[kw] = 0
+        
+        return {
+            "success": len(scores) > 0 and any(v > 0 for v in scores.values()),
+            "scores": scores,
+            "errors": errors if errors else None
+        }
     
     except Exception as e:
-        return {"success": False, "scores": {}, "error": str(e)}
+        return {
+            "success": False, 
+            "scores": {kw: 0 for kw in keywords}, 
+            "error": str(e)
+        }
 
 
 def _is_short(duration: str) -> bool:
@@ -1206,9 +1235,27 @@ def main():
                 
                 if evolution_data:
                     df_evol = pd.DataFrame(evolution_data)
+                    
+                    # Couleurs par candidat
+                    color_map = {c["name"]: c["color"] for c in CANDIDATES.values()}
+                    
                     fig = px.line(df_evol, x="Date", y="Score", color="Candidat",
-                                 markers=True, title="Évolution des intentions de vote")
-                    fig.update_layout(yaxis_title="%", yaxis_range=[0, 40])
+                                 markers=True,
+                                 color_discrete_map=color_map)
+                    fig.update_layout(
+                        yaxis_title="Intentions de vote (%)", 
+                        yaxis_range=[0, 40],
+                        xaxis_title="Date du sondage",
+                        legend=dict(
+                            orientation="h", 
+                            yanchor="top", 
+                            y=-0.15, 
+                            xanchor="center", 
+                            x=0.5
+                        ),
+                        height=450,
+                        margin=dict(b=100)
+                    )
                     st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Aucun sondage disponible")
@@ -1270,16 +1317,18 @@ def main():
     # === TAB 4: HISTORIQUE ===
     with tab4:
         st.markdown("### Évolution des scores de visibilité")
-        st.caption("💡 L'historique se construit automatiquement à chaque analyse")
         
         # Sauvegarder les données actuelles
         period_label_for_history = f"{start_date} to {end_date}"
         history = add_to_history(data, period_label_for_history)
         
-        if len(history) > 1:
+        # Afficher l'état de l'historique
+        st.caption(f"📊 {len(history)} analyse(s) enregistrée(s)")
+        
+        if len(history) >= 1:
             # Construire les données pour le graphique
             history_df_data = []
-            for entry in history:
+            for entry in sorted(history, key=lambda x: x["date"]):
                 for name, scores in entry.get("scores", {}).items():
                     history_df_data.append({
                         "Date": entry["date"],
@@ -1293,53 +1342,80 @@ def main():
                 # Couleurs par candidat
                 color_map = {c["name"]: c["color"] for c in CANDIDATES.values()}
                 
-                # Graphique d'évolution
-                fig = px.line(df_hist, x="Date", y="Score", color="Candidat",
-                             markers=True,
-                             color_discrete_map=color_map)
-                fig.update_layout(
-                    yaxis_range=[0, 100],
-                    yaxis_title="Score de visibilité",
-                    xaxis_title="Date",
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                    height=450
-                )
-                st.plotly_chart(fig, use_container_width=True)
+                if len(history) == 1:
+                    # Une seule entrée : barres au lieu de lignes
+                    st.info("Une seule analyse enregistrée. Le graphique d'évolution apparaîtra après plusieurs analyses.")
+                    
+                    # Graphique barres pour la première analyse
+                    current_scores = [(name, scores["total"]) for name, scores in history[0]["scores"].items()]
+                    current_scores.sort(key=lambda x: x[1], reverse=True)
+                    
+                    fig = px.bar(
+                        x=[s[0] for s in current_scores],
+                        y=[s[1] for s in current_scores],
+                        color=[s[0] for s in current_scores],
+                        color_discrete_map=color_map,
+                        title="Scores actuels"
+                    )
+                    fig.update_layout(showlegend=False, yaxis_range=[0, 100], yaxis_title="Score")
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    # Plusieurs entrées : graphique d'évolution
+                    fig = px.line(
+                        df_hist, 
+                        x="Date", 
+                        y="Score", 
+                        color="Candidat",
+                        markers=True,
+                        color_discrete_map=color_map
+                    )
+                    fig.update_layout(
+                        yaxis_range=[0, 100],
+                        yaxis_title="Score de visibilité",
+                        xaxis_title="Date d'analyse",
+                        legend=dict(
+                            orientation="h", 
+                            yanchor="top", 
+                            y=-0.15, 
+                            xanchor="center", 
+                            x=0.5
+                        ),
+                        height=500,
+                        margin=dict(b=100)
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
                 
-                # Tableau des variations
-                st.markdown("### Variations par rapport aux analyses précédentes")
-                var_rows = []
-                for _, d in sorted_data:
-                    name = d["info"]["name"]
-                    current = d["score"]["total"]
-                    hist = get_historical_comparison(name, current)
+                # Tableau des variations (seulement si plusieurs entrées)
+                if len(history) > 1:
+                    st.markdown("### Variations par rapport aux analyses précédentes")
+                    var_rows = []
+                    for _, d in sorted_data:
+                        name = d["info"]["name"]
+                        current = d["score"]["total"]
+                        hist = get_historical_comparison(name, current)
+                        
+                        row = {
+                            "Candidat": name,
+                            "Score actuel": current,
+                        }
+                        
+                        if hist.get("week_change") is not None:
+                            change = hist["week_change"]
+                            row["vs 7j"] = f"{change:+.1f}" if change != 0 else "="
+                        else:
+                            row["vs 7j"] = "-"
+                        
+                        if hist.get("month_change") is not None:
+                            change = hist["month_change"]
+                            row["vs 30j"] = f"{change:+.1f}" if change != 0 else "="
+                        else:
+                            row["vs 30j"] = "-"
+                        
+                        var_rows.append(row)
                     
-                    row = {
-                        "Candidat": name,
-                        "Score actuel": current,
-                    }
-                    
-                    if hist.get("week_change") is not None:
-                        change = hist["week_change"]
-                        row["vs 7j"] = f"{change:+.1f}" if change != 0 else "="
-                    else:
-                        row["vs 7j"] = "-"
-                    
-                    if hist.get("month_change") is not None:
-                        change = hist["month_change"]
-                        row["vs 30j"] = f"{change:+.1f}" if change != 0 else "="
-                    else:
-                        row["vs 30j"] = "-"
-                    
-                    var_rows.append(row)
-                
-                st.dataframe(pd.DataFrame(var_rows), use_container_width=True, hide_index=True)
-                
-                # Nombre d'entrées dans l'historique
-                st.caption(f"📊 {len(history)} analyse(s) enregistrée(s)")
-        else:
-            st.info("Première analyse ! L'historique se construira au fil de vos prochaines analyses.")
-            st.caption("Les données sont sauvegardées dans visibility_history.json")
+                    st.dataframe(pd.DataFrame(var_rows), use_container_width=True, hide_index=True)
+        
+        st.caption("💡 L'historique se construit automatiquement. Sur Streamlit Cloud, les données sont réinitialisées à chaque redémarrage.")
     
     # === TAB 5: WIKIPEDIA ===
     with tab5:
@@ -1404,6 +1480,11 @@ def main():
     
     # === TAB 7: DONNÉES BRUTES ===
     with tab7:
+        # Avertissement si Trends semble incomplet
+        trends_zero_count = sum(1 for _, d in sorted_data if d["trends_score"] == 0)
+        if trends_zero_count > len(sorted_data) / 2:
+            st.warning("⚠️ Google Trends : plusieurs candidats à 0. Cela peut être dû à des limitations de l'API. Les données Trends peuvent être incomplètes.")
+        
         debug_rows = []
         for rank, (cid, d) in enumerate(sorted_data, 1):
             yt = d["youtube"]
@@ -1423,20 +1504,24 @@ def main():
                 "Rang": rank,
                 "Candidat": d["info"]["name"],
                 "Wikipedia (vues)": d["wikipedia"]["views"],
-                "Variation (%)": f"{max(min(d['wikipedia']['variation'], 100), -100):+.0f}%",
+                "Variation Wiki": f"{max(min(d['wikipedia']['variation'], 100), -100):+.0f}%",
                 "Articles presse": d["press"]["count"],
-                "Mentions TV/Radio": tv.get("count", 0),
+                "TV/Radio": tv.get("count", 0),
                 "Google Trends": d["trends_score"],
                 "YouTube": yt_info,
-                "Score": d["score"]["total"]
+                "Score total": d["score"]["total"]
             }
-            
-            if d["wikipedia"].get("error"):
-                row["Erreur Wiki"] = d["wikipedia"]["error"]
             
             debug_rows.append(row)
         
         st.dataframe(pd.DataFrame(debug_rows), use_container_width=True, hide_index=True)
+        
+        # Détails des erreurs éventuelles
+        if any(d["wikipedia"].get("error") for _, d in sorted_data):
+            with st.expander("Erreurs détectées"):
+                for _, d in sorted_data:
+                    if d["wikipedia"].get("error"):
+                        st.write(f"Wikipedia {d['info']['name']}: {d['wikipedia']['error']}")
     
     # === ARTICLES ===
     st.markdown("---")
