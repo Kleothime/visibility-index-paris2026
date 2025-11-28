@@ -163,92 +163,123 @@ CANDIDATES = {
 # =============================================================================
 
 @st.cache_data(ttl=1800, show_spinner=False)
-def get_wikipedia_pageviews(
-    page_title: str,
-    start_date: date,
-    end_date: date,
-    history_days: int = 30
-) -> Dict[str, Any]:
+def get_google_trends(names: List[str]) -> Dict:
     """
-    Récupère les vues Wikipedia FR pour un article entre history_start et end_date,
-    mais sépare la période analysée (start_date -> end_date) du passé.
+    Récupère Google Trends pour plusieurs noms.
+    - Essayage multi-candidat
+    - Si ça plante, fallback candidat par candidat
+    - Ne renvoie JAMAIS 0 si en réalité il y a des recherches (>0 certains jours)
     """
-    # Sécurité : on vérifie les dates
-    if start_date > end_date:
+    if TrendReq is None:
         return {
             "success": False,
-            "message": "Dates invalides",
+            "message": "pytrends non installé",
+            "data": {}
         }
-    
-    history_start = end_date - timedelta(days=history_days)
-    if history_start > start_date:
-        history_start = start_date
 
     try:
-        url = (
-            f"https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/"
-            f"fr.wikipedia/all-access/user/{page_title}/daily/"
-            f"{history_start.strftime('%Y%m%d')}/{end_date.strftime('%Y%m%d')}"
-        )
-        
-        headers = {"User-Agent": "VisibilityIndex/4.0 (Educational Project - Paris Municipal Elections)"}
-        response = requests.get(url, headers=headers, timeout=15)
-        
-        if response.status_code == 200:
-            data = response.json()
-            items = data.get("items", [])
-            
-            # Séparer période analysée vs historique
-            period_views = 0
-            history_views = 0
-            period_days = 0
-            history_days = 0
-            
-            timeseries = {}
-            for item in items:
-                try:
-                    date_str = item.get("timestamp", "")[:8]
-                    views = item.get("views", 0)
-                    item_date = datetime.strptime(date_str, "%Y%m%d").date()
-                    timeseries[item_date.strftime("%Y-%m-%d")] = views
-                    
-                    if start_date <= item_date <= end_date:
-                        period_views += views
-                        period_days += 1
-                    else:
-                        history_views += views
-                        history_days += 1
-                except:
+        pytrends = TrendReq(hl="fr-FR", tz=60)
+        results = {}
+
+        # 1) tentative multi-candidat (tous les noms d'un coup)
+        try:
+            pytrends.build_payload(names, timeframe="today 3-m", geo="FR")
+            df = pytrends.interest_over_time()
+        except Exception:
+            df = pd.DataFrame()
+
+        if not df.empty:
+            df = df.reset_index()
+            for name in names:
+                if name not in df.columns:
                     continue
-            
-            # Calculer les moyennes et variation
-            period_avg = period_views / max(period_days, 1)
-            history_avg = history_views / max(history_days, 1)
-            
-            variation_pct = 0
-            if history_avg > 0:
-                variation_pct = ((period_avg - history_avg) / history_avg) * 100
-            
+                series = df[["date", name]].rename(columns={name: "value"})
+                series["date"] = series["date"].dt.date
+
+                avg_raw = float(series["value"].mean())
+                max_val = float(series["value"].max())
+                days_positive = int((series["value"] > 0).sum())
+
+                # Si il y a des jours > 0 mais la moyenne arrondie tombe à 0 → on force à 0.5
+                if max_val > 0 and avg_raw == 0:
+                    avg = 0.5
+                else:
+                    avg = round(avg_raw, 1)
+
+                timeseries = {
+                    row["date"].strftime("%Y-%m-%d"): int(row["value"])
+                    for _, row in series.iterrows()
+                }
+
+                results[name] = {
+                    "score": avg,
+                    "score_raw": avg_raw,
+                    "days_positive": days_positive,
+                    "timeseries": timeseries,
+                    "success": True,
+                }
+
             return {
-                "total_views": period_views,
-                "daily_avg": round(period_avg, 0),
-                "variation_pct": round(variation_pct, 1),
-                "timeseries": timeseries,
-                "period_days": period_days,
                 "success": True,
-                "confidence": "high",
-                "source": "Wikipedia API (Wikimedia)"
+                "data": results,
             }
-        
-        else:
+
+        # 2) fallback candidat par candidat si la requête multi a complètement foiré
+        for name in names:
+            try:
+                pytrends.build_payload([name], timeframe="today 3-m", geo="FR")
+                df = pytrends.interest_over_time()
+                if df.empty or name not in df.columns:
+                    continue
+                df = df.reset_index()
+                series = df[["date", name]].rename(columns={name: "value"})
+                series["date"] = series["date"].dt.date
+
+                avg_raw = float(series["value"].mean())
+                max_val = float(series["value"].max())
+                days_positive = int((series["value"] > 0).sum())
+
+                if max_val > 0 and avg_raw == 0:
+                    avg = 0.5
+                else:
+                    avg = round(avg_raw, 1)
+
+                timeseries = {
+                    row["date"].strftime("%Y-%m-%d"): int(row["value"])
+                    for _, row in series.iterrows()
+                }
+
+                results[name] = {
+                    "score": avg,
+                    "score_raw": avg_raw,
+                    "days_positive": days_positive,
+                    "timeseries": timeseries,
+                    "success": True,
+                }
+
+                # éviter de spammer l'API
+                time.sleep(2)
+
+            except Exception:
+                continue
+
+        if results:
             return {
-                "success": False,
-                "message": f"Erreur HTTP {response.status_code}",
+                "success": True,
+                "data": results,
             }
+
+        return {
+            "success": False,
+            "message": "Erreur Trends pour tous les candidats",
+            "data": {}
+        }
+
     except Exception as e:
         return {
             "success": False,
-            "message": str(e),
+            "message": f"Erreur globale Trends : {e}",
+            "data": {}
         }
 
 # =============================================================================
@@ -710,21 +741,24 @@ def collect_data(candidates: List[str], start_date: date, end_date: date, youtub
         
         youtube = get_youtube_data(name, youtube_key) if youtube_key else {"available": False}
         
-        trends_score = 0
+                trends_score = 0
         trends_ts = {}
+        trends_ok = False
+
         if trends_data.get("success") and name in trends_data.get("data", {}):
             td = trends_data["data"][name]
             trends_score = td.get("score", 0)
             trends_ts = td.get("timeseries", {})
-        
+            trends_ok = td.get("success", True)
+
         score = compute_visibility_score(
             wiki_data=wiki,
             press_data=press_data,
             news_data=gnews,
-            trends_score=trends_score,
+            trends_score=trends_score if trends_ok else 0,
             youtube_data=youtube
         )
-        
+
         all_data[cand_id] = {
             "info": cand,
             "wiki": wiki,
@@ -732,11 +766,13 @@ def collect_data(candidates: List[str], start_date: date, end_date: date, youtub
             "gnews": gnews,
             "trends": {
                 "score": trends_score,
-                "timeseries": trends_ts
+                "timeseries": trends_ts,
+                "success": trends_ok,
             },
             "youtube": youtube,
             "score": score
         }
+
     
     progress.progress(100)
     status.text("✅ Données collectées")
@@ -850,7 +886,8 @@ def render_leaderboard(data: Dict):
             "Score total /100": score["total"],
             "Wikipedia (pages vues)": d["wiki"].get("total_views", 0) if d["wiki"].get("success") else 0,
             "Presse (articles)": d["press"].get("count", 0),
-            "Trends (score)": d["trends"].get("score", 0),
+            "Trends (score)": d["trends"]["score"] if d["trends"].get("success") else None,
+
             "YouTube (vues)": d["youtube"].get("total_views", 0) if d["youtube"].get("available") else 0,
         })
     
@@ -940,9 +977,17 @@ def render_candidate_detail(candidate_id: str, candidate_data: Dict):
             f"≈ **{press_count+gnews_count}** (après fusion et déduplication)"
         )
         
-        st.markdown("#### 📈 Google Trends")
+            st.markdown("#### 📈 Google Trends")
+    if trends.get("success"):
         t_score = trends.get("score", 0)
         st.write(f"- Score moyen 90 jours : **{t_score}** (index 0–100, FR)")
+        if t_score == 0 and trends.get("timeseries"):
+            st.write(
+                "  (score arrondi à 0 mais il y a bien des recherches : voir la courbe ci-dessous.)"
+            )
+    else:
+        st.write("- Données Google Trends non disponibles ou instables pour cette période.")
+
 
         st.markdown("#### 🎬 YouTube")
         if youtube.get("available"):
