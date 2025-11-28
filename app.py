@@ -226,7 +226,7 @@ def get_google_news_articles(search_term: str) -> List[Dict]:
 
 
 def get_all_press_coverage(candidate_name: str, search_terms: List[str], start_date: date, end_date: date) -> Dict:
-    """Récupère tous les articles pour un candidat"""
+    """Récupère tous les articles pour un candidat, filtrés par période"""
     all_articles = []
     seen_urls = set()
     
@@ -243,12 +243,25 @@ def get_all_press_coverage(candidate_name: str, search_terms: List[str], start_d
                 seen_urls.add(art["url"])
                 all_articles.append(art)
     
-    # Filtrage : nom de famille dans le titre
+    # Filtrage par DATE - ne garder que les articles dans la période
+    start_str = start_date.strftime("%Y-%m-%d")
+    end_str = end_date.strftime("%Y-%m-%d")
+    
+    date_filtered = []
+    for art in all_articles:
+        art_date = art.get("date", "")
+        if art_date:
+            # Garder seulement si la date est dans la période
+            if start_str <= art_date <= end_str:
+                date_filtered.append(art)
+        # Si pas de date, on ne garde pas l'article (on ne peut pas vérifier)
+    
+    # Filtrage par NOM - nom de famille dans le titre
     name_parts = candidate_name.lower().split()
     last_name = name_parts[-1] if name_parts else ""
     
     filtered = []
-    for art in all_articles:
+    for art in date_filtered:
         title_lower = art["title"].lower()
         if last_name and last_name in title_lower:
             filtered.append(art)
@@ -269,7 +282,8 @@ def get_all_press_coverage(candidate_name: str, search_terms: List[str], start_d
         "articles": unique,
         "count": len(unique),
         "domains": len(domains),
-        "raw_count": len(all_articles)
+        "raw_count": len(all_articles),
+        "date_filtered_count": len(date_filtered)
     }
 
 
@@ -300,6 +314,21 @@ def get_google_trends(keywords: List[str]) -> Dict:
     
     except Exception as e:
         return {"success": False, "scores": {}, "error": str(e)}
+
+
+def _is_short(duration: str) -> bool:
+    """Vérifie si une vidéo est un short (< 60 secondes) basé sur la durée ISO 8601"""
+    if not duration:
+        return False
+    # Format: PT1M30S, PT45S, PT1H2M3S
+    match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration)
+    if not match:
+        return False
+    hours = int(match.group(1) or 0)
+    minutes = int(match.group(2) or 0)
+    seconds = int(match.group(3) or 0)
+    total_seconds = hours * 3600 + minutes * 60 + seconds
+    return total_seconds < 60
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
@@ -440,22 +469,6 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
     
     except Exception as e:
         return {"available": False, "videos": [], "total_views": 0, "error": str(e)[:50]}
-
-
-def _is_short(duration: str) -> bool:
-    """Vérifie si une vidéo est un short (< 60 secondes) basé sur la durée ISO 8601"""
-    if not duration:
-        return False
-    # Format: PT1M30S, PT45S, PT1H2M3S
-    import re
-    match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration)
-    if not match:
-        return False
-    hours = int(match.group(1) or 0)
-    minutes = int(match.group(2) or 0)
-    seconds = int(match.group(3) or 0)
-    total_seconds = hours * 3600 + minutes * 60 + seconds
-    return total_seconds < 60
 
 
 # =============================================================================
@@ -837,6 +850,7 @@ def main():
                 "Wikipedia (vues)": d["wikipedia"]["views"],
                 "Variation (%)": f"{max(min(d['wikipedia']['variation'], 100), -100):+.0f}%",
                 "Articles bruts": d["press"]["raw_count"],
+                "Après filtre date": d["press"].get("date_filtered_count", d["press"]["raw_count"]),
                 "Articles filtrés": d["press"]["count"],
                 "Sources": d["press"]["domains"],
                 "Google Trends": d["trends_score"],
