@@ -624,7 +624,7 @@ def main():
         st.metric("Score", f"{leader['score']['total']:.1f}/100")
     with col3:
         total_articles = sum(d["press"]["count"] for _, d in sorted_data)
-        st.metric("Total articles", total_articles)
+        st.metric("Total articles sur la concu", total_articles)
     with col4:
         total_wiki = sum(d["wikipedia"]["views"] for _, d in sorted_data)
         st.metric("Total Wikipedia", format_num(total_wiki))
