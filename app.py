@@ -54,6 +54,14 @@ CANDIDATES = {
         "wikipedia": "Pierre-Yves_Bournazel",
         "search_terms": ["Pierre-Yves Bournazel", "Bournazel Paris"],
     },
+    "ian_brossat": {
+        "name": "Ian Brossat",
+        "party": "PCF",
+        "role": "Sénateur de Paris",
+        "color": "#DD0000",
+        "wikipedia": "Ian_Brossat",
+        "search_terms": ["Ian Brossat"],
+    },
     "david_belliard": {
         "name": "David Belliard",
         "party": "EELV",
@@ -295,8 +303,8 @@ def get_google_trends(keywords: List[str]) -> Dict:
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
-def get_youtube_data(search_term: str, api_key: str) -> Dict:
-    """YouTube Data API v3 - Récupère vidéos longues ET shorts"""
+def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date: date) -> Dict:
+    """YouTube Data API v3 - Récupère vidéos longues ET shorts dans la période"""
     if not api_key:
         return {"available": False, "videos": [], "total_views": 0}
     
@@ -305,7 +313,11 @@ def get_youtube_data(search_term: str, api_key: str) -> Dict:
         all_videos = []
         seen_ids = set()
         
-        # Recherche 1 : Par pertinence (vidéos populaires, interviews)
+        # Dates pour le filtre
+        published_after = start_date.strftime("%Y-%m-%dT00:00:00Z")
+        published_before = (end_date + timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
+        
+        # Recherche 1 : Par pertinence
         params_relevance = {
             "part": "snippet",
             "q": search_term,
@@ -314,7 +326,8 @@ def get_youtube_data(search_term: str, api_key: str) -> Dict:
             "maxResults": 50,
             "regionCode": "FR",
             "relevanceLanguage": "fr",
-            "publishedAfter": (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%dT00:00:00Z"),
+            "publishedAfter": published_after,
+            "publishedBefore": published_before,
             "key": api_key
         }
         
@@ -325,13 +338,15 @@ def get_youtube_data(search_term: str, api_key: str) -> Dict:
                 vid_id = item.get("id", {}).get("videoId", "")
                 if vid_id and vid_id not in seen_ids:
                     seen_ids.add(vid_id)
+                    pub_date = item.get("snippet", {}).get("publishedAt", "")[:10]
                     all_videos.append({
                         "id": vid_id,
                         "title": item.get("snippet", {}).get("title", ""),
                         "channel": item.get("snippet", {}).get("channelTitle", ""),
+                        "published": pub_date
                     })
         
-        # Recherche 2 : Par nombre de vues (les plus vues)
+        # Recherche 2 : Par nombre de vues
         params_views = {
             "part": "snippet",
             "q": search_term,
@@ -340,7 +355,8 @@ def get_youtube_data(search_term: str, api_key: str) -> Dict:
             "maxResults": 25,
             "regionCode": "FR",
             "relevanceLanguage": "fr",
-            "publishedAfter": (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%dT00:00:00Z"),
+            "publishedAfter": published_after,
+            "publishedBefore": published_before,
             "key": api_key
         }
         
@@ -351,10 +367,12 @@ def get_youtube_data(search_term: str, api_key: str) -> Dict:
                 vid_id = item.get("id", {}).get("videoId", "")
                 if vid_id and vid_id not in seen_ids:
                     seen_ids.add(vid_id)
+                    pub_date = item.get("snippet", {}).get("publishedAt", "")[:10]
                     all_videos.append({
                         "id": vid_id,
                         "title": item.get("snippet", {}).get("title", ""),
                         "channel": item.get("snippet", {}).get("channelTitle", ""),
+                        "published": pub_date
                     })
         
         if response1.status_code != 200 and response2.status_code != 200:
@@ -373,6 +391,7 @@ def get_youtube_data(search_term: str, api_key: str) -> Dict:
                     "id": v["id"],
                     "title": v["title"],
                     "channel": v["channel"],
+                    "published": v["published"],
                     "url": f"https://www.youtube.com/watch?v={v['id']}"
                 })
         
@@ -521,7 +540,7 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         
         wiki = get_wikipedia_views(c["wikipedia"], start_date, end_date)
         press = get_all_press_coverage(name, c["search_terms"], start_date, end_date)
-        youtube = get_youtube_data(name, youtube_key) if youtube_key else {"available": False, "total_views": 0, "videos": []}
+        youtube = get_youtube_data(name, youtube_key, start_date, end_date) if youtube_key else {"available": False, "total_views": 0, "videos": []}
         
         trends_score = trends["scores"].get(name, 0) if trends["success"] else 0
         
@@ -636,7 +655,13 @@ def main():
         
         # YouTube
         st.markdown("### YouTube API")
-        yt_key = st.text_input("Clé API (optionnelle)", type="password")
+        
+        # Clé par défaut
+        default_key = "AIzaSyCu27YMexJiCrzagkCnawkECG7WA1_wzDI"
+        
+        yt_key = st.text_input("Clé API", value=default_key, type="password")
+        st.caption(f"Clé : `{default_key}`")
+        
         if not yt_key:
             st.caption("Sans clé = données YouTube indisponibles")
         
@@ -859,12 +884,14 @@ def main():
                         views = v.get("views", 0)
                         is_short = v.get("is_short", False)
                         duration = v.get("duration", "")
+                        pub_date = v.get("published", "")
                         
                         # Formater la durée
                         duration_str = _format_duration(duration) if duration else ""
                         type_label = "[Short]" if is_short else f"[{duration_str}]" if duration_str else ""
                         
                         st.markdown(f"**{i}.** [{v['title']}]({v['url']}) — {format_num(views)} vues {type_label}")
+                        st.caption(f"Publié le {pub_date} · {v.get('channel', '')}")
 
     # Footer
     st.markdown("---")
@@ -885,8 +912,7 @@ def main():
         - Comparaison historique (évolution sur plusieurs semaines)
         - Analyse de sentiment des articles (positif/négatif/neutre)
         
-        **Nouveaux candidats à ajouter :**
-        - Ian Brossat (PCF)
+        **Nouveaux candidats potentiels :**
         - Rémi Féraud (PS)
         - Autres candidats déclarés
         """)
