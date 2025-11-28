@@ -956,11 +956,20 @@ def main():
         if has_yt_key:
             # Afficher les erreurs
             errors = []
+            quota_exceeded = False
             for cid, d in sorted_data:
                 yt = d["youtube"]
                 if yt.get("error"):
-                    errors.append(f"{d['info']['name']}: {yt['error']}")
-            if errors:
+                    err = yt["error"]
+                    # Détecter quota dépassé
+                    if "quota" in err.lower() or "exceeded" in err.lower():
+                        quota_exceeded = True
+                    else:
+                        errors.append(f"{d['info']['name']}: {err}")
+            
+            if quota_exceeded:
+                st.warning("⚠️ Quota YouTube dépassé — réessayez demain (après 9h)")
+            elif errors:
                 st.warning("Erreurs YouTube:\n" + "\n".join(errors))
             else:
                 st.info("Aucune vidéo trouvée pour les 30 derniers jours")
@@ -1015,4 +1024,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
