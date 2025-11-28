@@ -35,8 +35,6 @@ import math
 from typing import Optional, Dict, List, Any, Tuple
 from urllib.parse import quote_plus
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
-from enum import Enum
 
 # =============================================================================
 # CONFIGURATION STREAMLIT
@@ -89,21 +87,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =============================================================================
-# TYPES
+# TYPES (dicts simples pour compatibilité cache Streamlit)
 # =============================================================================
 
-class Reliability(Enum):
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
-    NONE = "none"
-
-@dataclass
-class DataSource:
-    name: str
-    data: Dict
-    reliability: Reliability
-    message: str = ""
+# Fiabilité : "high", "medium", "low", "none"
+# DataSource format: {"name": str, "data": dict, "reliability": str, "message": str}
 
 # =============================================================================
 # CANDIDATS
@@ -187,7 +175,7 @@ def format_number(n: int) -> str:
 # =============================================================================
 
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_wikipedia_data(page_title: str, start_date: date, end_date: date) -> DataSource:
+def fetch_wikipedia_data(page_title: str, start_date: date, end_date: date) -> Dict:
     """API officielle Wikimedia - 100% fiable."""
     try:
         extended_start = start_date - timedelta(days=30)
@@ -236,33 +224,33 @@ def fetch_wikipedia_data(page_title: str, start_date: date, end_date: date) -> D
             if reference_avg > 0:
                 variation = ((period_avg - reference_avg) / reference_avg) * 100
             
-            return DataSource(
-                name="Wikipedia",
-                data={
+            return {
+                "name": "Wikipedia",
+                "data": {
                     "total_views": period_views,
                     "daily_average": round(period_avg),
                     "variation_percent": round(variation, 1),
                     "period_days": period_days,
                     "timeseries": daily_data
                 },
-                reliability=Reliability.HIGH,
-                message="API Wikimedia officielle"
-            )
+                "reliability": "high",
+                "message": "API Wikimedia officielle"
+            }
         
-        return DataSource(
-            name="Wikipedia",
-            data={"total_views": 0, "daily_average": 0, "variation_percent": 0, "timeseries": {}},
-            reliability=Reliability.NONE,
-            message=f"Erreur HTTP {response.status_code}"
-        )
+        return {
+            "name": "Wikipedia",
+            "data": {"total_views": 0, "daily_average": 0, "variation_percent": 0, "timeseries": {}},
+            "reliability": "none",
+            "message": f"Erreur HTTP {response.status_code}"
+        }
     
     except Exception as e:
-        return DataSource(
-            name="Wikipedia",
-            data={"total_views": 0, "daily_average": 0, "variation_percent": 0, "timeseries": {}},
-            reliability=Reliability.NONE,
-            message=f"Erreur: {str(e)[:40]}"
-        )
+        return {
+            "name": "Wikipedia",
+            "data": {"total_views": 0, "daily_average": 0, "variation_percent": 0, "timeseries": {}},
+            "reliability": "none",
+            "message": f"Erreur: {str(e)[:40]}"
+        }
 
 # =============================================================================
 # GDELT + GOOGLE NEWS - PRESSE
@@ -364,7 +352,7 @@ def fetch_google_news_articles(search_term: str) -> List[Dict]:
     return articles
 
 
-def fetch_all_press_articles(search_term: str, start_date: date, end_date: date) -> DataSource:
+def fetch_all_press_articles(search_term: str, start_date: date, end_date: date) -> Dict:
     """Combine GDELT + Google News avec déduplication."""
     gdelt_articles = fetch_gdelt_articles(search_term, start_date, end_date)
     gnews_articles = fetch_google_news_articles(search_term)
@@ -388,9 +376,9 @@ def fetch_all_press_articles(search_term: str, start_date: date, end_date: date)
     
     unique_articles.sort(key=lambda x: x.get("date", ""), reverse=True)
     
-    return DataSource(
-        name="Presse",
-        data={
+    return {
+        "name": "Presse",
+        "data": {
             "article_count": len(unique_articles),
             "domain_count": len(domains),
             "articles": unique_articles,
@@ -398,27 +386,27 @@ def fetch_all_press_articles(search_term: str, start_date: date, end_date: date)
             "gdelt_count": len(gdelt_articles),
             "gnews_count": len(gnews_articles)
         },
-        reliability=Reliability.HIGH if unique_articles else Reliability.MEDIUM,
-        message=f"{len(gdelt_articles)} GDELT + {len(gnews_articles)} GNews → {len(unique_articles)} uniques"
-    )
+        "reliability": "high" if unique_articles else "medium",
+        "message": f"{len(gdelt_articles)} GDELT + {len(gnews_articles)} GNews → {len(unique_articles)} uniques"
+    }
 
 # =============================================================================
 # YOUTUBE DATA API
 # =============================================================================
 
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_youtube_data(search_term: str, api_key: Optional[str] = None) -> DataSource:
+def fetch_youtube_data(search_term: str, api_key: Optional[str] = None) -> Dict:
     """
     YouTube Data API v3 - Nécessite clé API (gratuite).
     Sans clé = pas de données (on n'invente rien).
     """
     if not api_key:
-        return DataSource(
-            name="YouTube",
-            data={"available": False, "video_count": 0, "total_views": 0, "videos": []},
-            reliability=Reliability.NONE,
-            message="Clé API requise (gratuite sur console.cloud.google.com)"
-        )
+        return {
+            "name": "YouTube",
+            "data": {"available": False, "video_count": 0, "total_views": 0, "videos": []},
+            "reliability": "none",
+            "message": "Clé API requise (gratuite sur console.cloud.google.com)"
+        }
     
     try:
         # Recherche
@@ -438,20 +426,20 @@ def fetch_youtube_data(search_term: str, api_key: Optional[str] = None) -> DataS
         response = requests.get(search_url, params=search_params, timeout=15)
         
         if response.status_code == 403:
-            return DataSource(
-                name="YouTube",
-                data={"available": False, "video_count": 0, "total_views": 0, "videos": []},
-                reliability=Reliability.NONE,
-                message="Quota API dépassé ou clé invalide"
-            )
+            return {
+                "name": "YouTube",
+                "data": {"available": False, "video_count": 0, "total_views": 0, "videos": []},
+                "reliability": "none",
+                "message": "Quota API dépassé ou clé invalide"
+            }
         
         if response.status_code != 200:
-            return DataSource(
-                name="YouTube",
-                data={"available": False, "video_count": 0, "total_views": 0, "videos": []},
-                reliability=Reliability.NONE,
-                message=f"Erreur HTTP {response.status_code}"
-            )
+            return {
+                "name": "YouTube",
+                "data": {"available": False, "video_count": 0, "total_views": 0, "videos": []},
+                "reliability": "none",
+                "message": f"Erreur HTTP {response.status_code}"
+            }
         
         search_data = response.json()
         items = search_data.get("items", [])
@@ -508,33 +496,33 @@ def fetch_youtube_data(search_term: str, api_key: Optional[str] = None) -> DataS
         
         videos.sort(key=lambda x: x.get("views", 0), reverse=True)
         
-        return DataSource(
-            name="YouTube",
-            data={
+        return {
+            "name": "YouTube",
+            "data": {
                 "available": True,
                 "video_count": len(videos),
                 "total_views": total_views,
                 "total_likes": total_likes,
                 "videos": videos
             },
-            reliability=Reliability.HIGH,
-            message=f"{len(videos)} vidéos, {format_number(total_views)} vues"
-        )
+            "reliability": "high",
+            "message": f"{len(videos)} vidéos, {format_number(total_views)} vues"
+        }
     
     except Exception as e:
-        return DataSource(
-            name="YouTube",
-            data={"available": False, "video_count": 0, "total_views": 0, "videos": []},
-            reliability=Reliability.NONE,
-            message=f"Erreur: {str(e)[:40]}"
-        )
+        return {
+            "name": "YouTube",
+            "data": {"available": False, "video_count": 0, "total_views": 0, "videos": []},
+            "reliability": "none",
+            "message": f"Erreur: {str(e)[:40]}"
+        }
 
 # =============================================================================
 # GOOGLE TRENDS
 # =============================================================================
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def fetch_google_trends(keywords: List[str], timeframe: str = "today 1-m") -> DataSource:
+def fetch_google_trends(keywords: List[str], timeframe: str = "today 1-m") -> Dict:
     """pytrends - API non-officielle, peut être instable."""
     try:
         from pytrends.request import TrendReq
@@ -546,12 +534,12 @@ def fetch_google_trends(keywords: List[str], timeframe: str = "today 1-m") -> Da
         df = pytrends.interest_over_time()
         
         if df.empty:
-            return DataSource(
-                name="Google Trends",
-                data={"success": False, "results": {}},
-                reliability=Reliability.MEDIUM,
-                message="Aucune donnée"
-            )
+            return {
+                "name": "Google Trends",
+                "data": {"success": False, "results": {}},
+                "reliability": "medium",
+                "message": "Aucune donnée"
+            }
         
         if 'isPartial' in df.columns:
             df = df.drop(columns=['isPartial'])
@@ -571,27 +559,27 @@ def fetch_google_trends(keywords: List[str], timeframe: str = "today 1-m") -> Da
                     "timeseries": dict(zip(dates, values))
                 }
         
-        return DataSource(
-            name="Google Trends",
-            data={"success": True, "results": results},
-            reliability=Reliability.MEDIUM,
-            message=f"OK pour {len(results)}/{len(kw_list)} termes"
-        )
+        return {
+            "name": "Google Trends",
+            "data": {"success": True, "results": results},
+            "reliability": "medium",
+            "message": f"OK pour {len(results)}/{len(kw_list)} termes"
+        }
     
     except ImportError:
-        return DataSource(
-            name="Google Trends",
-            data={"success": False, "results": {}},
-            reliability=Reliability.NONE,
-            message="pytrends non installé"
-        )
+        return {
+            "name": "Google Trends",
+            "data": {"success": False, "results": {}},
+            "reliability": "none",
+            "message": "pytrends non installé"
+        }
     except Exception as e:
-        return DataSource(
-            name="Google Trends",
-            data={"success": False, "results": {}},
-            reliability=Reliability.NONE,
-            message=f"Erreur: {str(e)[:30]}"
-        )
+        return {
+            "name": "Google Trends",
+            "data": {"success": False, "results": {}},
+            "reliability": "none",
+            "message": f"Erreur: {str(e)[:30]}"
+        }
 
 # =============================================================================
 # CALCUL DU SCORE
@@ -708,19 +696,19 @@ def collect_all_data(
         # Trends pour ce candidat
         trends_score = 0
         trends_timeseries = {}
-        if trends_data.data.get("success"):
-            candidate_trends = trends_data.data["results"].get(name, {})
+        if trends_data["data"].get("success"):
+            candidate_trends = trends_data["data"]["results"].get(name, {})
             trends_score = candidate_trends.get("score", 0)
             trends_timeseries = candidate_trends.get("timeseries", {})
         
         # Score
         score = calculate_visibility_score(
-            wikipedia_views=wiki_data.data.get("total_views", 0),
-            press_articles=press_data.data.get("article_count", 0),
-            press_domains=press_data.data.get("domain_count", 0),
+            wikipedia_views=wiki_data["data"].get("total_views", 0),
+            press_articles=press_data["data"].get("article_count", 0),
+            press_domains=press_data["data"].get("domain_count", 0),
             trends_score=trends_score,
-            youtube_views=youtube_data.data.get("total_views", 0),
-            youtube_available=youtube_data.data.get("available", False)
+            youtube_views=youtube_data["data"].get("total_views", 0),
+            youtube_available=youtube_data["data"].get("available", False)
         )
         
         all_data[cid] = {
@@ -731,7 +719,7 @@ def collect_all_data(
             "trends": {
                 "score": trends_score,
                 "timeseries": trends_timeseries,
-                "success": trends_data.data.get("success", False)
+                "success": trends_data["data"].get("success", False)
             },
             "score": score
         }
@@ -805,7 +793,7 @@ def main():
     # Tri
     sorted_data = sorted(all_data.items(), key=lambda x: x[1]["score"]["total"], reverse=True)
     
-    youtube_available = youtube_key and any(d["youtube"].data.get("available") for d in all_data.values())
+    youtube_available = youtube_key and any(d["youtube"]["data"].get("available") for d in all_data.values())
     
     # État sources
     st.markdown("### 📡 État des sources")
@@ -832,8 +820,8 @@ def main():
     st.markdown("## 📈 Vue d'ensemble")
     
     leader = sorted_data[0][1]
-    total_wiki = sum(d["wikipedia"].data.get("total_views", 0) for _, d in sorted_data)
-    total_articles = sum(d["press"].data.get("article_count", 0) for _, d in sorted_data)
+    total_wiki = sum(d["wikipedia"]["data"].get("total_views", 0) for _, d in sorted_data)
+    total_articles = sum(d["press"]["data"].get("article_count", 0) for _, d in sorted_data)
     
     cols = st.columns(4)
     with cols[0]:
@@ -857,12 +845,12 @@ def main():
             "Candidat": f"{d['info']['emoji']} {d['info']['name']}",
             "Parti": d["info"]["party"],
             "Score": d["score"]["total"],
-            "📚 Wiki": d["wikipedia"].data.get("total_views", 0),
-            "📰 Articles": d["press"].data.get("article_count", 0),
+            "📚 Wiki": d["wikipedia"]["data"].get("total_views", 0),
+            "📰 Articles": d["press"]["data"].get("article_count", 0),
             "📈 Trends": d["trends"]["score"],
         }
         if youtube_available:
-            row["🎬 YouTube"] = d["youtube"].data.get("total_views", 0) if d["youtube"].data.get("available") else 0
+            row["🎬 YouTube"] = d["youtube"]["data"].get("total_views", 0) if d["youtube"]["data"].get("available") else 0
         rows.append(row)
     
     df = pd.DataFrame(rows)
@@ -911,20 +899,20 @@ def main():
     with tabs[1]:
         col1, col2 = st.columns(2)
         with col1:
-            wiki_views = [d["wikipedia"].data.get("total_views", 0) for _, d in sorted_data]
+            wiki_views = [d["wikipedia"]["data"].get("total_views", 0) for _, d in sorted_data]
             fig = px.bar(x=names, y=wiki_views, title="Pageviews Wikipedia", color=names, color_discrete_sequence=colors)
             fig.update_layout(showlegend=False, height=350)
             st.plotly_chart(fig, use_container_width=True)
         
         with col2:
-            variations = [d["wikipedia"].data.get("variation_percent", 0) for _, d in sorted_data]
+            variations = [d["wikipedia"]["data"].get("variation_percent", 0) for _, d in sorted_data]
             fig = px.bar(x=names, y=variations, title="Variation vs 30j précédents (%)", color=variations, color_continuous_scale=["red", "gray", "green"], range_color=[-100, 100])
             fig.update_layout(height=350)
             st.plotly_chart(fig, use_container_width=True)
         
         evo = []
         for cid, d in all_data.items():
-            for dt, v in d["wikipedia"].data.get("timeseries", {}).items():
+            for dt, v in d["wikipedia"]["data"].get("timeseries", {}).items():
                 evo.append({"Date": dt, "Candidat": d["info"]["name"], "Vues": v})
         if evo:
             df_evo = pd.DataFrame(evo)
@@ -937,7 +925,7 @@ def main():
     with tabs[2]:
         col1, col2 = st.columns(2)
         with col1:
-            articles = [d["press"].data.get("article_count", 0) for _, d in sorted_data]
+            articles = [d["press"]["data"].get("article_count", 0) for _, d in sorted_data]
             fig = px.bar(x=names, y=articles, title="Nombre d'articles", color=names, color_discrete_sequence=colors)
             fig.update_layout(showlegend=False, height=350)
             st.plotly_chart(fig, use_container_width=True)
@@ -947,7 +935,7 @@ def main():
             st.plotly_chart(fig, use_container_width=True)
         
         st.markdown("#### Détail sources")
-        src = [{"Candidat": d["info"]["name"], "GDELT": d["press"].data.get("gdelt_count", 0), "Google News": d["press"].data.get("gnews_count", 0), "Total": d["press"].data.get("article_count", 0)} for _, d in sorted_data]
+        src = [{"Candidat": d["info"]["name"], "GDELT": d["press"]["data"].get("gdelt_count", 0), "Google News": d["press"]["data"].get("gnews_count", 0), "Total": d["press"]["data"].get("article_count", 0)} for _, d in sorted_data]
         st.dataframe(pd.DataFrame(src), hide_index=True, use_container_width=True)
     
     # TAB TRENDS
@@ -979,7 +967,7 @@ def main():
     with tabs[4]:
         st.markdown("### 📋 Tous les articles")
         for cid, d in sorted_data:
-            arts = d["press"].data.get("articles", [])
+            arts = d["press"]["data"].get("articles", [])
             with st.expander(f"{d['info']['emoji']} **{d['info']['name']}** — {len(arts)} articles"):
                 if arts:
                     for i, a in enumerate(arts, 1):
@@ -994,13 +982,13 @@ def main():
         st.markdown("## 🎬 YouTube")
         for cid, d in sorted_data:
             yt = d["youtube"]
-            if yt.data.get("available"):
-                with st.expander(f"{d['info']['emoji']} {d['info']['name']} — {format_number(yt.data.get('total_views', 0))} vues"):
+            if yt["data"].get("available"):
+                with st.expander(f"{d['info']['emoji']} {d['info']['name']} — {format_number(yt["data"].get('total_views', 0))} vues"):
                     c1, c2 = st.columns(2)
-                    c1.metric("Vidéos", yt.data.get("video_count", 0))
-                    c2.metric("Vues totales", format_number(yt.data.get("total_views", 0)))
+                    c1.metric("Vidéos", yt["data"].get("video_count", 0))
+                    c2.metric("Vues totales", format_number(yt["data"].get("total_views", 0)))
                     
-                    vids = yt.data.get("videos", [])
+                    vids = yt["data"].get("videos", [])
                     if vids:
                         st.markdown("**Top vidéos :**")
                         for v in vids[:10]:
@@ -1030,11 +1018,11 @@ def main():
         lines.append("\nDÉTAILS:")
         for cid, d in sorted_data:
             lines.append(f"\n{d['info']['name']}:")
-            lines.append(f"  Wikipedia: {d['wikipedia'].data.get('total_views', 0):,} vues ({d['wikipedia'].data.get('variation_percent', 0):+.0f}%)")
-            lines.append(f"  Presse: {d['press'].data.get('article_count', 0)} articles")
+            lines.append(f"  Wikipedia: {d['wikipedia']["data"].get('total_views', 0):,} vues ({d['wikipedia']["data"].get('variation_percent', 0):+.0f}%)")
+            lines.append(f"  Presse: {d['press']["data"].get('article_count', 0)} articles")
             lines.append(f"  Trends: {d['trends']['score']:.0f}")
-            if d["youtube"].data.get("available"):
-                lines.append(f"  YouTube: {d['youtube'].data.get('total_views', 0):,} vues")
+            if d["youtube"]["data"].get("available"):
+                lines.append(f"  YouTube: {d['youtube']["data"].get('total_views', 0):,} vues")
         
         lines.append(f"\nGénéré le {datetime.now().strftime('%d/%m/%Y %H:%M')}")
         summary = "\n".join(lines)
