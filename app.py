@@ -552,7 +552,7 @@ def main():
         
         # YouTube
         st.markdown("### YouTube API")
-        yt_key = st.text_input("Clé API (optionnelle)", type="password")
+        yt_key = st.text_input("Clé API AIzaSyCu27YMexJiCrzagkCnawkECG7WA1_wzDI", type="password")
         if not yt_key:
             st.caption("Sans clé = données YouTube indisponibles")
         
