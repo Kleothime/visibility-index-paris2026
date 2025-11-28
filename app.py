@@ -1,5 +1,5 @@
 """
-Visibility Index v4.0 - Données Fiables Uniquement
+Visibility Index v5.0 - Données Fiables Uniquement
 Tableau de bord de visibilité pour les municipales Paris 2026
 
 PHILOSOPHIE : Ne jamais inventer de données. Afficher clairement quand une source n'est pas disponible.
@@ -155,7 +155,7 @@ def get_wikipedia_pageviews(page_title: str, start_date: date, end_date: date) -
     SOURCE 100% FIABLE - API officielle Wikimedia.
     """
     try:
-        # Étendre la période pour avoir l'historique (30 jours avant start_date)
+        # Étendre la période pour historique (30 jours avant start_date)
         history_start = start_date - timedelta(days=30)
         
         url = (
@@ -164,14 +164,13 @@ def get_wikipedia_pageviews(page_title: str, start_date: date, end_date: date) -
             f"{history_start.strftime('%Y%m%d')}/{end_date.strftime('%Y%m%d')}"
         )
         
-        headers = {"User-Agent": "VisibilityIndex/4.0 (Educational Project - Paris Municipal Elections)"}
+        headers = {"User-Agent": "VisibilityIndex/5.0 (Educational Project - Paris Municipal Elections)"}
         response = requests.get(url, headers=headers, timeout=15)
         
         if response.status_code == 200:
             data = response.json()
             items = data.get("items", [])
             
-            # Séparer période analysée vs historique
             period_views = 0
             period_days = 0
             history_views = 0
@@ -192,10 +191,9 @@ def get_wikipedia_pageviews(page_title: str, start_date: date, end_date: date) -
                     else:
                         history_views += views
                         history_days += 1
-                except:
+                except Exception:
                     continue
             
-            # Calculer les moyennes et variation
             period_avg = period_views / max(period_days, 1)
             history_avg = history_views / max(history_days, 1)
             
@@ -216,17 +214,18 @@ def get_wikipedia_pageviews(page_title: str, start_date: date, end_date: date) -
         
         return {
             "total_views": 0, "daily_avg": 0, "variation_pct": 0,
-            "timeseries": {}, "success": False, "confidence": "none",
+            "timeseries": {}, "period_days": 0,
+            "success": False, "confidence": "none",
             "error": f"HTTP {response.status_code}"
         }
         
     except Exception as e:
         return {
             "total_views": 0, "daily_avg": 0, "variation_pct": 0,
-            "timeseries": {}, "success": False, "confidence": "none",
+            "timeseries": {}, "period_days": 0,
+            "success": False, "confidence": "none",
             "error": str(e)
         }
-
 
 # =============================================================================
 # GDELT API - PRESSE
@@ -241,9 +240,10 @@ def get_gdelt_articles(search_term: str, start_date: date, end_date: date) -> Di
     all_articles = []
     seen_titles = set()
     domains = set()
+    success = False
+    error_msg = None
     
     try:
-        # Requête GDELT
         query = f'"{search_term}"'
         url = "https://api.gdeltproject.org/api/v2/doc/doc"
         params = {
@@ -267,7 +267,6 @@ def get_gdelt_articles(search_term: str, start_date: date, end_date: date) -> Di
                     title = article.get("title", "")
                     title_norm = re.sub(r'[^\w\s]', '', title.lower())[:60]
                     
-                    # Vérifier que le nom apparaît vraiment
                     name_parts = search_term.lower().split()
                     if any(part in title.lower() for part in name_parts if len(part) > 3):
                         if title_norm and title_norm not in seen_titles:
@@ -283,20 +282,23 @@ def get_gdelt_articles(search_term: str, start_date: date, end_date: date) -> Di
                                 "date": article.get("seendate", "")[:10] if article.get("seendate") else "",
                                 "source_type": "GDELT"
                             })
+                success = True
             except json.JSONDecodeError:
-                pass  # GDELT retourne parfois vide
+                error_msg = "Réponse GDELT invalide (JSON)"
+        else:
+            error_msg = f"HTTP {response.status_code}"
     except Exception as e:
-        pass
+        error_msg = str(e)
     
     return {
         "article_count": len(all_articles),
         "domain_count": len(domains),
         "articles": sorted(all_articles, key=lambda x: x.get("date", ""), reverse=True),
         "domains": list(domains),
-        "success": True,
+        "success": success,
+        "error": error_msg,
         "source": "GDELT"
     }
-
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def get_google_news_articles(search_term: str) -> Dict:
@@ -333,7 +335,7 @@ def get_google_news_articles(search_term: str) -> Dict:
                         try:
                             dt = datetime.strptime(pub_date_elem.text[:25], "%a, %d %b %Y %H:%M:%S")
                             date_str = dt.strftime("%Y-%m-%d")
-                        except:
+                        except Exception:
                             pass
                     
                     articles.append({
@@ -344,13 +346,12 @@ def get_google_news_articles(search_term: str) -> Dict:
                         "source_type": "Google News"
                     })
             
-            return {"article_count": len(articles), "articles": articles, "success": True}
+            return {"article_count": len(articles), "articles": articles, "success": True, "error": None}
     
     except Exception as e:
-        pass
+        return {"article_count": 0, "articles": [], "success": False, "error": str(e)}
     
-    return {"article_count": 0, "articles": [], "success": False}
-
+    return {"article_count": 0, "articles": [], "success": False, "error": "Réponse vide Google News"}
 
 # =============================================================================
 # YOUTUBE DATA API - NÉCESSITE CLÉ API
@@ -370,7 +371,6 @@ def get_youtube_data(search_term: str, api_key: str) -> Dict:
         }
     
     try:
-        # Recherche de vidéos récentes
         search_url = "https://www.googleapis.com/youtube/v3/search"
         search_params = {
             "part": "snippet",
@@ -398,7 +398,6 @@ def get_youtube_data(search_term: str, api_key: str) -> Dict:
                 video_id = item.get("id", {}).get("videoId", "")
                 title = snippet.get("title", "").lower()
                 
-                # Vérifier que le nom apparaît dans le titre ou la description
                 name_parts = search_term.lower().split()
                 if any(part in title for part in name_parts if len(part) > 3):
                     if video_id:
@@ -411,7 +410,6 @@ def get_youtube_data(search_term: str, api_key: str) -> Dict:
                             "url": f"https://youtube.com/watch?v={video_id}"
                         })
             
-            # Récupérer les statistiques (vues, likes)
             total_views = 0
             total_likes = 0
             total_comments = 0
@@ -439,7 +437,6 @@ def get_youtube_data(search_term: str, api_key: str) -> Dict:
                         total_likes += likes
                         total_comments += comments
                         
-                        # Ajouter les stats à la vidéo correspondante
                         if i < len(videos):
                             videos[i]["views"] = views
                             videos[i]["likes"] = likes
@@ -468,7 +465,6 @@ def get_youtube_data(search_term: str, api_key: str) -> Dict:
     except Exception as e:
         return {"available": False, "message": f"Erreur: {str(e)}"}
 
-
 # =============================================================================
 # GOOGLE TRENDS
 # =============================================================================
@@ -478,20 +474,19 @@ def get_google_trends(keywords: List[str]) -> Dict:
     """
     Récupère les données Google Trends.
     ATTENTION: API non-officielle, peut être instable.
+    On ne fabrique rien : si ça plante, on marque la source comme indisponible.
     """
     try:
         from pytrends.request import TrendReq
         
         pytrends = TrendReq(hl='fr-FR', tz=60, timeout=(10, 30), retries=2)
-        
-        # Maximum 5 keywords par requête
         kw_list = keywords[:5]
         
         pytrends.build_payload(kw_list, cat=0, timeframe='today 1-m', geo='FR')
         df = pytrends.interest_over_time()
         
         if df.empty:
-            return {"success": False, "data": {}, "note": "Pas de données"}
+            return {"success": False, "data": {}, "note": "Pas de données Trends", "error": None}
         
         if 'isPartial' in df.columns:
             df = df.drop(columns=['isPartial'])
@@ -502,7 +497,6 @@ def get_google_trends(keywords: List[str]) -> Dict:
                 values = df[kw].tolist()
                 dates = [d.strftime("%Y-%m-%d") for d in df.index]
                 
-                # Score = moyenne des 7 derniers jours
                 recent = values[-7:] if len(values) >= 7 else values
                 score = sum(recent) / len(recent) if recent else 0
                 
@@ -513,14 +507,14 @@ def get_google_trends(keywords: List[str]) -> Dict:
                     "timeseries": dict(zip(dates, values))
                 }
         
-        return {"success": True, "data": results, "confidence": "medium"}
+        return {"success": True, "data": results, "confidence": "medium", "error": None}
         
     except Exception as e:
-        return {"success": False, "data": {}, "error": str(e), "note": "pytrends instable"}
-
+        # On ne bidouille pas : Trends est simplement marqué comme indisponible
+        return {"success": False, "data": {}, "error": str(e), "note": "pytrends indisponible"}
 
 # =============================================================================
-# CALCUL DU SCORE
+# CALCUL DU SCORE (RENORMALISÉ)
 # =============================================================================
 
 def calculate_visibility_score(
@@ -528,44 +522,56 @@ def calculate_visibility_score(
     press_articles: int,
     press_domains: int,
     trends_score: float,
+    wikipedia_ok: bool,
+    press_ok: bool,
+    trends_ok: bool,
     youtube_views: int = 0,
     youtube_available: bool = False
 ) -> Dict:
     """
-    Calcule le score de visibilité.
-    
-    PONDÉRATION (ajustée selon données disponibles):
-    - Wikipedia : 35% (proxy fiable de l'attention publique)
-    - Presse : 40% (couverture médiatique)
-    - Google Trends : 25% (intérêt de recherche)
-    - YouTube : Bonus si disponible
+    Calcule le score de visibilité avec PONDÉRATIONS RENORMALISÉES
+    en fonction des sources réellement disponibles.
+
+    Pondérations théoriques :
+    - Wikipedia : 35%
+    - Presse : 40%
+    - Google Trends : 25%
+    - YouTube : bonus uniquement (pas dans la répartition principale)
     """
-    
-    # Wikipedia : échelle logarithmique (1000 vues = 50, 10000 = 75, 100000 = 100)
+    # Scores bruts 0-100
     wiki_score = 0
     if wikipedia_views > 0:
         wiki_score = min(math.log10(wikipedia_views) / 5 * 100, 100)
     
-    # Presse : linéaire avec bonus diversité
-    # 20 articles = 50 points, 50 articles = 80 points, 100+ = 100 points
     press_base = min(press_articles / 100, 1) * 80
     diversity_bonus = min(press_domains / 30, 1) * 20
     press_score = press_base + diversity_bonus
     
-    # Trends : déjà sur 0-100
     trends_score_norm = min(trends_score, 100)
     
-    # Score de base (sans YouTube)
-    base_score = (
-        wiki_score * 0.35 +
-        press_score * 0.40 +
-        trends_score_norm * 0.25
-    )
+    # Pondérations de base
+    base_weights = {
+        "wikipedia": 0.35 if wikipedia_ok else 0.0,
+        "press": 0.40 if press_ok else 0.0,
+        "trends": 0.25 if trends_ok else 0.0,
+    }
+    weight_sum = sum(base_weights.values())
     
-    # Bonus YouTube si disponible
+    if weight_sum == 0:
+        # Aucune source structurante fiable : score = 0, contributions = 0
+        base_score = 0.0
+        eff_weights = {"wikipedia": 0.0, "press": 0.0, "trends": 0.0}
+    else:
+        eff_weights = {k: v / weight_sum for k, v in base_weights.items()}
+        base_score = (
+            wiki_score * eff_weights["wikipedia"] +
+            press_score * eff_weights["press"] +
+            trends_score_norm * eff_weights["trends"]
+        )
+    
+    # Bonus YouTube (ne change pas la répartition principale)
     youtube_bonus = 0
     if youtube_available and youtube_views > 0:
-        # Bonus jusqu'à 15 points
         youtube_bonus = min(math.log10(max(youtube_views, 1)) / 7 * 15, 15)
     
     total = min(base_score + youtube_bonus, 100)
@@ -579,13 +585,13 @@ def calculate_visibility_score(
             "youtube_bonus": round(youtube_bonus, 1)
         },
         "contributions": {
-            "wikipedia": round(wiki_score * 0.35, 1),
-            "press": round(press_score * 0.40, 1),
-            "trends": round(trends_score_norm * 0.25, 1),
+            "wikipedia": round(wiki_score * eff_weights["wikipedia"], 1),
+            "press": round(press_score * eff_weights["press"], 1),
+            "trends": round(trends_score_norm * eff_weights["trends"], 1),
             "youtube": round(youtube_bonus, 1)
-        }
+        },
+        "weights_used": eff_weights
     }
-
 
 # =============================================================================
 # INTERFACE
@@ -595,8 +601,8 @@ def main():
     # Header
     st.markdown("""
     <div class="main-header">
-        <h1>🗳️ Visibility Index v4.0</h1>
-        <p>Municipales Paris 2026 • Données fiables uniquement</p>
+        <h1>🗳️ Visibility Index v5.0</h1>
+        <p>Municipales Paris 2026 • Données fiables uniquement (pas de faux zéros)</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -629,7 +635,7 @@ def main():
             help="Gratuit sur console.cloud.google.com"
         )
         if not youtube_key:
-            st.warning("⚠️ Sans clé, pas de données YouTube")
+            st.warning("⚠️ Sans clé, pas de données YouTube (mais le score restera fiable).")
         
         st.markdown("---")
         if st.button("🔄 Actualiser", type="primary", use_container_width=True):
@@ -642,30 +648,26 @@ def main():
         ### 📊 Sources
         - 🟢 **Wikipedia** : Fiable
         - 🟢 **GDELT/News** : Fiable
-        - 🟡 **Trends** : Variable
-        - ⚙️ **YouTube** : Nécessite clé
-        - ❌ **Twitter/FB** : API payante
+        - 🟡 **Trends** : Variable (et ignoré si indisponible)
+        - ⚙️ **YouTube** : Bonus si clé API
+        - ❌ **Twitter/FB** : API payante → exclu
         """)
     
     if not selected:
         st.warning("Sélectionnez au moins un candidat")
         return
     
-    # Collecte
     all_data = collect_data(selected, start_date, end_date, youtube_key)
-    
-    # Affichage
     display_results(all_data, start_date, end_date, bool(youtube_key))
 
-
 def collect_data(candidates: List[str], start_date: date, end_date: date, youtube_key: str) -> Dict:
-    """Collecte toutes les données."""
+    """Collecte toutes les données pour chaque candidat."""
     
     all_data = {}
     progress = st.progress(0)
     status = st.empty()
     
-    # Google Trends (tous les candidats en une fois)
+    # Google Trends pour tous d'un coup
     status.text("📈 Google Trends...")
     names = [CANDIDATES[c]["name"] for c in candidates]
     trends_data = get_google_trends(names)
@@ -678,24 +680,37 @@ def collect_data(candidates: List[str], start_date: date, end_date: date, youtub
         
         # Wikipedia
         wiki = get_wikipedia_pageviews(cand["wikipedia_fr"], start_date, end_date)
+        wiki_ok = wiki.get("success", False) and wiki.get("period_days", 0) > 0
         
         # Presse (GDELT + Google News)
         gdelt = get_gdelt_articles(name, start_date, end_date)
         gnews = get_google_news_articles(name)
         
-        # Fusionner articles
         all_articles = gdelt.get("articles", []) + gnews.get("articles", [])
         seen = set()
-        unique_articles = []
         domains = set(gdelt.get("domains", []))
         
         for art in all_articles:
             title_norm = re.sub(r'[^\w\s]', '', art.get("title", "").lower())[:50]
             if title_norm and title_norm not in seen:
                 seen.add(title_norm)
-                unique_articles.append(art)
                 if art.get("domain"):
                     domains.add(art["domain"])
+                all_articles_entry = {
+                    "title": art.get("title", ""),
+                    "url": art.get("url", ""),
+                    "domain": art.get("domain", ""),
+                    "date": art.get("date", ""),
+                    "source_type": art.get("source_type", "")
+                }
+                # on garde tel quel
+        unique_articles = []
+        seen = set()
+        for art in all_articles:
+            title_norm = re.sub(r'[^\w\s]', '', art.get("title", "").lower())[:50]
+            if title_norm and title_norm not in seen:
+                seen.add(title_norm)
+                unique_articles.append(art)
         
         unique_articles.sort(key=lambda x: x.get("date", ""), reverse=True)
         
@@ -703,29 +718,37 @@ def collect_data(candidates: List[str], start_date: date, end_date: date, youtub
             "article_count": len(unique_articles),
             "domain_count": len(domains),
             "articles": unique_articles,
-            "domains": list(domains)
+            "domains": list(domains),
+            "success": gdelt.get("success", False) or gnews.get("success", False)
         }
+        press_ok = press["article_count"] > 0
         
-        # YouTube (si clé dispo)
+        # YouTube (bonus)
         youtube = get_youtube_data(name, youtube_key) if youtube_key else {"available": False}
+        yt_views = youtube.get("total_views", 0) if youtube.get("available") else 0
+        youtube_ok = youtube.get("available", False) and yt_views > 0
         
         # Trends pour ce candidat
         trends_score = 0
         trends_ts = {}
+        trends_ok = False
         if trends_data.get("success") and name in trends_data.get("data", {}):
             td = trends_data["data"][name]
             trends_score = td.get("score", 0)
             trends_ts = td.get("timeseries", {})
+            trends_ok = True if trends_ts else False
         
-        # Score
-        yt_views = youtube.get("total_views", 0) if youtube.get("available") else 0
+        # Score renormalisé
         score = calculate_visibility_score(
-            wiki.get("total_views", 0),
-            press["article_count"],
-            press["domain_count"],
-            trends_score,
-            yt_views,
-            youtube.get("available", False)
+            wikipedia_views=wiki.get("total_views", 0),
+            press_articles=press["article_count"],
+            press_domains=press["domain_count"],
+            trends_score=trends_score,
+            wikipedia_ok=wiki_ok,
+            press_ok=press_ok,
+            trends_ok=trends_ok,
+            youtube_views=yt_views,
+            youtube_available=youtube_ok
         )
         
         all_data[cand_id] = {
@@ -733,8 +756,18 @@ def collect_data(candidates: List[str], start_date: date, end_date: date, youtub
             "wikipedia": wiki,
             "press": press,
             "youtube": youtube,
-            "trends": {"score": trends_score, "timeseries": trends_ts, "success": trends_data.get("success", False)},
-            "score": score
+            "trends": {
+                "score": trends_score,
+                "timeseries": trends_ts,
+                "success": trends_ok
+            },
+            "score": score,
+            "availability": {
+                "wikipedia": wiki_ok,
+                "press": press_ok,
+                "trends": trends_ok,
+                "youtube": youtube_ok
+            }
         }
         
         progress.progress(15 + int(85 * (i + 1) / len(candidates)))
@@ -744,24 +777,26 @@ def collect_data(candidates: List[str], start_date: date, end_date: date, youtub
     
     return all_data
 
-
 def display_results(all_data: Dict, start_date: date, end_date: date, youtube_available: bool):
     """Affiche les résultats."""
     
-    # Tri par score
     sorted_data = sorted(all_data.items(), key=lambda x: x[1]["score"]["total"], reverse=True)
     
-    # Indicateur de fiabilité des données
-    st.markdown("### 📊 État des sources")
+    # Indicateur de fiabilité des sources globales
+    st.markdown("### 📊 État des sources (global)")
     cols = st.columns(4)
     with cols[0]:
-        st.markdown('<span class="source-indicator source-ok">🟢 Wikipedia</span>', unsafe_allow_html=True)
+        wiki_ok_global = any(d["availability"]["wikipedia"] for _, d in sorted_data)
+        cls = "source-ok" if wiki_ok_global else "source-partial"
+        st.markdown(f'<span class="source-indicator {cls}">{"🟢" if wiki_ok_global else "🟡"} Wikipedia</span>', unsafe_allow_html=True)
     with cols[1]:
-        st.markdown('<span class="source-indicator source-ok">🟢 Presse</span>', unsafe_allow_html=True)
+        press_ok_global = any(d["availability"]["press"] for _, d in sorted_data)
+        cls = "source-ok" if press_ok_global else "source-partial"
+        st.markdown(f'<span class="source-indicator {cls}">{"🟢" if press_ok_global else "🟡"} Presse</span>', unsafe_allow_html=True)
     with cols[2]:
-        trends_ok = any(d["trends"]["success"] for _, d in sorted_data)
-        cls = "source-ok" if trends_ok else "source-partial"
-        st.markdown(f'<span class="source-indicator {cls}">{"🟢" if trends_ok else "🟡"} Trends</span>', unsafe_allow_html=True)
+        trends_ok_global = any(d["availability"]["trends"] for _, d in sorted_data)
+        cls = "source-ok" if trends_ok_global else "source-partial"
+        st.markdown(f'<span class="source-indicator {cls}">{"🟢" if trends_ok_global else "🟡"} Trends</span>', unsafe_allow_html=True)
     with cols[3]:
         cls = "source-ok" if youtube_available else "source-missing"
         st.markdown(f'<span class="source-indicator {cls}">{"🟢" if youtube_available else "❌"} YouTube</span>', unsafe_allow_html=True)
@@ -784,8 +819,11 @@ def display_results(all_data: Dict, start_date: date, end_date: date, youtube_av
     
     cols = st.columns(4)
     with cols[0]:
-        st.metric("🏆 Leader", leader[1]["info"]["name"].split()[-1] if leader else "-",
-                  f"{leader[1]['score']['total']:.0f}/100" if leader else None)
+        st.metric(
+            "🏆 Leader",
+            leader[1]["info"]["name"].split()[-1] if leader else "-",
+            f"{leader[1]['score']['total']:.0f}/100" if leader else None
+        )
     with cols[1]:
         st.metric("📚 Wikipedia", f"{total_wiki:,} vues")
     with cols[2]:
@@ -804,11 +842,11 @@ def display_results(all_data: Dict, start_date: date, end_date: date, youtube_av
             "Rang": rank,
             "Candidat": f"{d['info']['emoji']} {d['info']['name']}",
             "Score": d["score"]["total"],
-            "Wikipedia": d["wikipedia"]["total_views"],
-            "Presse": d["press"]["article_count"],
+            "Wikipedia": d["wikipedia"]["total_views"] if d["availability"]["wikipedia"] else None,
+            "Presse": d["press"]["article_count"] if d["availability"]["press"] else None,
             "Sources": d["press"]["domain_count"],
-            "Trends": d["trends"]["score"],
-            "YouTube": d["youtube"].get("total_views", "-") if d["youtube"].get("available") else "N/A"
+            "Trends": d["trends"]["score"] if d["availability"]["trends"] else None,
+            "YouTube": d["youtube"].get("total_views", "-") if d["availability"]["youtube"] else "N/A"
         })
     
     df = pd.DataFrame(ranking)
@@ -827,21 +865,22 @@ def display_results(all_data: Dict, start_date: date, end_date: date, youtube_av
     st.markdown("---")
     st.markdown("## 📊 Visualisations")
     
-    tabs = st.tabs(["📊 Scores", "📚 Wikipedia", "📰 Presse", "📈 Trends", "📋 Articles"])
+    tabs = st.tabs(["📊 Scores", "📚 Wikipedia", "📰 Presse", "📈 Trends", "📋 Articles", "✅ Fiabilité"])
     
+    # Tab Scores
     with tabs[0]:
         fig = px.bar(df, x="Candidat", y="Score", color="Candidat", title="Score de visibilité")
         fig.update_layout(showlegend=False, height=400)
         st.plotly_chart(fig, use_container_width=True)
         
         # Décomposition
-        st.markdown("### 🎯 Contributions au score")
+        st.markdown("### 🎯 Contributions au score (par source)")
         decomp = []
         for cid, d in sorted_data:
             c = d["score"]["contributions"]
-            decomp.append({"Candidat": d["info"]["name"], "Pilier": "📚 Wikipedia (35%)", "Points": c["wikipedia"]})
-            decomp.append({"Candidat": d["info"]["name"], "Pilier": "📰 Presse (40%)", "Points": c["press"]})
-            decomp.append({"Candidat": d["info"]["name"], "Pilier": "📈 Trends (25%)", "Points": c["trends"]})
+            decomp.append({"Candidat": d["info"]["name"], "Pilier": "📚 Wikipedia", "Points": c["wikipedia"]})
+            decomp.append({"Candidat": d["info"]["name"], "Pilier": "📰 Presse", "Points": c["press"]})
+            decomp.append({"Candidat": d["info"]["name"], "Pilier": "📈 Trends", "Points": c["trends"]})
             if c["youtube"] > 0:
                 decomp.append({"Candidat": d["info"]["name"], "Pilier": "🎬 YouTube (bonus)", "Points": c["youtube"]})
         
@@ -849,58 +888,85 @@ def display_results(all_data: Dict, start_date: date, end_date: date, youtube_av
         fig2.update_layout(height=400)
         st.plotly_chart(fig2, use_container_width=True)
     
+    # Tab Wikipedia
     with tabs[1]:
         wiki_df = pd.DataFrame([
-            {"Candidat": d["info"]["name"], "Vues": d["wikipedia"]["total_views"], "Variation": d["wikipedia"]["variation_pct"]}
-            for _, d in sorted_data
+            {
+                "Candidat": d["info"]["name"],
+                "Vues": d["wikipedia"]["total_views"],
+                "Variation": d["wikipedia"]["variation_pct"]
+            }
+            for _, d in sorted_data if d["availability"]["wikipedia"]
         ])
         
-        col1, col2 = st.columns(2)
-        with col1:
-            fig = px.bar(wiki_df, x="Candidat", y="Vues", title="Pageviews Wikipedia (période)")
-            fig.update_layout(height=350)
-            st.plotly_chart(fig, use_container_width=True)
-        with col2:
-            fig = px.bar(wiki_df, x="Candidat", y="Variation", title="Variation vs 30j précédents (%)",
-                        color="Variation", color_continuous_scale=["red", "gray", "green"], range_color=[-100, 100])
-            fig.update_layout(height=350)
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # Évolution temporelle
-        evo = []
-        for cid, d in all_data.items():
-            for dt, v in d["wikipedia"].get("timeseries", {}).items():
-                evo.append({"Date": dt, "Candidat": d["info"]["name"], "Vues": v})
-        
-        if evo:
-            evo_df = pd.DataFrame(evo)
-            evo_df["Date"] = pd.to_datetime(evo_df["Date"])
-            fig = px.line(evo_df, x="Date", y="Vues", color="Candidat", title="Évolution Wikipedia")
-            fig.update_layout(height=400)
-            st.plotly_chart(fig, use_container_width=True)
+        if not wiki_df.empty:
+            col1, col2 = st.columns(2)
+            with col1:
+                fig = px.bar(wiki_df, x="Candidat", y="Vues", title="Pageviews Wikipedia (période)")
+                fig.update_layout(height=350)
+                st.plotly_chart(fig, use_container_width=True)
+            with col2:
+                fig = px.bar(
+                    wiki_df,
+                    x="Candidat",
+                    y="Variation",
+                    title="Variation vs 30j précédents (%)",
+                    color="Variation",
+                    color_continuous_scale=["red", "gray", "green"],
+                    range_color=[-100, 100]
+                )
+                fig.update_layout(height=350)
+                st.plotly_chart(fig, use_container_width=True)
+            
+            evo = []
+            for cid, d in all_data.items():
+                if not d["availability"]["wikipedia"]:
+                    continue
+                for dt, v in d["wikipedia"].get("timeseries", {}).items():
+                    evo.append({"Date": dt, "Candidat": d["info"]["name"], "Vues": v})
+            
+            if evo:
+                evo_df = pd.DataFrame(evo)
+                evo_df["Date"] = pd.to_datetime(evo_df["Date"])
+                fig = px.line(evo_df, x="Date", y="Vues", color="Candidat", title="Évolution Wikipedia")
+                fig.update_layout(height=400)
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Aucune donnée Wikipedia exploitable sur la période.")
     
+    # Tab Presse
     with tabs[2]:
-        col1, col2 = st.columns(2)
-        with col1:
-            press_df = pd.DataFrame([{"Candidat": d["info"]["name"], "Articles": d["press"]["article_count"]} for _, d in sorted_data])
-            fig = px.bar(press_df, x="Candidat", y="Articles", title="Nombre d'articles")
-            st.plotly_chart(fig, use_container_width=True)
-        with col2:
-            fig = px.pie(press_df, values="Articles", names="Candidat", title="Part de voix (presse)")
-            st.plotly_chart(fig, use_container_width=True)
+        press_df = pd.DataFrame([
+            {"Candidat": d["info"]["name"], "Articles": d["press"]["article_count"]}
+            for _, d in sorted_data
+            if d["availability"]["press"]
+        ])
+        if not press_df.empty:
+            col1, col2 = st.columns(2)
+            with col1:
+                fig = px.bar(press_df, x="Candidat", y="Articles", title="Nombre d'articles")
+                st.plotly_chart(fig, use_container_width=True)
+            with col2:
+                fig = px.pie(press_df, values="Articles", names="Candidat", title="Part de voix (presse)")
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Aucun article de presse exploitable sur la période.")
     
+    # Tab Trends
     with tabs[3]:
-        if any(d["trends"]["success"] for _, d in sorted_data):
-            trends_df = pd.DataFrame([
-                {"Candidat": d["info"]["name"], "Score": d["trends"]["score"]}
-                for _, d in sorted_data
-            ])
+        trends_df = pd.DataFrame([
+            {"Candidat": d["info"]["name"], "Score": d["trends"]["score"]}
+            for _, d in sorted_data
+            if d["availability"]["trends"]
+        ])
+        if not trends_df.empty:
             fig = px.bar(trends_df, x="Candidat", y="Score", title="Google Trends (moyenne 7 derniers jours)")
             st.plotly_chart(fig, use_container_width=True)
             
-            # Évolution
             evo = []
             for cid, d in all_data.items():
+                if not d["availability"]["trends"]:
+                    continue
                 for dt, v in d["trends"].get("timeseries", {}).items():
                     evo.append({"Date": dt, "Candidat": d["info"]["name"], "Intérêt": v})
             if evo:
@@ -909,11 +975,11 @@ def display_results(all_data: Dict, start_date: date, end_date: date, youtube_av
                 fig = px.line(evo_df, x="Date", y="Intérêt", color="Candidat", title="Évolution Google Trends")
                 st.plotly_chart(fig, use_container_width=True)
         else:
-            st.warning("Google Trends n'a pas pu récupérer les données (limite de requêtes possible)")
+            st.warning("Google Trends indisponible ou sans données exploitables (aucun candidat n'est pénalisé : la source est ignorée dans le score).")
     
+    # Tab Articles
     with tabs[4]:
         st.markdown("### 📋 Tous les articles par candidat")
-        
         for cid, d in sorted_data:
             articles = d["press"]["articles"]
             with st.expander(f"{d['info']['emoji']} **{d['info']['name']}** - {len(articles)} articles"):
@@ -925,14 +991,29 @@ def display_results(all_data: Dict, start_date: date, end_date: date, youtube_av
                 else:
                     st.info("Aucun article trouvé")
     
-    # YouTube (si dispo)
+    # Tab Fiabilité
+    with tabs[5]:
+        st.markdown("### ✅ Fiabilité par candidat")
+        rows = []
+        for cid, d in sorted_data:
+            rows.append({
+                "Candidat": d["info"]["name"],
+                "Wikipedia": "OK" if d["availability"]["wikipedia"] else "N/A",
+                "Presse": "OK" if d["availability"]["press"] else "N/A",
+                "Trends": "OK" if d["availability"]["trends"] else "N/A",
+                "YouTube": "OK" if d["availability"]["youtube"] else "N/A",
+            })
+        avail_df = pd.DataFrame(rows)
+        st.dataframe(avail_df, hide_index=True, use_container_width=True)
+    
+    # YouTube (bonus)
     if youtube_available:
         st.markdown("---")
-        st.markdown("## 🎬 YouTube")
+        st.markdown("## 🎬 YouTube (bonus, ne pèse jamais contre un candidat)")
         
         for cid, d in sorted_data:
             yt = d["youtube"]
-            if yt.get("available"):
+            if yt.get("available") and d["availability"]["youtube"]:
                 with st.expander(f"{d['info']['emoji']} {d['info']['name']} - {yt.get('total_views', 0):,} vues"):
                     st.metric("Vidéos trouvées", yt.get("video_count", 0))
                     st.metric("Vues totales", f"{yt.get('total_views', 0):,}")
@@ -942,7 +1023,10 @@ def display_results(all_data: Dict, start_date: date, end_date: date, youtube_av
                         st.markdown("**Vidéos récentes :**")
                         for v in yt["videos"][:10]:
                             views = v.get("views", "N/A")
-                            st.markdown(f"- [{v['title']}]({v['url']}) - {views:,} vues" if isinstance(views, int) else f"- [{v['title']}]({v['url']})")
+                            if isinstance(views, int):
+                                st.markdown(f"- [{v['title']}]({v['url']}) - {views:,} vues")
+                            else:
+                                st.markdown(f"- [{v['title']}]({v['url']})")
     
     # Export
     st.markdown("---")
@@ -959,13 +1043,12 @@ def display_results(all_data: Dict, start_date: date, end_date: date, youtube_av
     with st.expander("📋 Résumé (copier-coller)"):
         st.code(summary, language=None)
 
-
 def generate_summary(sorted_data: List, start_date: date, end_date: date, youtube_ok: bool) -> str:
-    """Génère le résumé."""
+    """Génère le résumé texte."""
     lines = [
         "📊 VISIBILITY INDEX - MUNICIPALES PARIS 2026",
         f"Période: {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}",
-        f"Sources: Wikipedia ✓ | Presse ✓ | Trends ✓ | YouTube {'✓' if youtube_ok else '✗'}",
+        f"Sources: Wikipedia ✓ | Presse ✓ | Trends {'✓' if any(d['trends']['success'] for _, d in sorted_data) else '✗ (ignoré)'} | YouTube {'✓' if youtube_ok else '✗ (bonus non utilisé)'}",
         "",
         "=" * 50,
         "🏆 CLASSEMENT",
@@ -980,16 +1063,29 @@ def generate_summary(sorted_data: List, start_date: date, end_date: date, youtub
     
     for cid, d in sorted_data:
         lines.append(f"\n{d['info']['name']} ({d['info']['party']}):")
-        lines.append(f"  • Wikipedia: {d['wikipedia']['total_views']:,} vues ({d['wikipedia']['variation_pct']:+.0f}%)")
-        lines.append(f"  • Presse: {d['press']['article_count']} articles ({d['press']['domain_count']} sources)")
-        lines.append(f"  • Trends: {d['trends']['score']:.0f}/100")
-        if d['youtube'].get('available'):
+        if d["availability"]["wikipedia"]:
+            lines.append(f"  • Wikipedia: {d['wikipedia']['total_views']:,} vues ({d['wikipedia']['variation_pct']:+.0f}%)")
+        else:
+            lines.append("  • Wikipedia: N/A (données indisponibles sur la période)")
+        
+        if d["availability"]["press"]:
+            lines.append(f"  • Presse: {d['press']['article_count']} articles ({d['press']['domain_count']} sources)")
+        else:
+            lines.append("  • Presse: N/A (aucun article retrouvé)")
+        
+        if d["availability"]["trends"]:
+            lines.append(f"  • Trends: {d['trends']['score']:.0f}/100")
+        else:
+            lines.append("  • Trends: N/A (source ignorée dans le score)")
+        
+        if d["availability"]["youtube"] and d["youtube"].get("available"):
             lines.append(f"  • YouTube: {d['youtube']['total_views']:,} vues ({d['youtube']['video_count']} vidéos)")
+        elif youtube_ok:
+            lines.append("  • YouTube: aucune vidéo pertinente trouvée")
     
     lines.extend(["", f"Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}"])
     
     return "\n".join(lines)
-
 
 if __name__ == "__main__":
     main()
