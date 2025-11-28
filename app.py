@@ -335,7 +335,7 @@ def _is_short(duration: str) -> bool:
 def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date: date) -> Dict:
     """YouTube Data API v3 - Récupère vidéos longues ET shorts dans la période"""
     if not api_key or not api_key.strip():
-        return {"available": False, "videos": [], "total_views": 0}
+        return {"available": False, "videos": [], "total_views": 0, "error": "Pas de clé API"}
     
     try:
         search_url = "https://www.googleapis.com/youtube/v3/search"
@@ -360,13 +360,16 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
             "key": api_key
         }
         
+        response1 = None
+        error1 = None
         try:
             response1 = requests.get(search_url, params=params_relevance, timeout=15)
-        except Exception:
-            response1 = None
+        except Exception as e:
+            error1 = str(e)
         
         if response1 and response1.status_code == 200:
-            for item in response1.json().get("items", []):
+            data = response1.json()
+            for item in data.get("items", []):
                 vid_id = item.get("id", {}).get("videoId", "")
                 if vid_id and vid_id not in seen_ids:
                     seen_ids.add(vid_id)
@@ -377,6 +380,13 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
                         "channel": item.get("snippet", {}).get("channelTitle", ""),
                         "published": pub_date
                     })
+        elif response1:
+            # Récupérer le message d'erreur de l'API
+            try:
+                err_data = response1.json()
+                error1 = err_data.get("error", {}).get("message", f"HTTP {response1.status_code}")
+            except:
+                error1 = f"HTTP {response1.status_code}"
         
         # Recherche 2 : Par nombre de vues
         params_views = {
@@ -392,10 +402,11 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
             "key": api_key
         }
         
+        response2 = None
         try:
             response2 = requests.get(search_url, params=params_views, timeout=15)
         except Exception:
-            response2 = None
+            pass
         
         if response2 and response2.status_code == 200:
             for item in response2.json().get("items", []):
@@ -415,8 +426,7 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
         r2_ok = response2 and response2.status_code == 200
         
         if not r1_ok and not r2_ok:
-            error_code = response1.status_code if response1 else "timeout"
-            return {"available": False, "videos": [], "total_views": 0, "error": f"Erreur: {error_code}"}
+            return {"available": False, "videos": [], "total_views": 0, "error": error1 or "API inaccessible"}
         
         # Filtrer par nom dans le titre
         name_parts = search_term.lower().split()
@@ -572,7 +582,11 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         # YouTube : toujours 30 jours pour avoir des vidéos
         yt_start = date.today() - timedelta(days=30)
         yt_end = date.today()
-        youtube = get_youtube_data(name, youtube_key, yt_start, yt_end) if youtube_key else {"available": False, "total_views": 0, "videos": []}
+        
+        if youtube_key:
+            youtube = get_youtube_data(name, youtube_key, yt_start, yt_end)
+        else:
+            youtube = {"available": False, "total_views": 0, "videos": []}
         
         trends_score = trends["scores"].get(name, 0) if trends["success"] else 0
         
@@ -919,13 +933,31 @@ def main():
                 st.info("Aucun article trouvé pour cette période")
     
     # === YOUTUBE ===
-    if any(d["youtube"]["available"] for _, d in sorted_data):
-        st.markdown("---")
-        st.markdown("## Vidéos YouTube")
-        
+    st.markdown("---")
+    st.markdown("## Vidéos YouTube")
+    
+    # Debug YouTube
+    youtube_available = any(d["youtube"].get("available", False) for _, d in sorted_data)
+    has_yt_key = yt_key and yt_key.strip().startswith("AIza")
+    
+    if not youtube_available:
+        if has_yt_key:
+            # Afficher les erreurs
+            errors = []
+            for cid, d in sorted_data:
+                yt = d["youtube"]
+                if yt.get("error"):
+                    errors.append(f"{d['info']['name']}: {yt['error']}")
+            if errors:
+                st.warning("Erreurs YouTube:\n" + "\n".join(errors))
+            else:
+                st.info("Aucune vidéo trouvée pour les 30 derniers jours")
+        else:
+            st.info("Entrez une clé API YouTube dans la barre latérale pour activer")
+    else:
         for rank, (cid, d) in enumerate(sorted_data, 1):
             yt = d["youtube"]
-            if yt["available"] and yt["videos"]:
+            if yt.get("available") and yt.get("videos"):
                 shorts = yt.get("shorts_count", 0)
                 longs = yt.get("long_count", 0)
                 label = f"{rank}. {d['info']['name']} — {format_num(yt['total_views'])} vues ({longs} vidéos, {shorts} shorts)"
