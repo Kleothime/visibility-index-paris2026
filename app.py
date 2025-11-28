@@ -365,7 +365,8 @@ def get_google_trends(keywords: List[str]) -> Dict:
         from pytrends.request import TrendReq
         import time
         
-        pytrends = TrendReq(hl='fr-FR', tz=60, timeout=(10, 25), retries=3, backoff_factor=1.0)
+        # Initialisation simple sans paramètres problématiques
+        pytrends = TrendReq(hl='fr-FR', tz=60)
         
         scores = {}
         errors = []
@@ -373,7 +374,7 @@ def get_google_trends(keywords: List[str]) -> Dict:
         # Requête groupée pour avoir les proportions relatives
         try:
             pytrends.build_payload(keywords[:5], timeframe='today 1-m', geo='FR')
-            time.sleep(0.5)  # Petit délai pour éviter rate limiting
+            time.sleep(1)  # Délai pour éviter rate limiting
             df = pytrends.interest_over_time()
             
             if df is not None and not df.empty:
@@ -392,16 +393,16 @@ def get_google_trends(keywords: List[str]) -> Dict:
         except Exception as e:
             err_msg = str(e)[:50]
             errors.append(f"Requête groupée: {err_msg}")
-            
-            # Si erreur 429 (rate limit), attendre et réessayer
-            if "429" in err_msg:
-                time.sleep(5)
+        
+        # Pour les candidats restants (au-delà de 5)
+        for kw in keywords[5:]:
+            scores[kw] = 0
         
         # Pour les candidats à 0 ou manquants, faire une requête individuelle
         for kw in keywords[:5]:
             if kw not in scores or scores[kw] == 0:
                 try:
-                    time.sleep(2)  # Délai plus long pour éviter rate limiting
+                    time.sleep(2)  # Délai plus long
                     pytrends.build_payload([kw], timeframe='today 1-m', geo='FR')
                     df_solo = pytrends.interest_over_time()
                     
@@ -411,13 +412,10 @@ def get_google_trends(keywords: List[str]) -> Dict:
                         avg_solo = round(sum(recent) / len(recent), 1) if recent else 0
                         
                         if avg_solo > 0:
-                            # Score individuel - on estime le ratio par rapport au leader
                             max_existing = max(scores.values()) if scores and max(scores.values()) > 0 else 50
-                            # Si le candidat a 50 en solo et le max groupe est 80, son score relatif est environ 50*(50/100)=25
                             estimated = round(avg_solo * (max_existing / 100), 1)
-                            scores[kw] = max(estimated, 1)  # Minimum 1 si détecté
+                            scores[kw] = max(estimated, 1)
                 except Exception as e:
-                    errors.append(f"{kw}: {str(e)[:20]}")
                     if kw not in scores:
                         scores[kw] = 0
         
@@ -435,7 +433,6 @@ def get_google_trends(keywords: List[str]) -> Dict:
         }
     
     except ImportError:
-        # pytrends n'est pas installé
         return {
             "success": False, 
             "scores": {kw: 0 for kw in keywords}, 
