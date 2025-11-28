@@ -90,36 +90,70 @@ CANDIDATES = {
 }
 
 # =============================================================================
-# SONDAGES (mise à jour manuelle)
+# SONDAGES OFFICIELS
 # =============================================================================
 
-# Structure: liste de sondages avec date, institut, et scores par candidat
+# Derniers sondages publiés (source: instituts de sondage)
 SONDAGES = [
-    # Exemple de structure - à mettre à jour quand des sondages sortent
-    # {
-    #     "date": "2025-01-15",
-    #     "institut": "IFOP",
-    #     "sample": 1000,
-    #     "scores": {
-    #         "Rachida Dati": 28,
-    #         "Emmanuel Grégoire": 22,
-    #         "David Belliard": 15,
-    #         ...
-    #     }
-    # }
+    {
+        "date": "2025-06-21",
+        "institut": "ELABE",
+        "media": "La Tribune Dimanche / BFMTV",
+        "sample": 1097,
+        "hypothese": "Avec P-Y Bournazel, E. Grégoire candidat PS",
+        "scores": {
+            "Rachida Dati": 28,
+            "David Belliard": 22,
+            "Emmanuel Grégoire": 19,
+            "Sophia Chikirou": 14,
+            "Pierre-Yves Bournazel": 8,
+            "Thierry Mariani": 7,
+        }
+    },
+    {
+        "date": "2025-11-04",
+        "institut": "IFOP-Fiducial",
+        "media": "Le Figaro / Sud Radio",
+        "sample": 1037,
+        "hypothese": "Hypothèse principale",
+        "scores": {
+            "Rachida Dati": 27,
+            "Emmanuel Grégoire": 18,
+            "David Belliard": 17,
+            "Pierre-Yves Bournazel": 15,
+            "Sophia Chikirou": 12,
+            "Thierry Mariani": 7,
+        }
+    },
+    {
+        "date": "2025-11-21",
+        "institut": "Verian",
+        "media": "Renaissance",
+        "sample": 1000,
+        "hypothese": "Hypothèse principale",
+        "scores": {
+            "Emmanuel Grégoire": 22,
+            "Rachida Dati": 21,
+            "David Belliard": 16,
+            "Sophia Chikirou": 14,
+            "Pierre-Yves Bournazel": 12,
+            "Thierry Mariani": 8,
+        }
+    },
 ]
 
-# Dernière estimation (peut être mise à jour manuellement)
-# Source: agrégation médias / estimations
-ESTIMATIONS_ACTUELLES = {
-    "Rachida Dati": {"estimation": 26, "fourchette": (23, 29)},
-    "Emmanuel Grégoire": {"estimation": 24, "fourchette": (21, 27)},
-    "David Belliard": {"estimation": 14, "fourchette": (12, 16)},
-    "Ian Brossat": {"estimation": 10, "fourchette": (8, 12)},
-    "Sophia Chikirou": {"estimation": 8, "fourchette": (6, 10)},
-    "Pierre-Yves Bournazel": {"estimation": 6, "fourchette": (4, 8)},
-    "Thierry Mariani": {"estimation": 5, "fourchette": (3, 7)},
-}
+def get_latest_sondage():
+    """Retourne le dernier sondage disponible"""
+    if not SONDAGES:
+        return None
+    return max(SONDAGES, key=lambda x: x["date"])
+
+def get_candidate_sondage_score(candidate_name: str) -> Optional[int]:
+    """Retourne le score du dernier sondage pour un candidat"""
+    latest = get_latest_sondage()
+    if latest and candidate_name in latest["scores"]:
+        return latest["scores"][candidate_name]
+    return None
 
 # Médias audiovisuels à rechercher
 MEDIAS_TV_RADIO = [
@@ -134,20 +168,27 @@ MEDIAS_TV_RADIO = [
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def get_wikipedia_views(page_title: str, start_date: date, end_date: date) -> Dict:
-    """Wikipedia API - 100% fiable"""
+    """Wikipedia API - Calcul rigoureux des vues et variations"""
     try:
-        extended_start = start_date - timedelta(days=30)
+        # Période de référence : même durée que la période analysée, juste avant
+        days_in_period = (end_date - start_date).days + 1
         
+        # Référence = même durée, juste avant la période
+        ref_end = start_date - timedelta(days=1)
+        ref_start = ref_end - timedelta(days=days_in_period - 1)
+        
+        # Récupérer les données depuis le début de la référence
         url = (
             f"https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/"
             f"fr.wikipedia/all-access/user/{quote_plus(page_title)}/daily/"
-            f"{extended_start.strftime('%Y%m%d')}/{end_date.strftime('%Y%m%d')}"
+            f"{ref_start.strftime('%Y%m%d')}/{end_date.strftime('%Y%m%d')}"
         )
         
-        response = requests.get(url, headers={"User-Agent": "VisibilityIndex/6.1"}, timeout=15)
+        response = requests.get(url, headers={"User-Agent": "VisibilityIndex/7.0"}, timeout=15)
         
         if response.status_code != 200:
-            return {"views": 0, "variation": 0, "daily": {}, "error": f"HTTP {response.status_code}"}
+            return {"views": 0, "variation": 0, "daily": {}, "avg_daily": 0, 
+                    "ref_views": 0, "ref_avg": 0, "error": f"HTTP {response.status_code}"}
         
         items = response.json().get("items", [])
         
@@ -165,17 +206,16 @@ def get_wikipedia_views(page_title: str, start_date: date, end_date: date) -> Di
                 if start_date <= item_date <= end_date:
                     period_views += views
                     daily[item_date.strftime("%Y-%m-%d")] = views
-                elif extended_start <= item_date < start_date:
+                elif ref_start <= item_date <= ref_end:
                     reference_views += views
             except:
                 continue
         
-        days_period = (end_date - start_date).days + 1
-        days_ref = 30
+        # Moyennes journalières
+        avg_period = period_views / max(days_in_period, 1)
+        avg_ref = reference_views / max(days_in_period, 1)
         
-        avg_period = period_views / max(days_period, 1)
-        avg_ref = reference_views / max(days_ref, 1)
-        
+        # Variation en pourcentage
         variation = 0
         if avg_ref > 0:
             variation = ((avg_period - avg_ref) / avg_ref) * 100
@@ -184,11 +224,16 @@ def get_wikipedia_views(page_title: str, start_date: date, end_date: date) -> Di
             "views": period_views,
             "variation": round(variation, 1),
             "daily": daily,
+            "avg_daily": round(avg_period, 1),
+            "ref_views": reference_views,
+            "ref_avg": round(avg_ref, 1),
+            "days_compared": days_in_period,
             "error": None
         }
     
     except Exception as e:
-        return {"views": 0, "variation": 0, "daily": {}, "error": str(e)[:50]}
+        return {"views": 0, "variation": 0, "daily": {}, "avg_daily": 0, 
+                "ref_views": 0, "ref_avg": 0, "error": str(e)[:50]}
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
@@ -1088,47 +1133,85 @@ def main():
     
     # === TAB 2: SONDAGES ===
     with tab2:
-        st.markdown("### Estimations actuelles")
-        st.caption("⚠️ Données indicatives - Aucun sondage officiel publié pour Paris 2026")
+        latest = get_latest_sondage()
         
-        # Afficher les estimations
-        sondage_rows = []
-        for _, d in sorted_data:
-            name = d["info"]["name"]
-            if name in ESTIMATIONS_ACTUELLES:
-                est = ESTIMATIONS_ACTUELLES[name]
+        if latest:
+            st.markdown(f"### Dernier sondage : {latest['institut']}")
+            st.caption(f"📅 {latest['date']} · {latest['media']} · {latest['sample']} personnes interrogées")
+            if latest.get("hypothese"):
+                st.caption(f"📊 Hypothèse : {latest['hypothese']}")
+            
+            # Tableau du dernier sondage
+            sondage_rows = []
+            for name, score in sorted(latest["scores"].items(), key=lambda x: x[1], reverse=True):
+                # Trouver le parti
+                party = "-"
+                for cid, c in CANDIDATES.items():
+                    if c["name"] == name:
+                        party = c["party"]
+                        break
                 sondage_rows.append({
+                    "Rang": len(sondage_rows) + 1,
                     "Candidat": name,
-                    "Parti": d["info"]["party"],
-                    "Estimation": f"{est['estimation']}%",
-                    "Fourchette": f"{est['fourchette'][0]}-{est['fourchette'][1]}%"
+                    "Parti": party,
+                    "Intentions de vote": f"{score}%"
                 })
-        
-        if sondage_rows:
-            # Trier par estimation
-            sondage_rows.sort(key=lambda x: int(x["Estimation"].replace("%", "")), reverse=True)
+            
             st.dataframe(pd.DataFrame(sondage_rows), use_container_width=True, hide_index=True)
             
             # Graphique
-            est_names = [r["Candidat"] for r in sondage_rows]
-            est_values = [int(r["Estimation"].replace("%", "")) for r in sondage_rows]
-            est_colors = [CANDIDATES[cid]["color"] for cid in CANDIDATES if CANDIDATES[cid]["name"] in est_names]
+            sondage_names = [r["Candidat"] for r in sondage_rows]
+            sondage_values = [int(r["Intentions de vote"].replace("%", "")) for r in sondage_rows]
             
-            fig = px.bar(x=est_names, y=est_values, color=est_names,
-                        color_discrete_sequence=[d["info"]["color"] for _, d in sorted_data],
-                        title="Estimations (intentions de vote)")
-            fig.update_layout(showlegend=False, yaxis_title="%", yaxis_range=[0, 35])
+            # Couleurs par candidat
+            sondage_colors = []
+            for name in sondage_names:
+                color = "#888888"
+                for cid, c in CANDIDATES.items():
+                    if c["name"] == name:
+                        color = c["color"]
+                        break
+                sondage_colors.append(color)
+            
+            fig = px.bar(x=sondage_names, y=sondage_values, color=sondage_names,
+                        color_discrete_sequence=sondage_colors,
+                        title=f"Intentions de vote - 1er tour ({latest['institut']})")
+            fig.update_layout(showlegend=False, yaxis_title="%", yaxis_range=[0, 40])
             st.plotly_chart(fig, use_container_width=True)
-        
-        # Historique des sondages officiels
-        if SONDAGES:
-            st.markdown("### Historique des sondages")
-            for s in reversed(SONDAGES[-5:]):
-                with st.expander(f"{s['date']} - {s['institut']} ({s['sample']} pers.)"):
-                    for name, score in sorted(s["scores"].items(), key=lambda x: x[1], reverse=True):
-                        st.write(f"• {name}: {score}%")
+            
+            # Historique des sondages
+            if len(SONDAGES) > 1:
+                st.markdown("---")
+                st.markdown("### Historique des sondages")
+                
+                for s in reversed(SONDAGES):
+                    with st.expander(f"{s['date']} — {s['institut']} ({s['media']})"):
+                        st.caption(f"Échantillon : {s['sample']} personnes")
+                        if s.get("hypothese"):
+                            st.caption(f"Hypothèse : {s['hypothese']}")
+                        
+                        for name, score in sorted(s["scores"].items(), key=lambda x: x[1], reverse=True):
+                            st.write(f"• **{name}** : {score}%")
+                
+                # Graphique d'évolution
+                st.markdown("### Évolution dans les sondages")
+                evolution_data = []
+                for s in SONDAGES:
+                    for name, score in s["scores"].items():
+                        evolution_data.append({
+                            "Date": s["date"],
+                            "Candidat": name,
+                            "Score": score
+                        })
+                
+                if evolution_data:
+                    df_evol = pd.DataFrame(evolution_data)
+                    fig = px.line(df_evol, x="Date", y="Score", color="Candidat",
+                                 markers=True, title="Évolution des intentions de vote")
+                    fig.update_layout(yaxis_title="%", yaxis_range=[0, 40])
+                    st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("Aucun sondage officiel disponible pour le moment. Les estimations ci-dessus sont basées sur des analyses médias.")
+            st.info("Aucun sondage disponible")
     
     # === TAB 3: TV/RADIO ===
     with tab3:
@@ -1186,7 +1269,8 @@ def main():
     
     # === TAB 4: HISTORIQUE ===
     with tab4:
-        st.markdown("### Évolution des scores")
+        st.markdown("### Évolution des scores de visibilité")
+        st.caption("💡 L'historique se construit automatiquement à chaque analyse")
         
         # Sauvegarder les données actuelles
         period_label_for_history = f"{start_date} to {end_date}"
@@ -1206,15 +1290,24 @@ def main():
             if history_df_data:
                 df_hist = pd.DataFrame(history_df_data)
                 
+                # Couleurs par candidat
+                color_map = {c["name"]: c["color"] for c in CANDIDATES.values()}
+                
                 # Graphique d'évolution
                 fig = px.line(df_hist, x="Date", y="Score", color="Candidat",
-                             title="Évolution du score de visibilité",
-                             markers=True)
-                fig.update_layout(yaxis_range=[0, 100])
+                             markers=True,
+                             color_discrete_map=color_map)
+                fig.update_layout(
+                    yaxis_range=[0, 100],
+                    yaxis_title="Score de visibilité",
+                    xaxis_title="Date",
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                    height=450
+                )
                 st.plotly_chart(fig, use_container_width=True)
                 
                 # Tableau des variations
-                st.markdown("### Variations")
+                st.markdown("### Variations par rapport aux analyses précédentes")
                 var_rows = []
                 for _, d in sorted_data:
                     name = d["info"]["name"]
@@ -1228,32 +1321,40 @@ def main():
                     
                     if hist.get("week_change") is not None:
                         change = hist["week_change"]
-                        row["7 jours"] = f"{change:+.1f}" if change != 0 else "="
+                        row["vs 7j"] = f"{change:+.1f}" if change != 0 else "="
                     else:
-                        row["7 jours"] = "-"
+                        row["vs 7j"] = "-"
                     
                     if hist.get("month_change") is not None:
                         change = hist["month_change"]
-                        row["30 jours"] = f"{change:+.1f}" if change != 0 else "="
+                        row["vs 30j"] = f"{change:+.1f}" if change != 0 else "="
                     else:
-                        row["30 jours"] = "-"
+                        row["vs 30j"] = "-"
                     
                     var_rows.append(row)
                 
                 st.dataframe(pd.DataFrame(var_rows), use_container_width=True, hide_index=True)
+                
+                # Nombre d'entrées dans l'historique
+                st.caption(f"📊 {len(history)} analyse(s) enregistrée(s)")
         else:
-            st.info("L'historique se construira au fil de vos analyses. Revenez dans quelques jours pour voir l'évolution.")
-            st.caption("💡 Les données sont sauvegardées localement dans visibility_history.json")
+            st.info("Première analyse ! L'historique se construira au fil de vos prochaines analyses.")
+            st.caption("Les données sont sauvegardées dans visibility_history.json")
     
     # === TAB 5: WIKIPEDIA ===
     with tab5:
+        # Calculer la durée de la période pour l'explication
+        days_in_period = (end_date - start_date).days + 1
+        
+        st.caption(f"📊 Comparaison : période analysée ({days_in_period}j) vs période précédente équivalente ({days_in_period}j)")
+        
         col1, col2 = st.columns(2)
         
         with col1:
             wiki_views = [d["wikipedia"]["views"] for _, d in sorted_data]
             fig = px.bar(x=names, y=wiki_views, color=names, color_discrete_sequence=colors,
-                        title="Vues Wikipedia (période)")
-            fig.update_layout(showlegend=False)
+                        title=f"Vues Wikipedia ({start_date.strftime('%d/%m')} - {end_date.strftime('%d/%m')})")
+            fig.update_layout(showlegend=False, yaxis_title="Vues totales")
             st.plotly_chart(fig, use_container_width=True)
         
         with col2:
@@ -1266,9 +1367,24 @@ def main():
             fig = px.bar(x=names, y=variations, color=variations,
                         color_continuous_scale=["#dc2626", "#6b7280", "#16a34a"],
                         range_color=[-100, 100],
-                        title="Variation vs 30 jours précédents (%)")
-            fig.update_layout(yaxis_range=[-100, 100])
+                        title=f"Variation vs {days_in_period}j précédents (%)")
+            fig.update_layout(yaxis_range=[-100, 100], yaxis_title="Variation (%)")
             st.plotly_chart(fig, use_container_width=True)
+        
+        # Tableau détaillé
+        st.markdown("### Détails Wikipedia")
+        wiki_rows = []
+        for _, d in sorted_data:
+            w = d["wikipedia"]
+            wiki_rows.append({
+                "Candidat": d["info"]["name"],
+                "Vues (période)": w["views"],
+                "Moy/jour": w.get("avg_daily", round(w["views"] / max(days_in_period, 1), 1)),
+                "Vues (réf.)": w.get("ref_views", "-"),
+                "Moy/jour (réf.)": w.get("ref_avg", "-"),
+                "Variation": f"{w['variation']:+.1f}%" if w['variation'] != 0 else "="
+            })
+        st.dataframe(pd.DataFrame(wiki_rows), use_container_width=True, hide_index=True)
     
     # === TAB 6: PRESSE ===
     with tab6:
