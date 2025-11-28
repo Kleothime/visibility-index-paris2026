@@ -334,7 +334,7 @@ def _is_short(duration: str) -> bool:
 @st.cache_data(ttl=1800, show_spinner=False)
 def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date: date) -> Dict:
     """YouTube Data API v3 - Récupère vidéos longues ET shorts dans la période"""
-    if not api_key:
+    if not api_key or not api_key.strip():
         return {"available": False, "videos": [], "total_views": 0}
     
     try:
@@ -360,9 +360,12 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
             "key": api_key
         }
         
-        response1 = requests.get(search_url, params=params_relevance, timeout=15)
+        try:
+            response1 = requests.get(search_url, params=params_relevance, timeout=15)
+        except Exception:
+            response1 = None
         
-        if response1.status_code == 200:
+        if response1 and response1.status_code == 200:
             for item in response1.json().get("items", []):
                 vid_id = item.get("id", {}).get("videoId", "")
                 if vid_id and vid_id not in seen_ids:
@@ -389,9 +392,12 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
             "key": api_key
         }
         
-        response2 = requests.get(search_url, params=params_views, timeout=15)
+        try:
+            response2 = requests.get(search_url, params=params_views, timeout=15)
+        except Exception:
+            response2 = None
         
-        if response2.status_code == 200:
+        if response2 and response2.status_code == 200:
             for item in response2.json().get("items", []):
                 vid_id = item.get("id", {}).get("videoId", "")
                 if vid_id and vid_id not in seen_ids:
@@ -404,8 +410,13 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
                         "published": pub_date
                     })
         
-        if response1.status_code != 200 and response2.status_code != 200:
-            return {"available": False, "videos": [], "total_views": 0, "error": f"HTTP {response1.status_code}"}
+        # Vérifier si au moins une requête a réussi
+        r1_ok = response1 and response1.status_code == 200
+        r2_ok = response2 and response2.status_code == 200
+        
+        if not r1_ok and not r2_ok:
+            error_code = response1.status_code if response1 else "timeout"
+            return {"available": False, "videos": [], "total_views": 0, "error": f"Erreur: {error_code}"}
         
         # Filtrer par nom dans le titre
         name_parts = search_term.lower().split()
@@ -427,29 +438,32 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
         # Récupérer les stats (vues, durée)
         total_views = 0
         if video_ids:
-            stats_url = "https://www.googleapis.com/youtube/v3/videos"
-            stats_params = {
-                "part": "statistics,contentDetails",
-                "id": ",".join(video_ids[:50]),
-                "key": api_key
-            }
-            
-            stats_response = requests.get(stats_url, params=stats_params, timeout=10)
-            
-            if stats_response.status_code == 200:
-                stats_items = stats_response.json().get("items", [])
-                stats_map = {item["id"]: item for item in stats_items}
+            try:
+                stats_url = "https://www.googleapis.com/youtube/v3/videos"
+                stats_params = {
+                    "part": "statistics,contentDetails",
+                    "id": ",".join(video_ids[:50]),
+                    "key": api_key
+                }
                 
-                for v in filtered_videos:
-                    if v["id"] in stats_map:
-                        item = stats_map[v["id"]]
-                        views = int(item.get("statistics", {}).get("viewCount", 0))
-                        duration = item.get("contentDetails", {}).get("duration", "")
-                        
-                        v["views"] = views
-                        v["duration"] = duration
-                        v["is_short"] = _is_short(duration)
-                        total_views += views
+                stats_response = requests.get(stats_url, params=stats_params, timeout=10)
+                
+                if stats_response.status_code == 200:
+                    stats_items = stats_response.json().get("items", [])
+                    stats_map = {item["id"]: item for item in stats_items}
+                    
+                    for v in filtered_videos:
+                        if v["id"] in stats_map:
+                            item = stats_map[v["id"]]
+                            views = int(item.get("statistics", {}).get("viewCount", 0))
+                            duration = item.get("contentDetails", {}).get("duration", "")
+                            
+                            v["views"] = views
+                            v["duration"] = duration
+                            v["is_short"] = _is_short(duration)
+                            total_views += views
+            except Exception:
+                pass  # Continuer sans les stats
         
         # Trier par vues
         filtered_videos.sort(key=lambda x: x.get("views", 0), reverse=True)
@@ -669,11 +683,10 @@ def main():
         # YouTube
         st.markdown("### YouTube API")
         
-        # Clé par défaut
-        default_key = "AIzaSyCu27YMexJiCrzagkCnawkECG7WA1_wzDI"
+        # Clé affichée pour copier-coller
+        st.code("AIzaSyCu27YMexJiCrzagkCnawkECG7WA1_wzDI", language=None)
         
-        yt_key = st.text_input("Clé API", value=default_key, type="password")
-        st.caption(f"Clé : `{default_key}`")
+        yt_key = st.text_input("Clé API", value="", placeholder="Coller la clé ci-dessus")
         
         if not yt_key:
             st.caption("Sans clé = données YouTube indisponibles")
@@ -697,7 +710,12 @@ def main():
         return
     
     # Collecte
-    data = collect_data(selected, start_date, end_date, yt_key if yt_key else None)
+    # Valider la clé YouTube (doit commencer par AIza)
+    youtube_key = None
+    if yt_key and yt_key.strip().startswith("AIza"):
+        youtube_key = yt_key.strip()
+    
+    data = collect_data(selected, start_date, end_date, youtube_key)
     
     # Tri par score
     sorted_data = sorted(data.items(), key=lambda x: x[1]["score"]["total"], reverse=True)
