@@ -1,6 +1,5 @@
 """
-VISIBILITY INDEX v6.0 - Municipales Paris 2026
-Table rase - Code simplifié et filtrage corrigé
+VISIBILITY INDEX v6.1 - Municipales Paris 2026
 """
 
 import streamlit as st
@@ -21,7 +20,7 @@ import xml.etree.ElementTree as ET
 # =============================================================================
 
 st.set_page_config(
-    page_title="Visibility Index v6 - Paris 2026",
+    page_title="Visibility Index - Paris 2026",
     page_icon="🗳️",
     layout="wide"
 )
@@ -37,7 +36,7 @@ CANDIDATES = {
         "role": "Ministre de la Culture",
         "color": "#0066CC",
         "wikipedia": "Rachida_Dati",
-        "search_terms": ["Rachida Dati", "Dati"],  # Termes de recherche
+        "search_terms": ["Rachida Dati", "Dati ministre"],
     },
     "emmanuel_gregoire": {
         "name": "Emmanuel Grégoire",
@@ -53,7 +52,7 @@ CANDIDATES = {
         "role": "Conseiller de Paris",
         "color": "#FF6B35",
         "wikipedia": "Pierre-Yves_Bournazel",
-        "search_terms": ["Pierre-Yves Bournazel", "Bournazel"],
+        "search_terms": ["Pierre-Yves Bournazel", "Bournazel Paris"],
     },
     "david_belliard": {
         "name": "David Belliard",
@@ -89,7 +88,6 @@ CANDIDATES = {
 def get_wikipedia_views(page_title: str, start_date: date, end_date: date) -> Dict:
     """Wikipedia API - 100% fiable"""
     try:
-        # Période étendue pour calcul variation
         extended_start = start_date - timedelta(days=30)
         
         url = (
@@ -98,7 +96,7 @@ def get_wikipedia_views(page_title: str, start_date: date, end_date: date) -> Di
             f"{extended_start.strftime('%Y%m%d')}/{end_date.strftime('%Y%m%d')}"
         )
         
-        response = requests.get(url, headers={"User-Agent": "VisibilityIndex/6.0"}, timeout=15)
+        response = requests.get(url, headers={"User-Agent": "VisibilityIndex/6.1"}, timeout=15)
         
         if response.status_code != 200:
             return {"views": 0, "variation": 0, "daily": {}, "error": f"HTTP {response.status_code}"}
@@ -124,7 +122,6 @@ def get_wikipedia_views(page_title: str, start_date: date, end_date: date) -> Di
             except:
                 continue
         
-        # Calcul variation
         days_period = (end_date - start_date).days + 1
         days_ref = 30
         
@@ -143,12 +140,12 @@ def get_wikipedia_views(page_title: str, start_date: date, end_date: date) -> Di
         }
     
     except Exception as e:
-        return {"views": 0, "variation": 0, "daily": {}, "error": str(e)}
+        return {"views": 0, "variation": 0, "daily": {}, "error": str(e)[:50]}
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def get_gdelt_articles(search_term: str, start_date: date, end_date: date) -> List[Dict]:
-    """GDELT API - Récupère les articles"""
+    """GDELT API"""
     articles = []
     
     try:
@@ -221,43 +218,34 @@ def get_google_news_articles(search_term: str) -> List[Dict]:
 
 
 def get_all_press_coverage(candidate_name: str, search_terms: List[str], start_date: date, end_date: date) -> Dict:
-    """
-    Récupère TOUS les articles pour un candidat.
-    Utilise plusieurs termes de recherche et fusionne.
-    FILTRAGE SOUPLE : on garde l'article si un des termes de recherche apparaît.
-    """
+    """Récupère tous les articles pour un candidat"""
     all_articles = []
     seen_urls = set()
     
-    # Collecter depuis toutes les sources avec tous les termes
     for term in search_terms:
-        # GDELT
         gdelt_arts = get_gdelt_articles(term, start_date, end_date)
         for art in gdelt_arts:
             if art["url"] not in seen_urls:
                 seen_urls.add(art["url"])
                 all_articles.append(art)
         
-        # Google News
         gnews_arts = get_google_news_articles(term)
         for art in gnews_arts:
             if art["url"] not in seen_urls:
                 seen_urls.add(art["url"])
                 all_articles.append(art)
     
-    # Filtrage : garder seulement les articles qui mentionnent vraiment le candidat
-    # On cherche le nom de famille (dernière partie du nom)
+    # Filtrage : nom de famille dans le titre
     name_parts = candidate_name.lower().split()
     last_name = name_parts[-1] if name_parts else ""
     
     filtered = []
     for art in all_articles:
         title_lower = art["title"].lower()
-        # Garder si le nom de famille apparaît dans le titre
         if last_name and last_name in title_lower:
             filtered.append(art)
     
-    # Dédupliquer par titre normalisé
+    # Dédupliquer par titre
     seen_titles = set()
     unique = []
     for art in filtered:
@@ -266,17 +254,14 @@ def get_all_press_coverage(candidate_name: str, search_terms: List[str], start_d
             seen_titles.add(title_norm)
             unique.append(art)
     
-    # Trier par date
     unique.sort(key=lambda x: x.get("date", ""), reverse=True)
-    
-    # Compter les domaines uniques
     domains = set(art["domain"] for art in unique if art["domain"])
     
     return {
         "articles": unique,
         "count": len(unique),
         "domains": len(domains),
-        "raw_count": len(all_articles)  # Avant filtrage, pour debug
+        "raw_count": len(all_articles)
     }
 
 
@@ -300,7 +285,6 @@ def get_google_trends(keywords: List[str]) -> Dict:
         for kw in keywords[:5]:
             if kw in df.columns:
                 vals = df[kw].tolist()
-                # Moyenne des 7 derniers jours
                 recent = vals[-7:] if len(vals) >= 7 else vals
                 scores[kw] = round(sum(recent) / len(recent), 1) if recent else 0
         
@@ -312,12 +296,11 @@ def get_google_trends(keywords: List[str]) -> Dict:
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def get_youtube_data(search_term: str, api_key: str) -> Dict:
-    """YouTube Data API v3 - UNIQUEMENT avec clé API"""
+    """YouTube Data API v3"""
     if not api_key:
         return {"available": False, "videos": [], "total_views": 0}
     
     try:
-        # Recherche
         search_url = "https://www.googleapis.com/youtube/v3/search"
         params = {
             "part": "snippet",
@@ -337,7 +320,6 @@ def get_youtube_data(search_term: str, api_key: str) -> Dict:
         
         items = response.json().get("items", [])
         
-        # Filtrer par nom dans le titre
         name_parts = search_term.lower().split()
         videos = []
         video_ids = []
@@ -346,7 +328,6 @@ def get_youtube_data(search_term: str, api_key: str) -> Dict:
             title = item.get("snippet", {}).get("title", "")
             title_lower = title.lower()
             
-            # Vérifier si un mot du nom (>3 chars) est dans le titre
             if any(part in title_lower for part in name_parts if len(part) > 3):
                 vid_id = item.get("id", {}).get("videoId", "")
                 if vid_id:
@@ -358,7 +339,6 @@ def get_youtube_data(search_term: str, api_key: str) -> Dict:
                         "url": f"https://www.youtube.com/watch?v={vid_id}"
                     })
         
-        # Récupérer les stats
         total_views = 0
         if video_ids:
             stats_url = "https://www.googleapis.com/youtube/v3/videos"
@@ -387,7 +367,7 @@ def get_youtube_data(search_term: str, api_key: str) -> Dict:
         }
     
     except Exception as e:
-        return {"available": False, "videos": [], "total_views": 0, "error": str(e)}
+        return {"available": False, "videos": [], "total_views": 0, "error": str(e)[:50]}
 
 
 # =============================================================================
@@ -396,45 +376,52 @@ def get_youtube_data(search_term: str, api_key: str) -> Dict:
 
 def calculate_score(wiki_views: int, press_count: int, press_domains: int, trends_score: float, youtube_views: int, youtube_available: bool) -> Dict:
     """
-    Score sur 100 :
-    - Wikipedia 35% (échelle log)
-    - Presse 40% (linéaire avec cap)
-    - Trends 25% (déjà 0-100)
-    - YouTube bonus +15 max si dispo
+    Pondération :
+    - Google Trends : 35%
+    - Presse : 40%
+    - Wikipedia : 15%
+    - YouTube : 10%
     """
     
-    # Wikipedia (log scale) - 100k vues = score max
+    # Wikipedia (log scale, 15%) - 50k vues = score max
     wiki_score = 0
     if wiki_views > 0:
-        # log10(100000) = 5, donc on divise par 5
-        wiki_score = min((math.log10(wiki_views) / 5) * 100, 100)
+        wiki_score = min((math.log10(wiki_views) / 4.7) * 100, 100)
     
-    # Presse - 50 articles = 80 points, +20 pour diversité
-    press_score = min((press_count / 50) * 80, 80)
+    # Presse (40%) - 50 articles = 80 points, +20 diversité
+    press_base = min((press_count / 50) * 80, 80)
     diversity_bonus = min((press_domains / 20) * 20, 20)
-    press_total = press_score + diversity_bonus
+    press_score = min(press_base + diversity_bonus, 100)
     
-    # Trends - déjà sur 0-100
+    # Google Trends (35%) - déjà 0-100
     trends_norm = min(max(trends_score, 0), 100)
     
-    # Score de base
-    base = wiki_score * 0.35 + press_total * 0.40 + trends_norm * 0.25
-    
-    # Bonus YouTube
-    yt_bonus = 0
+    # YouTube (10%) - log scale
+    yt_score = 0
     if youtube_available and youtube_views > 0:
-        # 1M vues = 15 points max
-        yt_bonus = min((math.log10(youtube_views) / 6) * 15, 15)
+        yt_score = min((math.log10(youtube_views) / 6) * 100, 100)
     
-    total = min(base + yt_bonus, 100)
+    # Score final
+    total = (
+        trends_norm * 0.35 +
+        press_score * 0.40 +
+        wiki_score * 0.15 +
+        yt_score * 0.10
+    )
+    
+    total = min(max(total, 0), 100)
     
     return {
         "total": round(total, 1),
-        "base": round(base, 1),
-        "wiki_score": round(wiki_score, 1),
-        "press_score": round(press_total, 1),
-        "trends_score": round(trends_norm, 1),
-        "youtube_bonus": round(yt_bonus, 1)
+        "trends": round(trends_norm, 1),
+        "press": round(press_score, 1),
+        "wiki": round(wiki_score, 1),
+        "youtube": round(yt_score, 1),
+        # Contributions
+        "contrib_trends": round(trends_norm * 0.35, 1),
+        "contrib_press": round(press_score * 0.40, 1),
+        "contrib_wiki": round(wiki_score * 0.15, 1),
+        "contrib_youtube": round(yt_score * 0.10, 1),
     }
 
 
@@ -443,16 +430,14 @@ def calculate_score(wiki_views: int, press_count: int, press_domains: int, trend
 # =============================================================================
 
 def collect_data(candidate_ids: List[str], start_date: date, end_date: date, youtube_key: Optional[str]) -> Dict:
-    """Collecte toutes les données pour tous les candidats"""
+    """Collecte toutes les données"""
     
     results = {}
     
-    # Progress
     progress = st.progress(0)
     status = st.empty()
     
-    # Google Trends pour tous
-    status.text("📈 Google Trends...")
+    status.text("Chargement Google Trends...")
     names = [CANDIDATES[cid]["name"] for cid in candidate_ids]
     trends = get_google_trends(names)
     progress.progress(0.1)
@@ -463,21 +448,14 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         c = CANDIDATES[cid]
         name = c["name"]
         
-        status.text(f"📊 {name}...")
+        status.text(f"Analyse : {name}...")
         
-        # Wikipedia
         wiki = get_wikipedia_views(c["wikipedia"], start_date, end_date)
-        
-        # Presse
         press = get_all_press_coverage(name, c["search_terms"], start_date, end_date)
-        
-        # YouTube
         youtube = get_youtube_data(name, youtube_key) if youtube_key else {"available": False, "total_views": 0, "videos": []}
         
-        # Trends score
         trends_score = trends["scores"].get(name, 0) if trends["success"] else 0
         
-        # Score
         score = calculate_score(
             wiki_views=wiki["views"],
             press_count=press["count"],
@@ -506,7 +484,7 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
 
 
 # =============================================================================
-# INTERFACE
+# UTILITAIRES
 # =============================================================================
 
 def format_num(n: int) -> str:
@@ -517,21 +495,54 @@ def format_num(n: int) -> str:
     return str(n)
 
 
+# =============================================================================
+# INTERFACE
+# =============================================================================
+
 def main():
-    st.markdown("# 🗳️ Visibility Index v6.0")
-    st.markdown("**Municipales Paris 2026** — Données réelles uniquement")
+    st.markdown("# Visibility Index v6.1")
+    st.markdown("**Municipales Paris 2026** — Analyse de visibilité médiatique")
     
     # Sidebar
     with st.sidebar:
-        st.markdown("## ⚙️ Configuration")
+        st.markdown("## Configuration")
         
-        end_date = st.date_input("Date de fin", value=date.today(), max_value=date.today())
-        period = st.selectbox("Période", [7, 14, 30], format_func=lambda x: f"{x} jours")
-        start_date = end_date - timedelta(days=period - 1)
+        # Période
+        st.markdown("### Période d'analyse")
         
-        st.info(f"📅 {start_date.strftime('%d/%m')} → {end_date.strftime('%d/%m/%Y')}")
+        period_type = st.radio(
+            "Type de période",
+            ["Prédéfinie", "Personnalisée"],
+            horizontal=True
+        )
         
-        st.markdown("### 👥 Candidats")
+        if period_type == "Prédéfinie":
+            period_options = {
+                "48 heures": 2,
+                "7 jours": 7,
+                "14 jours": 14,
+                "30 jours": 30
+            }
+            period_label = st.selectbox("Durée", list(period_options.keys()))
+            period_days = period_options[period_label]
+            
+            end_date = date.today()
+            start_date = end_date - timedelta(days=period_days - 1)
+        else:
+            col1, col2 = st.columns(2)
+            with col1:
+                start_date = st.date_input("Début", value=date.today() - timedelta(days=7))
+            with col2:
+                end_date = st.date_input("Fin", value=date.today(), max_value=date.today())
+            
+            if start_date > end_date:
+                st.error("La date de début doit être avant la date de fin")
+                return
+        
+        st.caption(f"{start_date.strftime('%d/%m/%Y')} → {end_date.strftime('%d/%m/%Y')}")
+        
+        # Candidats
+        st.markdown("### Candidats")
         selected = st.multiselect(
             "Sélection",
             list(CANDIDATES.keys()),
@@ -539,14 +550,25 @@ def main():
             format_func=lambda x: CANDIDATES[x]["name"]
         )
         
-        st.markdown("### 🔑 YouTube API")
-        yt_key = st.text_input("Clé API", type="password")
+        # YouTube
+        st.markdown("### YouTube API")
+        yt_key = st.text_input("Clé API (optionnelle)", type="password")
         if not yt_key:
-            st.caption("⚠️ Sans clé = pas de données YouTube")
+            st.caption("Sans clé = données YouTube indisponibles")
         
-        if st.button("🔄 Rafraîchir", use_container_width=True):
+        st.markdown("---")
+        
+        if st.button("Rafraîchir les données", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
+        
+        # Pondération
+        st.markdown("---")
+        st.markdown("### Pondération")
+        st.caption("Presse : 40%")
+        st.caption("Google Trends : 35%")
+        st.caption("Wikipedia : 15%")
+        st.caption("Vues YouTube : 10%")
     
     if not selected:
         st.warning("Sélectionnez au moins un candidat")
@@ -558,108 +580,213 @@ def main():
     # Tri par score
     sorted_data = sorted(data.items(), key=lambda x: x[1]["score"]["total"], reverse=True)
     
-    # === DEBUG : Afficher les valeurs brutes ===
-    st.markdown("---")
-    st.markdown("## 🔍 Données brutes (debug)")
-    
-    debug_rows = []
-    for cid, d in sorted_data:
-        debug_rows.append({
-            "Candidat": d["info"]["name"],
-            "Wiki vues": d["wikipedia"]["views"],
-            "Wiki erreur": d["wikipedia"].get("error", ""),
-            "Articles (brut)": d["press"]["raw_count"],
-            "Articles (filtrés)": d["press"]["count"],
-            "Domaines": d["press"]["domains"],
-            "Trends": d["trends_score"],
-            "YouTube": d["youtube"].get("total_views", 0) if d["youtube"]["available"] else "N/A",
-            "SCORE": d["score"]["total"]
-        })
-    
-    st.dataframe(pd.DataFrame(debug_rows), use_container_width=True)
-    
     # === CLASSEMENT ===
     st.markdown("---")
-    st.markdown("## 🏆 Classement")
+    st.markdown("## Classement")
     
     rows = []
     for rank, (cid, d) in enumerate(sorted_data, 1):
-        rows.append({
+        row = {
             "Rang": rank,
             "Candidat": d["info"]["name"],
             "Parti": d["info"]["party"],
             "Score": d["score"]["total"],
             "Wikipedia": d["wikipedia"]["views"],
             "Articles": d["press"]["count"],
-            "Trends": d["trends_score"],
-        })
+            "Google Trends": d["trends_score"],
+        }
+        if d["youtube"]["available"]:
+            row["Vues YouTube"] = d["youtube"]["total_views"]
+        rows.append(row)
     
     df = pd.DataFrame(rows)
-    st.dataframe(
-        df,
-        column_config={
-            "Score": st.column_config.ProgressColumn("Score /100", min_value=0, max_value=100),
-            "Wikipedia": st.column_config.NumberColumn(format="%d"),
-            "Articles": st.column_config.NumberColumn(format="%d"),
-        },
-        hide_index=True,
-        use_container_width=True
-    )
+    
+    col_config = {
+        "Rang": st.column_config.NumberColumn("Rang", format="%d"),
+        "Score": st.column_config.ProgressColumn("Score /100", min_value=0, max_value=100, format="%.1f"),
+        "Wikipedia": st.column_config.NumberColumn("Wikipedia", format="%d"),
+        "Articles": st.column_config.NumberColumn("Presse", format="%d"),
+        "Google Trends": st.column_config.NumberColumn("Google Trends", format="%.0f"),
+    }
+    
+    if any(d["youtube"]["available"] for _, d in sorted_data):
+        col_config["Vues YouTube"] = st.column_config.NumberColumn("Vues YouTube", format="%d")
+    
+    st.dataframe(df, column_config=col_config, hide_index=True, use_container_width=True)
+    
+    # === MÉTRIQUES LEADER ===
+    leader = sorted_data[0][1]
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Leader", leader["info"]["name"])
+    with col2:
+        st.metric("Score", f"{leader['score']['total']:.1f}/100")
+    with col3:
+        total_articles = sum(d["press"]["count"] for _, d in sorted_data)
+        st.metric("Total articles", total_articles)
+    with col4:
+        total_wiki = sum(d["wikipedia"]["views"] for _, d in sorted_data)
+        st.metric("Total Wikipedia", format_num(total_wiki))
     
     # === GRAPHIQUES ===
     st.markdown("---")
-    st.markdown("## 📊 Visualisations")
+    st.markdown("## Visualisations")
     
-    col1, col2 = st.columns(2)
+    tab1, tab2, tab3, tab4 = st.tabs(["Scores", "Wikipedia", "Presse", "Données brutes"])
     
-    with col1:
-        names = [d["info"]["name"] for _, d in sorted_data]
-        scores = [d["score"]["total"] for _, d in sorted_data]
-        colors = [d["info"]["color"] for _, d in sorted_data]
+    names = [d["info"]["name"] for _, d in sorted_data]
+    colors = [d["info"]["color"] for _, d in sorted_data]
+    
+    with tab1:
+        col1, col2 = st.columns(2)
         
-        fig = px.bar(x=names, y=scores, color=names, color_discrete_sequence=colors, title="Scores de visibilité")
-        fig.update_layout(showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
+        with col1:
+            scores = [d["score"]["total"] for _, d in sorted_data]
+            fig = px.bar(x=names, y=scores, color=names, color_discrete_sequence=colors, 
+                        title="Score de visibilité")
+            fig.update_layout(showlegend=False, yaxis_range=[0, 100])
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            decomp_data = []
+            for _, d in sorted_data:
+                s = d["score"]
+                decomp_data.append({
+                    "Candidat": d["info"]["name"],
+                    "Presse (40%)": s["contrib_press"],
+                    "Google Trends (35%)": s["contrib_trends"],
+                    "Wikipedia (15%)": s["contrib_wiki"],
+                    "YouTube (10%)": s["contrib_youtube"]
+                })
+            
+            df_decomp = pd.DataFrame(decomp_data)
+            fig = px.bar(df_decomp, x="Candidat", 
+                        y=["Presse (40%)", "Google Trends (35%)", "Wikipedia (15%)", "YouTube (10%)"],
+                        barmode="stack", title="Contribution au score")
+            fig.update_layout(yaxis_range=[0, 100])
+            st.plotly_chart(fig, use_container_width=True)
     
-    with col2:
-        wiki = [d["wikipedia"]["views"] for _, d in sorted_data]
-        fig = px.bar(x=names, y=wiki, color=names, color_discrete_sequence=colors, title="Wikipedia (vues)")
-        fig.update_layout(showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
+    with tab2:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            wiki_views = [d["wikipedia"]["views"] for _, d in sorted_data]
+            fig = px.bar(x=names, y=wiki_views, color=names, color_discrete_sequence=colors,
+                        title="Vues Wikipedia (période)")
+            fig.update_layout(showlegend=False)
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            variations = []
+            for _, d in sorted_data:
+                v = d["wikipedia"]["variation"]
+                v = max(min(v, 100), -100)
+                variations.append(v)
+            
+            fig = px.bar(x=names, y=variations, color=variations,
+                        color_continuous_scale=["#dc2626", "#6b7280", "#16a34a"],
+                        range_color=[-100, 100],
+                        title="Variation vs 30 jours précédents (%)")
+            fig.update_layout(yaxis_range=[-100, 100])
+            st.plotly_chart(fig, use_container_width=True)
     
-    col3, col4 = st.columns(2)
+    with tab3:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            articles = [d["press"]["count"] for _, d in sorted_data]
+            fig = px.bar(x=names, y=articles, color=names, color_discrete_sequence=colors,
+                        title="Nombre d'articles")
+            fig.update_layout(showlegend=False)
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            fig = px.pie(names=names, values=articles, color=names, color_discrete_sequence=colors,
+                        title="Part de voix médiatique")
+            st.plotly_chart(fig, use_container_width=True)
     
-    with col3:
-        articles = [d["press"]["count"] for _, d in sorted_data]
-        fig = px.bar(x=names, y=articles, color=names, color_discrete_sequence=colors, title="Articles de presse")
-        fig.update_layout(showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col4:
-        trends = [d["trends_score"] for _, d in sorted_data]
-        fig = px.bar(x=names, y=trends, color=names, color_discrete_sequence=colors, title="Google Trends")
-        fig.update_layout(showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
+    with tab4:
+        debug_rows = []
+        for rank, (cid, d) in enumerate(sorted_data, 1):
+            row = {
+                "Rang": rank,
+                "Candidat": d["info"]["name"],
+                "Wikipedia (vues)": d["wikipedia"]["views"],
+                "Variation (%)": f"{max(min(d['wikipedia']['variation'], 100), -100):+.0f}%",
+                "Articles bruts": d["press"]["raw_count"],
+                "Articles filtrés": d["press"]["count"],
+                "Sources": d["press"]["domains"],
+                "Google Trends": d["trends_score"],
+                "Vues YouTube": d["youtube"].get("total_views", 0) if d["youtube"]["available"] else "-",
+                "Score": d["score"]["total"]
+            }
+            
+            if d["wikipedia"].get("error"):
+                row["Erreur"] = d["wikipedia"]["error"]
+            
+            debug_rows.append(row)
+        
+        st.dataframe(pd.DataFrame(debug_rows), use_container_width=True, hide_index=True)
     
     # === ARTICLES ===
     st.markdown("---")
-    st.markdown("## 📰 Articles détectés")
+    st.markdown("## Articles de presse")
     
-    for cid, d in sorted_data:
+    for rank, (cid, d) in enumerate(sorted_data, 1):
         arts = d["press"]["articles"]
-        with st.expander(f"**{d['info']['name']}** — {len(arts)} articles"):
+        with st.expander(f"{rank}. {d['info']['name']} — {len(arts)} article(s)"):
             if arts:
                 for i, a in enumerate(arts[:20], 1):
-                    st.markdown(f"{i}. [{a['title']}]({a['url']})")
-                    st.caption(f"{a['date']} • {a['domain']} • {a['source']}")
+                    st.markdown(f"**{i}.** [{a['title']}]({a['url']})")
+                    st.caption(f"{a['date']} · {a['domain']} · {a['source']}")
                 if len(arts) > 20:
                     st.info(f"+ {len(arts) - 20} autres articles")
             else:
-                st.warning("Aucun article trouvé")
+                st.info("Aucun article trouvé pour cette période")
+    
+    # === YOUTUBE ===
+    if any(d["youtube"]["available"] for _, d in sorted_data):
+        st.markdown("---")
+        st.markdown("## Vidéos YouTube")
+        
+        for rank, (cid, d) in enumerate(sorted_data, 1):
+            yt = d["youtube"]
+            if yt["available"] and yt["videos"]:
+                with st.expander(f"{rank}. {d['info']['name']} — {format_num(yt['total_views'])} vues"):
+                    for i, v in enumerate(yt["videos"][:10], 1):
+                        views = v.get("views", 0)
+                        st.markdown(f"**{i}.** [{v['title']}]({v['url']}) — {format_num(views)} vues")
     
     # Footer
     st.markdown("---")
-    st.caption(f"Visibility Index v6.0 • {datetime.now().strftime('%H:%M')}")
+    st.caption(f"Visibility Index v6.1 · Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}")
+    
+    # === SUGGESTIONS D'AMÉLIORATION ===
+    with st.expander("Suggestions d'amélioration"):
+        st.markdown("""
+        **Sources de données supplémentaires possibles :**
+        - **Twitter/X API** : Mentions, engagement, followers (API payante)
+        - **LinkedIn** : Activité des comptes politiques
+        - **Sondages** : Intégrer les derniers sondages d'intentions de vote
+        - **Médias audiovisuels** : Passages TV/radio (données INA)
+        
+        **Améliorations techniques :**
+        - Ajout d'un système d'alertes par email quand un candidat gagne/perd significativement
+        - Export PDF automatique des rapports
+        - Comparaison historique (évolution sur plusieurs semaines)
+        - Analyse de sentiment des articles (positif/négatif/neutre)
+        
+        **Nouveaux candidats à ajouter :**
+        - Ian Brossat (PCF)
+        - Rémi Féraud (PS)
+        - Autres candidats déclarés
+        
+        **Interface :**
+        - Mode sombre
+        - Dashboard personnalisable
+        - Notifications push sur changements importants
+        """)
 
 
 if __name__ == "__main__":
