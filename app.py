@@ -296,54 +296,92 @@ def get_google_trends(keywords: List[str]) -> Dict:
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def get_youtube_data(search_term: str, api_key: str) -> Dict:
-    """YouTube Data API v3"""
+    """YouTube Data API v3 - Récupère vidéos longues ET shorts"""
     if not api_key:
         return {"available": False, "videos": [], "total_views": 0}
     
     try:
         search_url = "https://www.googleapis.com/youtube/v3/search"
-        params = {
+        all_videos = []
+        seen_ids = set()
+        
+        # Recherche 1 : Par pertinence (vidéos populaires, interviews)
+        params_relevance = {
             "part": "snippet",
             "q": search_term,
             "type": "video",
-            "order": "date",
+            "order": "relevance",
             "maxResults": 50,
             "regionCode": "FR",
-            "publishedAfter": (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%dT00:00:00Z"),
+            "relevanceLanguage": "fr",
+            "publishedAfter": (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%dT00:00:00Z"),
             "key": api_key
         }
         
-        response = requests.get(search_url, params=params, timeout=15)
+        response1 = requests.get(search_url, params=params_relevance, timeout=15)
         
-        if response.status_code != 200:
-            return {"available": False, "videos": [], "total_views": 0, "error": f"HTTP {response.status_code}"}
-        
-        items = response.json().get("items", [])
-        
-        name_parts = search_term.lower().split()
-        videos = []
-        video_ids = []
-        
-        for item in items:
-            title = item.get("snippet", {}).get("title", "")
-            title_lower = title.lower()
-            
-            if any(part in title_lower for part in name_parts if len(part) > 3):
+        if response1.status_code == 200:
+            for item in response1.json().get("items", []):
                 vid_id = item.get("id", {}).get("videoId", "")
-                if vid_id:
-                    video_ids.append(vid_id)
-                    videos.append({
+                if vid_id and vid_id not in seen_ids:
+                    seen_ids.add(vid_id)
+                    all_videos.append({
                         "id": vid_id,
-                        "title": title,
+                        "title": item.get("snippet", {}).get("title", ""),
                         "channel": item.get("snippet", {}).get("channelTitle", ""),
-                        "url": f"https://www.youtube.com/watch?v={vid_id}"
                     })
         
+        # Recherche 2 : Par nombre de vues (les plus vues)
+        params_views = {
+            "part": "snippet",
+            "q": search_term,
+            "type": "video",
+            "order": "viewCount",
+            "maxResults": 25,
+            "regionCode": "FR",
+            "relevanceLanguage": "fr",
+            "publishedAfter": (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%dT00:00:00Z"),
+            "key": api_key
+        }
+        
+        response2 = requests.get(search_url, params=params_views, timeout=15)
+        
+        if response2.status_code == 200:
+            for item in response2.json().get("items", []):
+                vid_id = item.get("id", {}).get("videoId", "")
+                if vid_id and vid_id not in seen_ids:
+                    seen_ids.add(vid_id)
+                    all_videos.append({
+                        "id": vid_id,
+                        "title": item.get("snippet", {}).get("title", ""),
+                        "channel": item.get("snippet", {}).get("channelTitle", ""),
+                    })
+        
+        if response1.status_code != 200 and response2.status_code != 200:
+            return {"available": False, "videos": [], "total_views": 0, "error": f"HTTP {response1.status_code}"}
+        
+        # Filtrer par nom dans le titre
+        name_parts = search_term.lower().split()
+        filtered_videos = []
+        video_ids = []
+        
+        for v in all_videos:
+            title_lower = v["title"].lower()
+            if any(part in title_lower for part in name_parts if len(part) > 3):
+                video_ids.append(v["id"])
+                filtered_videos.append({
+                    "id": v["id"],
+                    "title": v["title"],
+                    "channel": v["channel"],
+                    "url": f"https://www.youtube.com/watch?v={v['id']}"
+                })
+        
+        # Récupérer les stats (vues, durée)
         total_views = 0
         if video_ids:
             stats_url = "https://www.googleapis.com/youtube/v3/videos"
             stats_params = {
-                "part": "statistics",
+                "part": "statistics,contentDetails",
                 "id": ",".join(video_ids[:50]),
                 "key": api_key
             }
@@ -351,23 +389,54 @@ def get_youtube_data(search_term: str, api_key: str) -> Dict:
             stats_response = requests.get(stats_url, params=stats_params, timeout=10)
             
             if stats_response.status_code == 200:
-                for i, item in enumerate(stats_response.json().get("items", [])):
-                    views = int(item.get("statistics", {}).get("viewCount", 0))
-                    total_views += views
-                    if i < len(videos):
-                        videos[i]["views"] = views
+                stats_items = stats_response.json().get("items", [])
+                stats_map = {item["id"]: item for item in stats_items}
+                
+                for v in filtered_videos:
+                    if v["id"] in stats_map:
+                        item = stats_map[v["id"]]
+                        views = int(item.get("statistics", {}).get("viewCount", 0))
+                        duration = item.get("contentDetails", {}).get("duration", "")
+                        
+                        v["views"] = views
+                        v["duration"] = duration
+                        v["is_short"] = _is_short(duration)
+                        total_views += views
         
-        videos.sort(key=lambda x: x.get("views", 0), reverse=True)
+        # Trier par vues
+        filtered_videos.sort(key=lambda x: x.get("views", 0), reverse=True)
+        
+        # Stats
+        shorts_count = sum(1 for v in filtered_videos if v.get("is_short", False))
+        long_count = len(filtered_videos) - shorts_count
         
         return {
             "available": True,
-            "videos": videos,
+            "videos": filtered_videos,
             "total_views": total_views,
-            "count": len(videos)
+            "count": len(filtered_videos),
+            "shorts_count": shorts_count,
+            "long_count": long_count
         }
     
     except Exception as e:
         return {"available": False, "videos": [], "total_views": 0, "error": str(e)[:50]}
+
+
+def _is_short(duration: str) -> bool:
+    """Vérifie si une vidéo est un short (< 60 secondes) basé sur la durée ISO 8601"""
+    if not duration:
+        return False
+    # Format: PT1M30S, PT45S, PT1H2M3S
+    import re
+    match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration)
+    if not match:
+        return False
+    hours = int(match.group(1) or 0)
+    minutes = int(match.group(2) or 0)
+    seconds = int(match.group(3) or 0)
+    total_seconds = hours * 3600 + minutes * 60 + seconds
+    return total_seconds < 60
 
 
 # =============================================================================
@@ -495,6 +564,21 @@ def format_num(n: int) -> str:
     return str(n)
 
 
+def _format_duration(duration: str) -> str:
+    """Convertit PT1H2M3S en 1:02:03"""
+    match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration)
+    if not match:
+        return ""
+    hours = int(match.group(1) or 0)
+    minutes = int(match.group(2) or 0)
+    seconds = int(match.group(3) or 0)
+    
+    if hours > 0:
+        return f"{hours}:{minutes:02d}:{seconds:02d}"
+    else:
+        return f"{minutes}:{seconds:02d}"
+
+
 # =============================================================================
 # INTERFACE
 # =============================================================================
@@ -552,7 +636,7 @@ def main():
         
         # YouTube
         st.markdown("### YouTube API")
-        yt_key = st.text_input("Clé API AIzaSyCu27YMexJiCrzagkCnawkECG7WA1_wzDI", type="password")
+        yt_key = st.text_input("Clé API (optionnelle)", type="password")
         if not yt_key:
             st.caption("Sans clé = données YouTube indisponibles")
         
@@ -624,7 +708,7 @@ def main():
         st.metric("Score", f"{leader['score']['total']:.1f}/100")
     with col3:
         total_articles = sum(d["press"]["count"] for _, d in sorted_data)
-        st.metric("Total articles sur la concu", total_articles)
+        st.metric("Total articles", total_articles)
     with col4:
         total_wiki = sum(d["wikipedia"]["views"] for _, d in sorted_data)
         st.metric("Total Wikipedia", format_num(total_wiki))
@@ -657,14 +741,27 @@ def main():
                     "Presse (40%)": s["contrib_press"],
                     "Google Trends (35%)": s["contrib_trends"],
                     "Wikipedia (15%)": s["contrib_wiki"],
-                    "YouTube (10%)": s["contrib_youtube"]
+                    "YouTube (10%)": s["contrib_youtube"],
+                    "Score total": s["total"]
                 })
             
             df_decomp = pd.DataFrame(decomp_data)
             fig = px.bar(df_decomp, x="Candidat", 
                         y=["Presse (40%)", "Google Trends (35%)", "Wikipedia (15%)", "YouTube (10%)"],
-                        barmode="stack", title="Contribution au score")
-            fig.update_layout(yaxis_range=[0, 100])
+                        barmode="stack", 
+                        title="Décomposition du score",
+                        color_discrete_map={
+                            "Presse (40%)": "#2563eb",
+                            "Google Trends (35%)": "#16a34a",
+                            "Wikipedia (15%)": "#eab308",
+                            "YouTube (10%)": "#dc2626"
+                        })
+            fig.update_layout(
+                yaxis_range=[0, 100],
+                yaxis_title="Points",
+                legend_title="Source",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
             st.plotly_chart(fig, use_container_width=True)
     
     with tab2:
@@ -753,11 +850,22 @@ def main():
         for rank, (cid, d) in enumerate(sorted_data, 1):
             yt = d["youtube"]
             if yt["available"] and yt["videos"]:
-                with st.expander(f"{rank}. {d['info']['name']} — {format_num(yt['total_views'])} vues"):
-                    for i, v in enumerate(yt["videos"][:10], 1):
+                shorts = yt.get("shorts_count", 0)
+                longs = yt.get("long_count", 0)
+                label = f"{rank}. {d['info']['name']} — {format_num(yt['total_views'])} vues ({longs} vidéos, {shorts} shorts)"
+                
+                with st.expander(label):
+                    for i, v in enumerate(yt["videos"][:15], 1):
                         views = v.get("views", 0)
-                        st.markdown(f"**{i}.** [{v['title']}]({v['url']}) — {format_num(views)} vues")
-    
+                        is_short = v.get("is_short", False)
+                        duration = v.get("duration", "")
+                        
+                        # Formater la durée
+                        duration_str = _format_duration(duration) if duration else ""
+                        type_label = "[Short]" if is_short else f"[{duration_str}]" if duration_str else ""
+                        
+                        st.markdown(f"**{i}.** [{v['title']}]({v['url']}) — {format_num(views)} vues {type_label}")
+
     # Footer
     st.markdown("---")
     st.caption(f"Visibility Index v6.1 · Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}")
@@ -766,13 +874,13 @@ def main():
     with st.expander("Suggestions d'amélioration"):
         st.markdown("""
         **Sources de données supplémentaires possibles :**
-        - **Twitter/X API** : Mentions, engagement, followers (API payante)
-        - **LinkedIn** : Activité des comptes politiques
-        - **Sondages** : Intégrer les derniers sondages d'intentions de vote
-        - **Médias audiovisuels** : Passages TV/radio (données INA)
+        - Twitter/X API : Mentions, engagement, followers (API payante)
+        - LinkedIn : Activité des comptes politiques
+        - Sondages : Intégrer les derniers sondages d'intentions de vote
+        - Médias audiovisuels : Passages TV/radio (données INA)
         
         **Améliorations techniques :**
-        - Ajout d'un système d'alertes par email quand un candidat gagne/perd significativement
+        - Système d'alertes par email sur changements significatifs
         - Export PDF automatique des rapports
         - Comparaison historique (évolution sur plusieurs semaines)
         - Analyse de sentiment des articles (positif/négatif/neutre)
@@ -781,11 +889,6 @@ def main():
         - Ian Brossat (PCF)
         - Rémi Féraud (PS)
         - Autres candidats déclarés
-        
-        **Interface :**
-        - Mode sombre
-        - Dashboard personnalisable
-        - Notifications push sur changements importants
         """)
 
 
