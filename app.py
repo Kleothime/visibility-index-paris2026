@@ -358,13 +358,14 @@ def get_all_press_coverage(candidate_name: str, search_terms: List[str], start_d
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_google_trends(keywords: List[str]) -> Dict:
     """Google Trends via pytrends - avec gestion robuste"""
     try:
         from pytrends.request import TrendReq
         import time
         
-        pytrends = TrendReq(hl='fr-FR', tz=60, timeout=(10, 25), retries=2, backoff_factor=0.5)
+        pytrends = TrendReq(hl='fr-FR', tz=60, timeout=(10, 25), retries=3, backoff_factor=1.0)
         
         scores = {}
         errors = []
@@ -372,9 +373,10 @@ def get_google_trends(keywords: List[str]) -> Dict:
         # Requête groupée pour avoir les proportions relatives
         try:
             pytrends.build_payload(keywords[:5], timeframe='today 1-m', geo='FR')
+            time.sleep(0.5)  # Petit délai pour éviter rate limiting
             df = pytrends.interest_over_time()
             
-            if not df.empty:
+            if df is not None and not df.empty:
                 if 'isPartial' in df.columns:
                     df = df.drop(columns=['isPartial'])
                 
@@ -384,25 +386,33 @@ def get_google_trends(keywords: List[str]) -> Dict:
                         recent = vals[-7:] if len(vals) >= 7 else vals
                         avg = round(sum(recent) / len(recent), 1) if recent else 0
                         scores[kw] = avg
+            else:
+                errors.append("DataFrame vide")
+                
         except Exception as e:
-            errors.append(f"Requête groupée: {str(e)[:30]}")
+            err_msg = str(e)[:50]
+            errors.append(f"Requête groupée: {err_msg}")
+            
+            # Si erreur 429 (rate limit), attendre et réessayer
+            if "429" in err_msg:
+                time.sleep(5)
         
         # Pour les candidats à 0 ou manquants, faire une requête individuelle
         for kw in keywords[:5]:
             if kw not in scores or scores[kw] == 0:
                 try:
-                    time.sleep(1)  # Éviter rate limiting
+                    time.sleep(2)  # Délai plus long pour éviter rate limiting
                     pytrends.build_payload([kw], timeframe='today 1-m', geo='FR')
                     df_solo = pytrends.interest_over_time()
                     
-                    if not df_solo.empty and kw in df_solo.columns:
+                    if df_solo is not None and not df_solo.empty and kw in df_solo.columns:
                         vals = df_solo[kw].tolist()
                         recent = vals[-7:] if len(vals) >= 7 else vals
                         avg_solo = round(sum(recent) / len(recent), 1) if recent else 0
                         
                         if avg_solo > 0:
                             # Score individuel - on estime le ratio par rapport au leader
-                            max_existing = max(scores.values()) if scores else 50
+                            max_existing = max(scores.values()) if scores and max(scores.values()) > 0 else 50
                             # Si le candidat a 50 en solo et le max groupe est 80, son score relatif est environ 50*(50/100)=25
                             estimated = round(avg_solo * (max_existing / 100), 1)
                             scores[kw] = max(estimated, 1)  # Minimum 1 si détecté
@@ -416,17 +426,26 @@ def get_google_trends(keywords: List[str]) -> Dict:
             if kw not in scores:
                 scores[kw] = 0
         
+        success = len(scores) > 0 and any(v > 0 for v in scores.values())
+        
         return {
-            "success": len(scores) > 0 and any(v > 0 for v in scores.values()),
+            "success": success,
             "scores": scores,
             "errors": errors if errors else None
         }
     
+    except ImportError:
+        # pytrends n'est pas installé
+        return {
+            "success": False, 
+            "scores": {kw: 0 for kw in keywords}, 
+            "error": "pytrends non installé"
+        }
     except Exception as e:
         return {
             "success": False, 
             "scores": {kw: 0 for kw in keywords}, 
-            "error": str(e)
+            "error": str(e)[:50]
         }
 
 
@@ -876,6 +895,13 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
     status.text("Chargement Google Trends...")
     names = [CANDIDATES[cid]["name"] for cid in candidate_ids]
     trends = get_google_trends(names)
+    
+    # Afficher un warning si Trends échoue
+    if not trends["success"]:
+        err = trends.get("error") or trends.get("errors")
+        if err:
+            st.warning(f"⚠️ Google Trends indisponible : {err}")
+    
     progress.progress(0.1)
     
     total = len(candidate_ids)
@@ -901,7 +927,8 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         else:
             youtube = {"available": False, "total_views": 0, "videos": []}
         
-        trends_score = trends["scores"].get(name, 0) if trends["success"] else 0
+        # Google Trends - utiliser le score même si success=False (peut avoir des données partielles)
+        trends_score = trends["scores"].get(name, 0)
         
         score = calculate_score(
             wiki_views=wiki["views"],
@@ -920,6 +947,7 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             "youtube": youtube,
             "trends_score": trends_score,
             "trends_success": trends["success"],
+            "trends_error": trends.get("error") or trends.get("errors"),
             "score": score
         }
         
@@ -1481,9 +1509,15 @@ def main():
     # === TAB 7: DONNÉES BRUTES ===
     with tab7:
         # Avertissement si Trends semble incomplet
+        trends_errors = [d.get("trends_error") for _, d in sorted_data if d.get("trends_error")]
         trends_zero_count = sum(1 for _, d in sorted_data if d["trends_score"] == 0)
-        if trends_zero_count > len(sorted_data) / 2:
-            st.warning("⚠️ Google Trends : plusieurs candidats à 0. Cela peut être dû à des limitations de l'API. Les données Trends peuvent être incomplètes.")
+        
+        if trends_errors:
+            st.warning(f"⚠️ Google Trends indisponible : {trends_errors[0]}")
+        elif trends_zero_count == len(sorted_data):
+            st.warning("⚠️ Google Trends : tous les scores à 0. L'API est probablement bloquée ou rate-limitée. Cliquez sur 'Rafraîchir les données' pour réessayer.")
+        elif trends_zero_count > len(sorted_data) / 2:
+            st.info("ℹ️ Google Trends : données partielles. Certains candidats peuvent avoir un score sous-estimé.")
         
         debug_rows = []
         for rank, (cid, d) in enumerate(sorted_data, 1):
@@ -1496,7 +1530,7 @@ def main():
                 if "quota" in err.lower():
                     yt_info = "Quota dépassé"
                 else:
-                    yt_info = f"Erreur"
+                    yt_info = "Erreur"
             
             tv = d.get("tv_radio", {})
             
@@ -1507,7 +1541,7 @@ def main():
                 "Variation Wiki": f"{max(min(d['wikipedia']['variation'], 100), -100):+.0f}%",
                 "Articles presse": d["press"]["count"],
                 "TV/Radio": tv.get("count", 0),
-                "Google Trends": d["trends_score"],
+                "Google Trends": d["trends_score"] if d["trends_score"] > 0 else "⚠️ 0",
                 "YouTube": yt_info,
                 "Score total": d["score"]["total"]
             }
@@ -1517,11 +1551,17 @@ def main():
         st.dataframe(pd.DataFrame(debug_rows), use_container_width=True, hide_index=True)
         
         # Détails des erreurs éventuelles
-        if any(d["wikipedia"].get("error") for _, d in sorted_data):
+        errors_found = []
+        for _, d in sorted_data:
+            if d["wikipedia"].get("error"):
+                errors_found.append(f"Wikipedia {d['info']['name']}: {d['wikipedia']['error']}")
+            if d.get("trends_error"):
+                errors_found.append(f"Google Trends: {d['trends_error']}")
+        
+        if errors_found:
             with st.expander("Erreurs détectées"):
-                for _, d in sorted_data:
-                    if d["wikipedia"].get("error"):
-                        st.write(f"Wikipedia {d['info']['name']}: {d['wikipedia']['error']}")
+                for err in set(errors_found):
+                    st.write(f"• {err}")
     
     # === ARTICLES ===
     st.markdown("---")
