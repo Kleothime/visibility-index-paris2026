@@ -977,7 +977,7 @@ def render_candidate_detail(candidate_id: str, candidate_data: Dict):
             f"≈ **{press_count+gnews_count}** (après fusion et déduplication)"
         )
         
-            st.markdown("#### 📈 Google Trends")
+    st.markdown("#### 📈 Google Trends")
     if trends.get("success"):
         t_score = trends.get("score", 0)
         st.write(f"- Score moyen 90 jours : **{t_score}** (index 0–100, FR)")
