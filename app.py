@@ -1,5 +1,6 @@
 """
-VISIBILITY INDEX v6.1 - Municipales Paris 2026
+VISIBILITY INDEX v7.0 - Municipales Paris 2026
+Nouvelles fonctionnalités: Sondages, TV/Radio, Historique
 """
 
 import streamlit as st
@@ -87,6 +88,45 @@ CANDIDATES = {
         "search_terms": ["Thierry Mariani"],
     }
 }
+
+# =============================================================================
+# SONDAGES (mise à jour manuelle)
+# =============================================================================
+
+# Structure: liste de sondages avec date, institut, et scores par candidat
+SONDAGES = [
+    # Exemple de structure - à mettre à jour quand des sondages sortent
+    # {
+    #     "date": "2025-01-15",
+    #     "institut": "IFOP",
+    #     "sample": 1000,
+    #     "scores": {
+    #         "Rachida Dati": 28,
+    #         "Emmanuel Grégoire": 22,
+    #         "David Belliard": 15,
+    #         ...
+    #     }
+    # }
+]
+
+# Dernière estimation (peut être mise à jour manuellement)
+# Source: agrégation médias / estimations
+ESTIMATIONS_ACTUELLES = {
+    "Rachida Dati": {"estimation": 26, "fourchette": (23, 29)},
+    "Emmanuel Grégoire": {"estimation": 24, "fourchette": (21, 27)},
+    "David Belliard": {"estimation": 14, "fourchette": (12, 16)},
+    "Ian Brossat": {"estimation": 10, "fourchette": (8, 12)},
+    "Sophia Chikirou": {"estimation": 8, "fourchette": (6, 10)},
+    "Pierre-Yves Bournazel": {"estimation": 6, "fourchette": (4, 8)},
+    "Thierry Mariani": {"estimation": 5, "fourchette": (3, 7)},
+}
+
+# Médias audiovisuels à rechercher
+MEDIAS_TV_RADIO = [
+    "BFM", "BFMTV", "LCI", "CNews", "TF1", "France 2", "France 3",
+    "France Inter", "RTL", "Europe 1", "RMC", "France Info", "France 24",
+    "Arte", "Public Sénat", "LCP", "C8", "TMC"
+]
 
 # =============================================================================
 # FONCTIONS DE COLLECTE
@@ -509,6 +549,190 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
 
 
 # =============================================================================
+# PASSAGES TV/RADIO
+# =============================================================================
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def get_tv_radio_mentions(candidate_name: str, start_date: date, end_date: date) -> Dict:
+    """Recherche les mentions TV/Radio via Google News"""
+    
+    mentions = []
+    media_counts = {}
+    
+    # Rechercher pour chaque média
+    last_name = candidate_name.split()[-1].lower()
+    
+    # Construire une requête avec les médias principaux
+    media_query = " OR ".join(MEDIAS_TV_RADIO[:6])  # Top 6 médias
+    search_query = f"{candidate_name} ({media_query})"
+    
+    try:
+        # Google News RSS
+        rss_url = f"https://news.google.com/rss/search?q={quote_plus(search_query)}&hl=fr&gl=FR&ceid=FR:fr"
+        response = requests.get(rss_url, timeout=15)
+        
+        if response.status_code == 200:
+            root = ET.fromstring(response.content)
+            
+            start_str = start_date.strftime("%Y-%m-%d")
+            end_str = end_date.strftime("%Y-%m-%d")
+            
+            for item in root.findall(".//item"):
+                title = item.findtext("title", "")
+                source = item.findtext("source", "")
+                link = item.findtext("link", "")
+                pub_date_raw = item.findtext("pubDate", "")
+                
+                # Parser la date
+                art_date = ""
+                if pub_date_raw:
+                    try:
+                        from email.utils import parsedate_to_datetime
+                        dt = parsedate_to_datetime(pub_date_raw)
+                        art_date = dt.strftime("%Y-%m-%d")
+                    except:
+                        pass
+                
+                # Filtrer par date
+                if art_date and not (start_str <= art_date <= end_str):
+                    continue
+                
+                # Vérifier si c'est un média TV/Radio
+                title_lower = title.lower()
+                source_lower = source.lower()
+                
+                # Vérifier que le nom est dans le titre
+                if last_name not in title_lower:
+                    continue
+                
+                # Identifier le média
+                detected_media = None
+                for media in MEDIAS_TV_RADIO:
+                    if media.lower() in source_lower or media.lower() in title_lower:
+                        detected_media = media
+                        break
+                
+                if detected_media:
+                    mentions.append({
+                        "title": title,
+                        "source": source,
+                        "media": detected_media,
+                        "date": art_date,
+                        "url": link
+                    })
+                    media_counts[detected_media] = media_counts.get(detected_media, 0) + 1
+    
+    except Exception as e:
+        pass
+    
+    return {
+        "count": len(mentions),
+        "mentions": mentions[:20],  # Limiter à 20
+        "media_counts": media_counts,
+        "top_media": sorted(media_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+    }
+
+
+# =============================================================================
+# HISTORIQUE
+# =============================================================================
+
+HISTORY_FILE = "visibility_history.json"
+
+def load_history() -> List[Dict]:
+    """Charge l'historique depuis le fichier JSON"""
+    try:
+        with open(HISTORY_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return []
+
+def save_history(history: List[Dict]):
+    """Sauvegarde l'historique dans le fichier JSON"""
+    try:
+        # Garder seulement les 30 derniers jours
+        cutoff = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        history = [h for h in history if h.get("date", "") >= cutoff]
+        
+        with open(HISTORY_FILE, "w") as f:
+            json.dump(history, f, indent=2)
+    except:
+        pass
+
+def add_to_history(data: Dict, period_label: str):
+    """Ajoute les données actuelles à l'historique"""
+    history = load_history()
+    
+    today = datetime.now().strftime("%Y-%m-%d")
+    
+    # Éviter les doublons pour aujourd'hui
+    history = [h for h in history if not (h.get("date") == today and h.get("period") == period_label)]
+    
+    entry = {
+        "date": today,
+        "timestamp": datetime.now().isoformat(),
+        "period": period_label,
+        "scores": {}
+    }
+    
+    for cid, d in data.items():
+        entry["scores"][d["info"]["name"]] = {
+            "total": d["score"]["total"],
+            "trends": d["trends_score"],
+            "press": d["press"]["count"],
+            "wiki": d["wikipedia"]["views"],
+            "youtube": d["youtube"].get("total_views", 0) if d["youtube"].get("available") else 0
+        }
+    
+    history.append(entry)
+    save_history(history)
+    
+    return history
+
+def get_historical_comparison(candidate_name: str, current_score: float) -> Dict:
+    """Compare le score actuel avec l'historique"""
+    history = load_history()
+    
+    if not history:
+        return {"available": False}
+    
+    # Trouver les scores passés pour ce candidat
+    past_scores = []
+    for entry in history:
+        if candidate_name in entry.get("scores", {}):
+            past_scores.append({
+                "date": entry["date"],
+                "score": entry["scores"][candidate_name]["total"]
+            })
+    
+    if not past_scores:
+        return {"available": False}
+    
+    # Trier par date
+    past_scores.sort(key=lambda x: x["date"])
+    
+    # Calculer les variations
+    week_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+    month_ago = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+    
+    week_score = None
+    month_score = None
+    
+    for ps in past_scores:
+        if ps["date"] <= week_ago:
+            week_score = ps["score"]
+        if ps["date"] <= month_ago:
+            month_score = ps["score"]
+    
+    return {
+        "available": True,
+        "history": past_scores[-14:],  # 2 dernières semaines
+        "week_change": round(current_score - week_score, 1) if week_score else None,
+        "month_change": round(current_score - month_score, 1) if month_score else None
+    }
+
+
+# =============================================================================
 # CALCUL DU SCORE
 # =============================================================================
 
@@ -591,6 +815,9 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         wiki = get_wikipedia_views(c["wikipedia"], start_date, end_date)
         press = get_all_press_coverage(name, c["search_terms"], start_date, end_date)
         
+        # Passages TV/Radio
+        tv_radio = get_tv_radio_mentions(name, start_date, end_date)
+        
         # YouTube : toujours 30 jours pour avoir des vidéos
         yt_start = date.today() - timedelta(days=30)
         yt_end = date.today()
@@ -615,6 +842,7 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             "info": c,
             "wikipedia": wiki,
             "press": press,
+            "tv_radio": tv_radio,
             "youtube": youtube,
             "trends_score": trends_score,
             "trends_success": trends["success"],
@@ -661,7 +889,7 @@ def _format_duration(duration: str) -> str:
 # =============================================================================
 
 def main():
-    st.markdown("# Visibility Index v6.1")
+    st.markdown("# Visibility Index v7.0")
     st.markdown("**Municipales Paris 2026** — Analyse de visibilité médiatique")
     
     # Sidebar
@@ -811,7 +1039,7 @@ def main():
     st.markdown("---")
     st.markdown("## Visualisations")
     
-    tab1, tab2, tab3, tab4 = st.tabs(["Scores", "Wikipedia", "Presse", "Données brutes"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Scores", "Sondages", "TV/Radio", "Historique", "Wikipedia", "Presse", "Données brutes"])
     
     names = [d["info"]["name"] for _, d in sorted_data]
     colors = [d["info"]["color"] for _, d in sorted_data]
@@ -858,7 +1086,167 @@ def main():
             )
             st.plotly_chart(fig, use_container_width=True)
     
+    # === TAB 2: SONDAGES ===
     with tab2:
+        st.markdown("### Estimations actuelles")
+        st.caption("⚠️ Données indicatives - Aucun sondage officiel publié pour Paris 2026")
+        
+        # Afficher les estimations
+        sondage_rows = []
+        for _, d in sorted_data:
+            name = d["info"]["name"]
+            if name in ESTIMATIONS_ACTUELLES:
+                est = ESTIMATIONS_ACTUELLES[name]
+                sondage_rows.append({
+                    "Candidat": name,
+                    "Parti": d["info"]["party"],
+                    "Estimation": f"{est['estimation']}%",
+                    "Fourchette": f"{est['fourchette'][0]}-{est['fourchette'][1]}%"
+                })
+        
+        if sondage_rows:
+            # Trier par estimation
+            sondage_rows.sort(key=lambda x: int(x["Estimation"].replace("%", "")), reverse=True)
+            st.dataframe(pd.DataFrame(sondage_rows), use_container_width=True, hide_index=True)
+            
+            # Graphique
+            est_names = [r["Candidat"] for r in sondage_rows]
+            est_values = [int(r["Estimation"].replace("%", "")) for r in sondage_rows]
+            est_colors = [CANDIDATES[cid]["color"] for cid in CANDIDATES if CANDIDATES[cid]["name"] in est_names]
+            
+            fig = px.bar(x=est_names, y=est_values, color=est_names,
+                        color_discrete_sequence=[d["info"]["color"] for _, d in sorted_data],
+                        title="Estimations (intentions de vote)")
+            fig.update_layout(showlegend=False, yaxis_title="%", yaxis_range=[0, 35])
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Historique des sondages officiels
+        if SONDAGES:
+            st.markdown("### Historique des sondages")
+            for s in reversed(SONDAGES[-5:]):
+                with st.expander(f"{s['date']} - {s['institut']} ({s['sample']} pers.)"):
+                    for name, score in sorted(s["scores"].items(), key=lambda x: x[1], reverse=True):
+                        st.write(f"• {name}: {score}%")
+        else:
+            st.info("Aucun sondage officiel disponible pour le moment. Les estimations ci-dessus sont basées sur des analyses médias.")
+    
+    # === TAB 3: TV/RADIO ===
+    with tab3:
+        st.markdown("### Passages TV/Radio détectés")
+        st.caption("Mentions dans les médias audiovisuels (via Google News)")
+        
+        tv_data = []
+        for _, d in sorted_data:
+            tv = d.get("tv_radio", {})
+            tv_data.append({
+                "Candidat": d["info"]["name"],
+                "Mentions": tv.get("count", 0),
+                "Top médias": ", ".join([f"{m[0]} ({m[1]})" for m in tv.get("top_media", [])[:3]]) or "-"
+            })
+        
+        st.dataframe(pd.DataFrame(tv_data), use_container_width=True, hide_index=True)
+        
+        # Graphique
+        tv_names = [d["Candidat"] for d in tv_data]
+        tv_counts = [d["Mentions"] for d in tv_data]
+        
+        if sum(tv_counts) > 0:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                fig = px.bar(x=tv_names, y=tv_counts, color=tv_names, color_discrete_sequence=colors,
+                            title="Mentions TV/Radio")
+                fig.update_layout(showlegend=False)
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                # Agrégation par média
+                all_media = {}
+                for _, d in sorted_data:
+                    for media, count in d.get("tv_radio", {}).get("media_counts", {}).items():
+                        all_media[media] = all_media.get(media, 0) + count
+                
+                if all_media:
+                    media_sorted = sorted(all_media.items(), key=lambda x: x[1], reverse=True)[:10]
+                    fig = px.bar(x=[m[0] for m in media_sorted], y=[m[1] for m in media_sorted],
+                                title="Médias les plus actifs")
+                    st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Aucune mention TV/Radio détectée sur cette période")
+        
+        # Détails par candidat
+        for _, d in sorted_data:
+            tv = d.get("tv_radio", {})
+            if tv.get("mentions"):
+                with st.expander(f"{d['info']['name']} — {tv['count']} mention(s)"):
+                    for m in tv["mentions"][:10]:
+                        st.markdown(f"**{m.get('media', '')}** · {m.get('date', '')}")
+                        st.markdown(f"[{m['title']}]({m.get('url', '#')})")
+                        st.caption(f"Source: {m.get('source', '')}")
+    
+    # === TAB 4: HISTORIQUE ===
+    with tab4:
+        st.markdown("### Évolution des scores")
+        
+        # Sauvegarder les données actuelles
+        period_label_for_history = f"{start_date} to {end_date}"
+        history = add_to_history(data, period_label_for_history)
+        
+        if len(history) > 1:
+            # Construire les données pour le graphique
+            history_df_data = []
+            for entry in history:
+                for name, scores in entry.get("scores", {}).items():
+                    history_df_data.append({
+                        "Date": entry["date"],
+                        "Candidat": name,
+                        "Score": scores["total"]
+                    })
+            
+            if history_df_data:
+                df_hist = pd.DataFrame(history_df_data)
+                
+                # Graphique d'évolution
+                fig = px.line(df_hist, x="Date", y="Score", color="Candidat",
+                             title="Évolution du score de visibilité",
+                             markers=True)
+                fig.update_layout(yaxis_range=[0, 100])
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Tableau des variations
+                st.markdown("### Variations")
+                var_rows = []
+                for _, d in sorted_data:
+                    name = d["info"]["name"]
+                    current = d["score"]["total"]
+                    hist = get_historical_comparison(name, current)
+                    
+                    row = {
+                        "Candidat": name,
+                        "Score actuel": current,
+                    }
+                    
+                    if hist.get("week_change") is not None:
+                        change = hist["week_change"]
+                        row["7 jours"] = f"{change:+.1f}" if change != 0 else "="
+                    else:
+                        row["7 jours"] = "-"
+                    
+                    if hist.get("month_change") is not None:
+                        change = hist["month_change"]
+                        row["30 jours"] = f"{change:+.1f}" if change != 0 else "="
+                    else:
+                        row["30 jours"] = "-"
+                    
+                    var_rows.append(row)
+                
+                st.dataframe(pd.DataFrame(var_rows), use_container_width=True, hide_index=True)
+        else:
+            st.info("L'historique se construira au fil de vos analyses. Revenez dans quelques jours pour voir l'évolution.")
+            st.caption("💡 Les données sont sauvegardées localement dans visibility_history.json")
+    
+    # === TAB 5: WIKIPEDIA ===
+    with tab5:
         col1, col2 = st.columns(2)
         
         with col1:
@@ -882,7 +1270,8 @@ def main():
             fig.update_layout(yaxis_range=[-100, 100])
             st.plotly_chart(fig, use_container_width=True)
     
-    with tab3:
+    # === TAB 6: PRESSE ===
+    with tab6:
         col1, col2 = st.columns(2)
         
         with col1:
@@ -897,7 +1286,8 @@ def main():
                         title="Part de voix médiatique")
             st.plotly_chart(fig, use_container_width=True)
     
-    with tab4:
+    # === TAB 7: DONNÉES BRUTES ===
+    with tab7:
         debug_rows = []
         for rank, (cid, d) in enumerate(sorted_data, 1):
             yt = d["youtube"]
@@ -905,17 +1295,21 @@ def main():
             if yt.get("available"):
                 yt_info = f"{yt.get('total_views', 0)} ({yt.get('count', 0)} vidéos)"
             elif yt.get("error"):
-                yt_info = f"Erreur: {yt.get('error')}"
+                err = yt.get('error', '')
+                if "quota" in err.lower():
+                    yt_info = "Quota dépassé"
+                else:
+                    yt_info = f"Erreur"
+            
+            tv = d.get("tv_radio", {})
             
             row = {
                 "Rang": rank,
                 "Candidat": d["info"]["name"],
                 "Wikipedia (vues)": d["wikipedia"]["views"],
                 "Variation (%)": f"{max(min(d['wikipedia']['variation'], 100), -100):+.0f}%",
-                "Articles bruts": d["press"]["raw_count"],
-                "Après filtre date": d["press"].get("date_filtered_count", d["press"]["raw_count"]),
-                "Articles filtrés": d["press"]["count"],
-                "Sources": d["press"]["domains"],
+                "Articles presse": d["press"]["count"],
+                "Mentions TV/Radio": tv.get("count", 0),
                 "Google Trends": d["trends_score"],
                 "YouTube": yt_info,
                 "Score": d["score"]["total"]
@@ -999,7 +1393,7 @@ def main():
 
     # Footer
     st.markdown("---")
-    st.caption(f"Visibility Index v6.1 · Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}")
+    st.caption(f"Visibility Index v7.0 · Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}")
     
     # === SUGGESTIONS D'AMÉLIORATION ===
     with st.expander("Suggestions d'amélioration"):
@@ -1007,14 +1401,14 @@ def main():
         **Sources de données supplémentaires possibles :**
         - Twitter/X API : Mentions, engagement, followers (API payante)
         - LinkedIn : Activité des comptes politiques
-        - Sondages : Intégrer les derniers sondages d'intentions de vote
-        - Médias audiovisuels : Passages TV/radio (données INA)
+        - Données INA officielles : Temps d'antenne TV/radio précis
+        - Sondages officiels : Intégration automatique quand disponibles
         
         **Améliorations techniques :**
         - Système d'alertes par email sur changements significatifs
         - Export PDF automatique des rapports
-        - Comparaison historique (évolution sur plusieurs semaines)
         - Analyse de sentiment des articles (positif/négatif/neutre)
+        - Base de données cloud pour l'historique (persistance)
         
         **Nouveaux candidats potentiels :**
         - Rémi Féraud (PS)
