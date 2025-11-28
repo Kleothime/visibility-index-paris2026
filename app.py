@@ -425,7 +425,8 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
         
         for v in all_videos:
             title_lower = v["title"].lower()
-            if any(part in title_lower for part in name_parts if len(part) > 3):
+            # Garder si au moins une partie du nom (>= 3 chars) est dans le titre
+            if any(part in title_lower for part in name_parts if len(part) >= 3):
                 video_ids.append(v["id"])
                 filtered_videos.append({
                     "id": v["id"],
@@ -567,7 +568,11 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         
         wiki = get_wikipedia_views(c["wikipedia"], start_date, end_date)
         press = get_all_press_coverage(name, c["search_terms"], start_date, end_date)
-        youtube = get_youtube_data(name, youtube_key, start_date, end_date) if youtube_key else {"available": False, "total_views": 0, "videos": []}
+        
+        # YouTube : toujours 30 jours pour avoir des vidéos
+        yt_start = date.today() - timedelta(days=30)
+        yt_end = date.today()
+        youtube = get_youtube_data(name, youtube_key, yt_start, yt_end) if youtube_key else {"available": False, "total_views": 0, "videos": []}
         
         trends_score = trends["scores"].get(name, 0) if trends["success"] else 0
         
@@ -688,7 +693,11 @@ def main():
         
         yt_key = st.text_input("Clé API", value="", placeholder="Coller la clé ci-dessus")
         
-        if not yt_key:
+        if yt_key and yt_key.strip().startswith("AIza"):
+            st.success("Clé YouTube activée")
+        elif yt_key:
+            st.warning("Clé invalide (doit commencer par AIza)")
+        else:
             st.caption("Sans clé = données YouTube indisponibles")
         
         st.markdown("---")
@@ -724,6 +733,9 @@ def main():
     st.markdown("---")
     st.markdown("## Classement")
     
+    # Vérifier si YouTube est disponible pour au moins un candidat
+    youtube_enabled = any(d["youtube"].get("available", False) for _, d in sorted_data)
+    
     rows = []
     for rank, (cid, d) in enumerate(sorted_data, 1):
         row = {
@@ -735,8 +747,8 @@ def main():
             "Articles": d["press"]["count"],
             "Google Trends": d["trends_score"],
         }
-        if d["youtube"]["available"]:
-            row["Vues YouTube"] = d["youtube"]["total_views"]
+        if youtube_enabled:
+            row["Vues YouTube"] = d["youtube"].get("total_views", 0) if d["youtube"].get("available") else 0
         rows.append(row)
     
     df = pd.DataFrame(rows)
@@ -749,7 +761,7 @@ def main():
         "Google Trends": st.column_config.NumberColumn("Google Trends", format="%.0f"),
     }
     
-    if any(d["youtube"]["available"] for _, d in sorted_data):
+    if youtube_enabled:
         col_config["Vues YouTube"] = st.column_config.NumberColumn("Vues YouTube", format="%d")
     
     st.dataframe(df, column_config=col_config, hide_index=True, use_container_width=True)
@@ -862,6 +874,13 @@ def main():
     with tab4:
         debug_rows = []
         for rank, (cid, d) in enumerate(sorted_data, 1):
+            yt = d["youtube"]
+            yt_info = "-"
+            if yt.get("available"):
+                yt_info = f"{yt.get('total_views', 0)} ({yt.get('count', 0)} vidéos)"
+            elif yt.get("error"):
+                yt_info = f"Erreur: {yt.get('error')}"
+            
             row = {
                 "Rang": rank,
                 "Candidat": d["info"]["name"],
@@ -872,12 +891,12 @@ def main():
                 "Articles filtrés": d["press"]["count"],
                 "Sources": d["press"]["domains"],
                 "Google Trends": d["trends_score"],
-                "Vues YouTube": d["youtube"].get("total_views", 0) if d["youtube"]["available"] else "-",
+                "YouTube": yt_info,
                 "Score": d["score"]["total"]
             }
             
             if d["wikipedia"].get("error"):
-                row["Erreur"] = d["wikipedia"]["error"]
+                row["Erreur Wiki"] = d["wikipedia"]["error"]
             
             debug_rows.append(row)
         
