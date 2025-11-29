@@ -264,21 +264,18 @@ def save_history(history: List[Dict]) -> bool:
     return cloud_ok
 
 def add_to_history(data: Dict, period_label: str, end_date) -> List[Dict]:
-    """Ajoute les données actuelles à l'historique"""
+    """Ajoute les données actuelles à l'historique (une seule entrée par jour)"""
     history = load_history()
 
-    # Utiliser la date de fin de période comme référence
-    reference_date = end_date.strftime("%Y-%m-%d")
-    now = datetime.now()
-    timestamp_label = f"{reference_date} {now.strftime('%H:%M')}"
+    # Utiliser la date du jour
+    today = datetime.now().strftime("%Y-%m-%d")
 
-    # Éviter les doublons exacts (même date ET même période)
-    history = [h for h in history if not (h.get("date") == reference_date and h.get("period") == period_label)]
+    # Supprimer toutes les entrées du même jour pour garder seulement la plus récente
+    history = [h for h in history if h.get("date") != today]
 
     entry = {
-        "date": reference_date,
-        "timestamp": now.isoformat(),
-        "timestamp_label": timestamp_label,
+        "date": today,
+        "timestamp": datetime.now().isoformat(),
         "period": period_label,
         "scores": {}
     }
@@ -298,7 +295,7 @@ def add_to_history(data: Dict, period_label: str, end_date) -> List[Dict]:
     return history
 
 def get_historical_comparison(candidate_name: str, current_score: float) -> Dict:
-    """Compare le score actuel avec l'historique"""
+    """Compare le score actuel avec l'historique sur plusieurs périodes"""
     history = load_history()
 
     if not history:
@@ -317,23 +314,37 @@ def get_historical_comparison(candidate_name: str, current_score: float) -> Dict
 
     past_scores.sort(key=lambda x: x["date"])
 
-    week_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
-    month_ago = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+    # Définir les périodes de comparaison
+    now = datetime.now()
+    periods = {
+        "7j": (now - timedelta(days=7)).strftime("%Y-%m-%d"),
+        "14j": (now - timedelta(days=14)).strftime("%Y-%m-%d"),
+        "30j": (now - timedelta(days=30)).strftime("%Y-%m-%d"),
+        "2m": (now - timedelta(days=60)).strftime("%Y-%m-%d"),
+        "4m": (now - timedelta(days=120)).strftime("%Y-%m-%d"),
+    }
 
-    week_score = None
-    month_score = None
+    scores_at_periods = {}
+    for period_name, target_date in periods.items():
+        # Trouver le score le plus proche avant ou à cette date
+        score = None
+        for ps in past_scores:
+            if ps["date"] <= target_date:
+                score = ps["score"]
+        scores_at_periods[period_name] = score
 
-    for ps in past_scores:
-        if ps["date"] <= week_ago:
-            week_score = ps["score"]
-        if ps["date"] <= month_ago:
-            month_score = ps["score"]
+    # Calculer les variations pour chaque période
+    changes = {}
+    for period_name, old_score in scores_at_periods.items():
+        if old_score is not None:
+            changes[period_name] = round(current_score - old_score, 1)
+        else:
+            changes[period_name] = None
 
     return {
         "available": True,
         "history": past_scores[-30:],
-        "week_change": round(current_score - week_score, 1) if week_score else None,
-        "month_change": round(current_score - month_score, 1) if month_score else None
+        "changes": changes
     }
 
 # =============================================================================
@@ -1276,15 +1287,13 @@ def main():
         period_label_hist = f"{start_date} à {end_date}"
         history = add_to_history(data, period_label_hist, end_date)
 
-        if history:
+        if history and len(history) >= 1:
+            # Construire les données pour le graphique
             history_df_data = []
-            for entry in sorted(history, key=lambda x: x.get("timestamp", x.get("date"))):
-                # Utiliser timestamp_label si disponible, sinon date
-                display_label = entry.get("timestamp_label", entry.get("date"))
+            for entry in sorted(history, key=lambda x: x.get("date")):
                 for name, scores in entry.get("scores", {}).items():
                     history_df_data.append({
-                        "Date": display_label,
-                        "Période": entry.get("period", "-"),
+                        "Date": entry.get("date"),
                         "Candidat": name,
                         "Score": scores["total"]
                     })
@@ -1293,22 +1302,21 @@ def main():
                 df_hist = pd.DataFrame(history_df_data)
                 color_map = {c["name"]: c["color"] for c in CANDIDATES.values()}
 
-                unique_entries = df_hist["Date"].nunique()
+                unique_dates = df_hist["Date"].nunique()
 
-                if unique_entries == 1:
-                    st.info("Une seule analyse enregistrée. L'évolution apparaîtra avec plusieurs analyses.")
+                if unique_dates == 1:
+                    st.info(f"Historique : {unique_dates} jour enregistré")
+                else:
+                    st.success(f"Historique : {unique_dates} jours enregistrés")
 
-                if unique_entries >= 2:
-                    st.success(f"{unique_entries} analyses enregistrées - Évolution disponible")
-
+                # Graphique d'évolution
                 fig = px.line(df_hist, x="Date", y="Score", color="Candidat",
                              markers=True, color_discrete_map=color_map,
-                             title="Évolution des scores de visibilité")
+                             title="Évolution temporelle")
                 fig.update_layout(
                     yaxis_range=[0, 100],
                     yaxis_title="Score de visibilité",
-                    xaxis_title="Date et heure de l'analyse",
-                    xaxis=dict(type='category'),
+                    xaxis_title="Date",
                     legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
                     height=500,
                     margin=dict(b=100)
@@ -1318,17 +1326,36 @@ def main():
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-                if unique_entries > 1:
-                    st.markdown("### Variations")
+                # Tableau des variations
+                if unique_dates > 1:
+                    st.markdown("### Variations par période")
                     var_rows = []
                     for _, d in sorted_data:
                         name = d["info"]["name"]
                         current = d["score"]["total"]
                         hist = get_historical_comparison(name, current)
 
-                        row = {"Candidat": name, "Actuel": current}
-                        row["vs 7 jours"] = f"{hist['week_change']:+.1f}" if hist.get("week_change") is not None else "-"
-                        row["vs 30 jours"] = f"{hist['month_change']:+.1f}" if hist.get("month_change") is not None else "-"
+                        if hist.get("available"):
+                            changes = hist.get("changes", {})
+                            row = {
+                                "Candidat": name,
+                                "Actuel": f"{current:.1f}",
+                                "vs 7j": f"{changes['7j']:+.1f}" if changes.get('7j') is not None else "-",
+                                "vs 14j": f"{changes['14j']:+.1f}" if changes.get('14j') is not None else "-",
+                                "vs 30j": f"{changes['30j']:+.1f}" if changes.get('30j') is not None else "-",
+                                "vs 2 mois": f"{changes['2m']:+.1f}" if changes.get('2m') is not None else "-",
+                                "vs 4 mois": f"{changes['4m']:+.1f}" if changes.get('4m') is not None else "-",
+                            }
+                        else:
+                            row = {
+                                "Candidat": name,
+                                "Actuel": f"{current:.1f}",
+                                "vs 7j": "-",
+                                "vs 14j": "-",
+                                "vs 30j": "-",
+                                "vs 2 mois": "-",
+                                "vs 4 mois": "-",
+                            }
                         var_rows.append(row)
 
                     st.dataframe(pd.DataFrame(var_rows), use_container_width=True, hide_index=True)
