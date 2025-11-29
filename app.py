@@ -1,6 +1,5 @@
 """
-VISIBILITY INDEX v8.0 - Municipales Paris 2026
-Version française complète avec fiabilité améliorée
+Baromètre de visibilité médiatique - Municipales Paris 2026
 """
 
 import streamlit as st
@@ -21,8 +20,8 @@ import xml.etree.ElementTree as ET
 # =============================================================================
 
 st.set_page_config(
-    page_title="Visibility Index - Paris 2026",
-    page_icon="VI",
+    page_title="Baromètre Visibilité Médiatique - Paris 2026",
+    page_icon="BVM",
     layout="wide"
 )
 
@@ -937,8 +936,8 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
 # =============================================================================
 
 def main():
-    st.markdown("# Visibility Index v8.0")
-    st.markdown("**Municipales Paris 2026** — Analyse de visibilité médiatique")
+    st.markdown("# Baromètre de visibilité médiatique")
+    st.markdown("**Élections municipales Paris 2026**")
 
     with st.sidebar:
         st.markdown("## Configuration")
@@ -977,9 +976,10 @@ def main():
         )
 
         # YouTube
-        st.markdown("### API YouTube (optionnel)")
+        st.markdown("### API YouTube")
         st.caption("Pour activer l'analyse des vidéos YouTube")
-        yt_key = st.text_input("Clé API", value="", placeholder="Votre clé API YouTube", type="password")
+        st.code("AIzaSyCu27YMexJiCrzagkCnawkECG7WA1_wzDI", language=None)
+        yt_key = st.text_input("Clé API", value="", placeholder="Copier-coller la clé ci-dessus")
 
         if yt_key and yt_key.strip().startswith("AIza"):
             st.success("YouTube activé")
@@ -991,7 +991,7 @@ def main():
         if cloud_configured:
             st.success("Sauvegarde cloud activée")
         else:
-            with st.expander("Configurer (optionnel)"):
+            with st.expander("Configurer la sauvegarde cloud"):
                 st.markdown("""
                 **Pour conserver l'historique :**
                 1. Créer un compte sur [jsonbin.io](https://jsonbin.io)
@@ -1088,8 +1088,8 @@ def main():
     st.markdown("---")
     st.markdown("## Visualisations détaillées")
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
-        ["Scores", "Sondages", "TV / Radio", "Historique", "Wikipedia", "Presse", "Debug"]
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+        ["Scores", "Sondages", "TV / Radio", "Historique", "Wikipedia", "Presse"]
     )
 
     names = [d["info"]["name"] for _, d in sorted_data]
@@ -1213,8 +1213,14 @@ def main():
                 for media_name, count in top_media[:3]:
                     media_mentions = [m for m in mentions if m["media"] == media_name]
                     if media_mentions:
-                        url = media_mentions[0]["url"]
-                        links.append(f'<a href="{url}" target="_blank">{media_name} ({count})</a>')
+                        if len(media_mentions) == 1:
+                            url = media_mentions[0]["url"]
+                            links.append(f'<a href="{url}" target="_blank">{media_name}</a>')
+                        else:
+                            sub_links = []
+                            for idx, m in enumerate(media_mentions[:5], 1):
+                                sub_links.append(f'<a href="{m["url"]}" target="_blank">{idx}</a>')
+                            links.append(f"{media_name} ({', '.join(sub_links)})")
                     else:
                         links.append(f"{media_name} ({count})")
                 top_media_html = " · ".join(links)
@@ -1331,9 +1337,6 @@ def main():
     with tab5:
         days_in_period = (end_date - start_date).days + 1
 
-        if end_date >= date.today() - timedelta(days=1):
-            st.warning("Attention : Wikipedia a un délai de publication de 24 à 48 heures")
-
         col1, col2 = st.columns(2)
 
         with col1:
@@ -1411,30 +1414,6 @@ def main():
             )
             st.plotly_chart(fig, use_container_width=True)
 
-    # TAB 7: DEBUG
-    with tab7:
-        debug_rows = []
-        for rank, (cid, d) in enumerate(sorted_data, 1):
-            yt = d["youtube"]
-            yt_info = "-"
-            if yt.get("available"):
-                yt_info = f"{format_number(yt.get('total_views', 0))} ({yt.get('count', 0)} vidéos)"
-            elif yt.get("error"):
-                yt_info = "Erreur" if "quota" not in yt.get("error", "").lower() else "Quota dépassé"
-
-            debug_rows.append({
-                "Rang": rank,
-                "Candidat": d["info"]["name"],
-                "Wiki": format_number(d["wikipedia"]["views"]),
-                "Presse": d["press"]["count"],
-                "TV": d.get("tv_radio", {}).get("count", 0),
-                "Trends": d["trends_score"],
-                "YouTube": yt_info,
-                "Score": d["score"]["total"]
-            })
-
-        st.dataframe(pd.DataFrame(debug_rows), use_container_width=True, hide_index=True)
-
     # === ARTICLES ===
     st.markdown("---")
     st.markdown("## Articles de presse")
@@ -1472,10 +1451,6 @@ def main():
 
                     if len(yt["videos"]) > 10:
                         st.info(f"+ {len(yt['videos']) - 10} autres vidéos")
-
-    # Footer
-    st.markdown("---")
-    st.caption(f"Visibility Index v8.0 · Dernière mise à jour : {datetime.now().strftime('%d/%m/%Y à %H:%M')}")
 
 
 if __name__ == "__main__":
