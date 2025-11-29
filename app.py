@@ -348,8 +348,7 @@ def get_all_press_coverage(candidate_name: str, search_terms: List[str], start_d
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> Dict:
     """
-    Google Trends (pytrends) — scores comparables pour >5 candidats
-    Méthode fiable : requêtes 2-par-2 avec un "anchor" (référence).
+    Google Trends (pytrends) — requête groupée pour scores comparatifs réels
     """
     try:
         from pytrends.request import TrendReq
@@ -358,67 +357,83 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
         if not keywords:
             return {"success": False, "scores": {}, "errors": ["keywords vides"]}
 
-        anchor = keywords[0]
         timeframe = f"{start_date.strftime('%Y-%m-%d')} {end_date.strftime('%Y-%m-%d')}"
 
-        # Initialisation pytrends (compatible anciennes et nouvelles versions)
-        try:
-            pytrends = TrendReq(
-                hl="fr-FR",
-                tz=60,
-                timeout=(10, 25),
-                retries=4,
-                backoff_factor=1.2
-            )
-        except TypeError:
-            # anciennes versions de pytrends
-            pytrends = TrendReq(hl="fr-FR", tz=60)
+        # Initialisation pytrends simple (compatible avec urllib3<2)
+        pytrends = TrendReq(hl="fr-FR", tz=60)
 
-        ratios = {anchor: 1.0}
+        scores = {}
         errors = []
 
-        for kw in keywords:
-            if kw == anchor:
-                continue
+        # Requête groupée avec les 5 premiers candidats (limite pytrends)
+        try:
+            first_batch = keywords[:5]
+            pytrends.build_payload(first_batch, timeframe=timeframe, geo="FR")
+            time.sleep(1)
+            df = pytrends.interest_over_time()
 
-            try:
-                time.sleep(1.2)
-                pytrends.build_payload([kw, anchor], timeframe=timeframe, geo="FR")
-                df = pytrends.interest_over_time()
-
-                if df is None or df.empty or kw not in df.columns or anchor not in df.columns:
-                    ratios[kw] = 0.0
-                    continue
-
+            if df is not None and not df.empty:
                 if "isPartial" in df.columns:
                     df = df.drop(columns=["isPartial"])
+                
+                # Moyenne sur la période pour chaque candidat
+                for kw in first_batch:
+                    if kw in df.columns:
+                        scores[kw] = round(float(df[kw].mean()), 1)
+                    else:
+                        scores[kw] = 0.0
+            else:
+                errors.append("DataFrame vide pour le premier groupe")
+                for kw in first_batch:
+                    scores[kw] = 0.0
+                    
+        except Exception as e:
+            errors.append(f"Groupe 1: {str(e)[:60]}")
+            for kw in keywords[:5]:
+                scores[kw] = 0.0
 
-                kw_mean = float(df[kw].mean())
-                anchor_mean = float(df[anchor].mean())
+        # Pour les candidats restants (> 5), les comparer au leader du premier groupe
+        if len(keywords) > 5:
+            # Trouver le leader du premier groupe comme référence
+            reference = max(scores.items(), key=lambda x: x[1])[0] if scores else keywords[0]
+            ref_score = scores.get(reference, 50)
+            
+            for kw in keywords[5:]:
+                try:
+                    time.sleep(1.5)
+                    pytrends.build_payload([kw, reference], timeframe=timeframe, geo="FR")
+                    df = pytrends.interest_over_time()
+                    
+                    if df is not None and not df.empty and kw in df.columns and reference in df.columns:
+                        if "isPartial" in df.columns:
+                            df = df.drop(columns=["isPartial"])
+                        
+                        kw_mean = float(df[kw].mean())
+                        ref_mean = float(df[reference].mean())
+                        
+                        if ref_mean > 0:
+                            # Calculer le score proportionnel au leader
+                            ratio = kw_mean / ref_mean
+                            scores[kw] = round(ratio * ref_score, 1)
+                        else:
+                            scores[kw] = 0.0
+                    else:
+                        scores[kw] = 0.0
+                        
+                except Exception as e:
+                    errors.append(f"{kw}: {str(e)[:40]}")
+                    scores[kw] = 0.0
 
-                if anchor_mean <= 0 or kw_mean <= 0:
-                    ratios[kw] = 0.0
-                else:
-                    ratios[kw] = kw_mean / anchor_mean
-
-            except Exception as e:
-                ratios[kw] = 0.0
-                errors.append(f"{kw}: {str(e)[:80]}")
-
-        max_ratio = max(ratios.values()) if ratios else 0.0
-        scores = {
-            k: (round((v / max_ratio) * 100, 1) if max_ratio > 0 else 0.0)
-            for k, v in ratios.items()
-        }
-
+        # S'assurer que tous les keywords ont un score
         for kw in keywords:
-            scores.setdefault(kw, 0.0)
+            if kw not in scores:
+                scores[kw] = 0.0
 
         return {
-            "success": (max_ratio > 0 and any(x > 0 for x in scores.values())),
+            "success": any(v > 0 for v in scores.values()),
             "scores": scores,
             "errors": errors if errors else None,
-            "meta": {"anchor": anchor, "timeframe": timeframe, "geo": "FR"}
+            "meta": {"timeframe": timeframe, "geo": "FR"}
         }
 
     except ImportError:
