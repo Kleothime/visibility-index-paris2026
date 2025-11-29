@@ -25,63 +25,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Police personnalisée (Inter - professionnelle et moderne)
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-    html, body, [class*="css"], [class*="st-"] {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    }
-
-    h1, h2, h3, h4, h5, h6 {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-weight: 600;
-    }
-
-    /* Amélioration de la lisibilité */
-    body {
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-    }
-
-    /* Style personnalisé pour les expanders */
-    [data-testid="stExpander"] summary {
-        background-color: transparent !important;
-    }
-</style>
-
-<script>
-    // Masquer les textes d'icônes Material UI (keyboard_arrow, etc.)
-    function hideIconText() {
-        const spans = document.querySelectorAll('span');
-        spans.forEach(span => {
-            const text = span.textContent.trim();
-            if (text === 'keyboard_arrow_right' ||
-                text === 'keyboard_double_arrow_right' ||
-                text === 'keyboard_arrow_down' ||
-                text === 'keyboard_arrow_up') {
-                span.style.display = 'none';
-            }
-        });
-    }
-
-    // Exécuter au chargement et à chaque modification du DOM
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', hideIconText);
-    } else {
-        hideIconText();
-    }
-
-    // Observer les changements du DOM pour les éléments ajoutés dynamiquement
-    const observer = new MutationObserver(hideIconText);
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    // Exécuter périodiquement pour garantir le masquage
-    setInterval(hideIconText, 500);
-</script>
-""", unsafe_allow_html=True)
-
 # Clé API YouTube (sécurisée via secrets)
 try:
     YOUTUBE_API_KEY = st.secrets.get("YOUTUBE_API_KEY", "")
