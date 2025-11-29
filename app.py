@@ -97,36 +97,34 @@ CANDIDATES = {
 
 SONDAGES = [
     {
-        "date": "2024-11-04",
+        "date": "2025-11-03",
         "institut": "IFOP-Fiducial",
         "commanditaire": "Le Figaro / Sud Radio",
         "echantillon": 1037,
         "methode": "Questionnaire auto-administré en ligne",
-        "hypothese": "Hypothèse avec Pierre-Yves Bournazel candidat",
+        "hypothese": "Scénario avec listes séparées (Dati LR-MoDem-UDI, Bournazel Horizons-Renaissance)",
+        "source_url": "https://www.ifop.com/article/le-climat-politique-a-paris-11/",
         "scores": {
             "Rachida Dati": 27,
-            "Emmanuel Grégoire": 18,
-            "David Belliard": 17,
+            "Emmanuel Grégoire": 21,
             "Pierre-Yves Bournazel": 15,
+            "David Belliard": 13,
             "Sophia Chikirou": 12,
-            "Thierry Mariani": 7,
-            "Ian Brossat": 4,
         }
     },
     {
-        "date": "2024-06-21",
-        "institut": "ELABE",
-        "commanditaire": "La Tribune Dimanche / BFMTV",
-        "echantillon": 1097,
+        "date": "2025-03-26",
+        "institut": "IFOP-Fiducial",
+        "commanditaire": "Le Figaro / Sud Radio",
+        "echantillon": 1039,
         "methode": "Questionnaire auto-administré en ligne",
-        "hypothese": "Avec P-Y Bournazel, E. Grégoire candidat PS",
+        "hypothese": "Scénario union bloc central (Renaissance, LR, MoDem, Horizons)",
+        "source_url": "https://www.ifop.com/article/le-climat-politique-a-paris-10/",
         "scores": {
-            "Rachida Dati": 28,
-            "David Belliard": 22,
-            "Emmanuel Grégoire": 19,
-            "Sophia Chikirou": 14,
-            "Pierre-Yves Bournazel": 8,
-            "Thierry Mariani": 7,
+            "Rachida Dati": 35,
+            "Emmanuel Grégoire": 20,
+            "David Belliard": 16,
+            "Sophia Chikirou": 11,
         }
     },
 ]
@@ -1116,8 +1114,8 @@ def main():
                     st.markdown(f"**Échantillon :** {sondage['echantillon']} personnes")
                     st.markdown(f"**Méthode :** {sondage['methode']}")
                     st.markdown(f"**Hypothèse :** {sondage['hypothese']}")
-                    if sondage.get("url"):
-                        st.markdown(f"[Voir le sondage complet]({sondage['url']})")
+                    if sondage.get("source_url"):
+                        st.markdown(f"[Voir le sondage IFOP]({sondage['source_url']})")
 
                     sondage_rows = []
                     for name, score in sorted(sondage["scores"].items(), key=lambda x: x[1], reverse=True):
@@ -1152,6 +1150,46 @@ def main():
                         hovertemplate='<b>%{x}</b><br>%{y} %<extra></extra>'
                     )
                     st.plotly_chart(fig, use_container_width=True)
+
+            # Graphique d'évolution temporelle
+            if len(SONDAGES) > 1:
+                st.markdown("---")
+                st.markdown("### Évolution des intentions de vote")
+
+                evolution_data = []
+                for sondage in SONDAGES:
+                    for candidat, score in sondage["scores"].items():
+                        evolution_data.append({
+                            "Date": sondage["date"],
+                            "Candidat": candidat,
+                            "Score": score
+                        })
+
+                df_evolution = pd.DataFrame(evolution_data)
+                color_map = {c["name"]: c["color"] for c in CANDIDATES.values()}
+
+                fig_evolution = px.line(
+                    df_evolution,
+                    x="Date",
+                    y="Score",
+                    color="Candidat",
+                    markers=True,
+                    color_discrete_map=color_map,
+                    title="Évolution des intentions de vote dans le temps"
+                )
+                fig_evolution.update_layout(
+                    yaxis_range=[0, 40],
+                    yaxis_title="Intentions de vote (%)",
+                    xaxis_title="Date du sondage",
+                    xaxis=dict(type='category'),
+                    legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
+                    height=500,
+                    margin=dict(b=100)
+                )
+                fig_evolution.update_traces(
+                    hovertemplate='<b>%{fullData.name}</b><br>%{x}<br>%{y} %<extra></extra>'
+                )
+                st.plotly_chart(fig_evolution, use_container_width=True)
         else:
             st.info("Aucun sondage disponible")
 
