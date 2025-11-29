@@ -264,17 +264,17 @@ def save_history(history: List[Dict]) -> bool:
     return cloud_ok
 
 def add_to_history(data: Dict, period_label: str, end_date) -> List[Dict]:
-    """Ajoute les données actuelles à l'historique (une seule entrée par jour)"""
+    """Ajoute les données actuelles à l'historique (enregistre à la date de fin de période)"""
     history = load_history()
 
-    # Utiliser la date du jour
-    today = datetime.now().strftime("%Y-%m-%d")
+    # Utiliser la date de fin de période analysée
+    record_date = end_date.strftime("%Y-%m-%d")
 
-    # Supprimer toutes les entrées du même jour pour garder seulement la plus récente
-    history = [h for h in history if h.get("date") != today]
+    # Supprimer l'entrée existante pour cette date si elle existe
+    history = [h for h in history if h.get("date") != record_date]
 
     entry = {
-        "date": today,
+        "date": record_date,
         "timestamp": datetime.now().isoformat(),
         "period": period_label,
         "scores": {}
@@ -1284,8 +1284,41 @@ def main():
     with tab4:
         st.markdown("### Évolution des scores de visibilité")
 
-        period_label_hist = f"{start_date} à {end_date}"
-        history = add_to_history(data, period_label_hist, end_date)
+        # Bouton pour construire l'historique automatiquement
+        col_btn1, col_btn2 = st.columns([1, 3])
+        with col_btn1:
+            if st.button("Générer l'historique automatique", type="primary"):
+                with st.spinner("Analyse des 4 dernières semaines en cours..."):
+                    # Construire l'historique des 4 dernières semaines
+                    today = datetime.now().date()
+
+                    # Supprimer l'ancien historique
+                    save_history([])
+
+                    progress_bar = st.progress(0)
+
+                    for week_num in range(4):
+                        # Calculer les dates de la semaine
+                        week_end = today - timedelta(days=week_num * 7)
+                        week_start = week_end - timedelta(days=6)
+
+                        # Collecter les données pour cette semaine
+                        week_data = collect_data(selected, week_start, week_end, YOUTUBE_API_KEY)
+
+                        # Enregistrer dans l'historique
+                        period_label = f"{week_start} à {week_end}"
+                        add_to_history(week_data, period_label, week_end)
+
+                        progress_bar.progress((week_num + 1) / 4)
+
+                    st.success("Historique généré avec succès sur 4 semaines")
+                    st.rerun()
+
+        with col_btn2:
+            st.caption("Analyse automatique des 4 dernières semaines (28 jours)")
+
+        # Charger l'historique existant
+        history = load_history()
 
         if history and len(history) >= 1:
             # Construire les données pour le graphique
