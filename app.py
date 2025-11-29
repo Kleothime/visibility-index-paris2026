@@ -44,11 +44,33 @@ st.markdown("""
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
     }
+
+    /* Masquer les noms d'icônes Material UI qui s'affichent en texte */
+    [data-testid="stExpander"] summary::before,
+    [data-testid="stExpander"] summary span[class*="material"] {
+        content: "" !important;
+    }
+
+    /* Cacher les textes keyboard_arrow et similaires */
+    span:has-text("keyboard_arrow_right"),
+    span:has-text("keyboard_double_arrow_right"),
+    span:has-text("keyboard_arrow_down") {
+        font-size: 0 !important;
+        display: none !important;
+    }
+
+    /* Style personnalisé pour les expanders */
+    [data-testid="stExpander"] summary {
+        background-color: transparent !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# Clé API YouTube (utilisée automatiquement)
-YOUTUBE_API_KEY = "AIzaSyCu27YMexJiCrzagkCnawkECG7WA1_wzDI"
+# Clé API YouTube (sécurisée via secrets)
+try:
+    YOUTUBE_API_KEY = st.secrets.get("YOUTUBE_API_KEY", "")
+except:
+    YOUTUBE_API_KEY = ""  # Fallback si secrets non configurés
 
 # =============================================================================
 # CANDIDATS
@@ -126,27 +148,13 @@ SONDAGES = [
         "methode": "Questionnaire auto-administré en ligne",
         "hypothese": "Scénario avec listes séparées (Dati LR-MoDem-UDI, Bournazel Horizons-Renaissance)",
         "source_url": "https://www.ifop.com/article/le-climat-politique-a-paris-11/",
+        "note": "Fourchettes simplifiées à la valeur médiane",
         "scores": {
             "Rachida Dati": 27,
             "Emmanuel Grégoire": 21,
             "Pierre-Yves Bournazel": 15,
             "David Belliard": 13,
             "Sophia Chikirou": 12,
-        }
-    },
-    {
-        "date": "2025-03-26",
-        "institut": "IFOP-Fiducial",
-        "commanditaire": "Le Figaro / Sud Radio",
-        "echantillon": 1039,
-        "methode": "Questionnaire auto-administré en ligne",
-        "hypothese": "Scénario union bloc central (Renaissance, LR, MoDem, Horizons)",
-        "source_url": "https://www.ifop.com/article/le-climat-politique-a-paris-10/",
-        "scores": {
-            "Rachida Dati": 35,
-            "Emmanuel Grégoire": 20,
-            "David Belliard": 16,
-            "Sophia Chikirou": 11,
         }
     },
 ]
@@ -1024,6 +1032,27 @@ def main():
         st.markdown("---")
         st.markdown("### Pondération du score")
         st.caption("Presse 40% · Trends 35% · Wikipedia 15% · YouTube 10%")
+
+        st.markdown("---")
+        with st.expander("ℹ️ À propos de la méthodologie"):
+            st.markdown("""
+            **Sources de données** :
+            - Wikipedia (API officielle)
+            - GDELT & Google News (presse)
+            - Google Trends (pytrends)
+            - YouTube Data API v3
+
+            **Calibrations** :
+            - Wikipedia : 50 000 vues = 100 pts
+            - Presse : 50 articles = 80 pts
+            - YouTube : 1M de vues = 100 pts
+
+            **Sondages** : Fourchettes simplifiées à la valeur médiane.
+
+            Les scores sont indicatifs et ne reflètent que la visibilité médiatique, pas les intentions de vote réelles.
+            """)
+
+        st.markdown("---")
         st.caption("Kléothime Bourdon · bourdonkleothime@gmail.com")
 
     if not selected:
@@ -1077,10 +1106,10 @@ def main():
         st.metric("Score", f"{leader['score']['total']:.1f} / 100")
     with col3:
         total_articles = sum(d["press"]["count"] for _, d in sorted_data)
-        st.metric("Total articles", format_number(total_articles))
+        st.metric("Total articles (tous candidats)", format_number(total_articles))
     with col4:
         total_wiki = sum(d["wikipedia"]["views"] for _, d in sorted_data)
-        st.metric("Total Wikipedia", format_number(total_wiki))
+        st.metric("Total Wikipedia (tous candidats)", format_number(total_wiki))
 
     # === ONGLETS ===
     st.markdown("---")

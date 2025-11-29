@@ -36,11 +36,17 @@ Application web interactive pour suivre la visibilité médiatique des candidats
 # Installer les dépendances
 pip install -r requirements.txt
 
+# Configurer les secrets (optionnel pour YouTube)
+# Créer .streamlit/secrets.toml et ajouter :
+# YOUTUBE_API_KEY = "VOTRE_CLE_API"
+
 # Lancer l'application
 streamlit run app.py
 ```
 
 L'application sera accessible sur http://localhost:8501
+
+**Note** : Consultez [DEPLOYMENT.md](DEPLOYMENT.md) pour configurer les secrets de manière sécurisée.
 
 ## Fonctionnalités
 
@@ -96,6 +102,14 @@ SONDAGES = [
     },
 ]
 ```
+
+## Nouveautés v10.0
+
+- **Sécurité renforcée** : Clé API YouTube sécurisée via secrets (non exposée dans le code)
+- **Données corrigées** : Sondages vérifiés avec sources IFOP officielles
+- **Méthodologie documentée** : Disclaimer et calibrations explicités dans l'interface
+- **Corrections visuelles** : Problèmes d'affichage d'icônes résolus
+- Création de `.gitignore` et guide de déploiement
 
 ## Nouveautés v9.0
 
