@@ -263,17 +263,22 @@ def save_history(history: List[Dict]) -> bool:
 
     return cloud_ok
 
-def add_to_history(data: Dict, period_label: str) -> List[Dict]:
+def add_to_history(data: Dict, period_label: str, end_date) -> List[Dict]:
     """Ajoute les données actuelles à l'historique"""
     history = load_history()
 
-    today = datetime.now().strftime("%Y-%m-%d")
+    # Utiliser la date de fin de période comme référence
+    reference_date = end_date.strftime("%Y-%m-%d")
+    now = datetime.now()
+    timestamp_label = f"{reference_date} {now.strftime('%H:%M')}"
 
-    history = [h for h in history if not (h.get("date") == today and h.get("period") == period_label)]
+    # Éviter les doublons exacts (même date ET même période)
+    history = [h for h in history if not (h.get("date") == reference_date and h.get("period") == period_label)]
 
     entry = {
-        "date": today,
-        "timestamp": datetime.now().isoformat(),
+        "date": reference_date,
+        "timestamp": now.isoformat(),
+        "timestamp_label": timestamp_label,
         "period": period_label,
         "scores": {}
     }
@@ -1166,6 +1171,7 @@ def main():
                         })
 
                 df_evolution = pd.DataFrame(evolution_data)
+                df_evolution = df_evolution.sort_values('Date')  # Trier par date croissante
                 color_map = {c["name"]: c["color"] for c in CANDIDATES.values()}
 
                 fig_evolution = px.line(
@@ -1181,7 +1187,6 @@ def main():
                     yaxis_range=[0, 40],
                     yaxis_title="Intentions de vote (%)",
                     xaxis_title="Date du sondage",
-                    xaxis=dict(type='category'),
                     legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
                     height=500,
                     margin=dict(b=100)
@@ -1269,19 +1274,17 @@ def main():
         st.markdown("### Évolution des scores de visibilité")
 
         period_label_hist = f"{start_date} à {end_date}"
-        history = add_to_history(data, period_label_hist)
-
-        if is_cloud_configured():
-            st.success(f"Sauvegarde cloud : {len(history)} entrée(s)")
-        else:
-            st.warning(f"Sauvegarde locale : {len(history)} entrée(s) - Données perdues au redémarrage")
+        history = add_to_history(data, period_label_hist, end_date)
 
         if history:
             history_df_data = []
-            for entry in sorted(history, key=lambda x: x["date"]):
+            for entry in sorted(history, key=lambda x: x.get("timestamp", x.get("date"))):
+                # Utiliser timestamp_label si disponible, sinon date
+                display_label = entry.get("timestamp_label", entry.get("date"))
                 for name, scores in entry.get("scores", {}).items():
                     history_df_data.append({
-                        "Date": entry["date"],
+                        "Date": display_label,
+                        "Période": entry.get("period", "-"),
                         "Candidat": name,
                         "Score": scores["total"]
                     })
@@ -1290,18 +1293,21 @@ def main():
                 df_hist = pd.DataFrame(history_df_data)
                 color_map = {c["name"]: c["color"] for c in CANDIDATES.values()}
 
-                unique_dates = df_hist["Date"].nunique()
+                unique_entries = df_hist["Date"].nunique()
 
-                if unique_dates == 1:
-                    st.info("Une seule date enregistrée. L'évolution apparaîtra dès la prochaine analyse.")
+                if unique_entries == 1:
+                    st.info("Une seule analyse enregistrée. L'évolution apparaîtra avec plusieurs analyses.")
+
+                if unique_entries >= 2:
+                    st.success(f"{unique_entries} analyses enregistrées - Évolution disponible")
 
                 fig = px.line(df_hist, x="Date", y="Score", color="Candidat",
                              markers=True, color_discrete_map=color_map,
                              title="Évolution des scores de visibilité")
                 fig.update_layout(
                     yaxis_range=[0, 100],
-                    yaxis_title="Score",
-                    xaxis_title="Date",
+                    yaxis_title="Score de visibilité",
+                    xaxis_title="Date et heure de l'analyse",
                     xaxis=dict(type='category'),
                     legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
                     height=500,
@@ -1312,7 +1318,7 @@ def main():
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-                if unique_dates > 1:
+                if unique_entries > 1:
                     st.markdown("### Variations")
                     var_rows = []
                     for _, d in sorted_data:
