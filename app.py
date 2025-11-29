@@ -25,6 +25,9 @@ st.set_page_config(
     layout="wide"
 )
 
+# Clé API YouTube (utilisée automatiquement)
+YOUTUBE_API_KEY = "AIzaSyCu27YMexJiCrzagkCnawkECG7WA1_wzDI"
+
 # =============================================================================
 # CANDIDATS
 # =============================================================================
@@ -975,15 +978,6 @@ def main():
             format_func=lambda x: CANDIDATES[x]["name"]
         )
 
-        # YouTube
-        st.markdown("### API YouTube")
-        st.caption("Pour activer l'analyse des vidéos YouTube")
-        st.code("AIzaSyCu27YMexJiCrzagkCnawkECG7WA1_wzDI", language=None)
-        yt_key = st.text_input("Clé API", value="", placeholder="Copier-coller la clé ci-dessus")
-
-        if yt_key and yt_key.strip().startswith("AIza"):
-            st.success("YouTube activé")
-
         # Persistance cloud
         st.markdown("### Persistance historique")
 
@@ -1030,9 +1024,7 @@ def main():
         st.warning("Veuillez sélectionner au moins un candidat")
         return
 
-    youtube_key = yt_key.strip() if yt_key and yt_key.strip().startswith("AIza") else None
-
-    data = collect_data(selected, start_date, end_date, youtube_key)
+    data = collect_data(selected, start_date, end_date, YOUTUBE_API_KEY)
     sorted_data = sorted(data.items(), key=lambda x: x[1]["score"]["total"], reverse=True)
 
     # === CLASSEMENT ===
@@ -1435,10 +1427,7 @@ def main():
     st.markdown("## Vidéos YouTube les mentionnant")
 
     if not any(d["youtube"].get("available") for _, d in sorted_data):
-        if youtube_key:
-            st.warning("Aucune vidéo trouvée ou quota YouTube dépassé")
-        else:
-            st.info("Clé API YouTube requise pour activer cette fonctionnalité")
+        st.info("Aucune vidéo YouTube trouvée pour la période sélectionnée")
     else:
         for rank, (cid, d) in enumerate(sorted_data, 1):
             yt = d["youtube"]
