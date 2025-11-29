@@ -1,6 +1,6 @@
 """
-VISIBILITY INDEX v7.0 - Municipales Paris 2026
-Nouvelles fonctionnalités: Sondages, TV/Radio, Historique
+VISIBILITY INDEX v7.1 - Municipales Paris 2026
+Avec persistance cloud (JSONBin.io)
 """
 
 import streamlit as st
@@ -90,7 +90,7 @@ CANDIDATES = {
 }
 
 # =============================================================================
-# SONDAGES OFFICIELS (instituts neutres uniquement)
+# SONDAGES OFFICIELS
 # =============================================================================
 
 SONDAGES = [
@@ -127,19 +127,16 @@ SONDAGES = [
 ]
 
 def get_latest_sondage():
-    """Retourne le dernier sondage disponible"""
     if not SONDAGES:
         return None
     return max(SONDAGES, key=lambda x: x["date"])
 
 def get_candidate_sondage_score(candidate_name: str) -> Optional[int]:
-    """Retourne le score du dernier sondage pour un candidat"""
     latest = get_latest_sondage()
     if latest and candidate_name in latest["scores"]:
         return latest["scores"][candidate_name]
     return None
 
-# Médias audiovisuels à rechercher
 MEDIAS_TV_RADIO = [
     "BFM", "BFMTV", "LCI", "CNews", "TF1", "France 2", "France 3",
     "France Inter", "RTL", "Europe 1", "RMC", "France Info", "France 24",
@@ -147,12 +144,194 @@ MEDIAS_TV_RADIO = [
 ]
 
 # =============================================================================
+# PERSISTANCE CLOUD (JSONBin.io)
+# =============================================================================
+
+JSONBIN_API_URL = "https://api.jsonbin.io/v3/b"
+
+def load_history_cloud(bin_id: str, api_key: str) -> List[Dict]:
+    """Charge l'historique depuis JSONBin.io"""
+    if not bin_id or not api_key:
+        return []
+    
+    try:
+        headers = {"X-Master-Key": api_key}
+        response = requests.get(
+            f"{JSONBIN_API_URL}/{bin_id}/latest",
+            headers=headers,
+            timeout=10
+        )
+        if response.status_code == 200:
+            data = response.json()
+            record = data.get("record", [])
+            if isinstance(record, list):
+                return record
+            return []
+    except Exception as e:
+        pass
+    
+    return []
+
+def save_history_cloud(history: List[Dict], bin_id: str, api_key: str) -> bool:
+    """Sauvegarde l'historique sur JSONBin.io"""
+    if not bin_id or not api_key:
+        return False
+    
+    try:
+        cutoff = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
+        history = [h for h in history if h.get("date", "") >= cutoff]
+        
+        headers = {
+            "X-Master-Key": api_key,
+            "Content-Type": "application/json"
+        }
+        response = requests.put(
+            f"{JSONBIN_API_URL}/{bin_id}",
+            headers=headers,
+            json=history,
+            timeout=10
+        )
+        return response.status_code == 200
+    except Exception as e:
+        return False
+
+def get_cloud_config():
+    """Récupère la config cloud depuis secrets ou session"""
+    bin_id = None
+    api_key = None
+    
+    try:
+        bin_id = st.secrets.get("JSONBIN_BIN_ID", None)
+        api_key = st.secrets.get("JSONBIN_API_KEY", None)
+    except:
+        pass
+    
+    if not bin_id:
+        bin_id = st.session_state.get("jsonbin_bin_id", "")
+    if not api_key:
+        api_key = st.session_state.get("jsonbin_api_key", "")
+    
+    return bin_id, api_key
+
+def is_cloud_configured() -> bool:
+    """Vérifie si la persistance cloud est configurée"""
+    bin_id, api_key = get_cloud_config()
+    return bool(bin_id and api_key)
+
+# =============================================================================
+# HISTORIQUE (avec fallback local)
+# =============================================================================
+
+HISTORY_FILE = "visibility_history.json"
+
+def load_history() -> List[Dict]:
+    """Charge l'historique (cloud prioritaire, sinon local)"""
+    bin_id, api_key = get_cloud_config()
+    
+    if bin_id and api_key:
+        cloud_history = load_history_cloud(bin_id, api_key)
+        if cloud_history:
+            return cloud_history
+    
+    try:
+        with open(HISTORY_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return []
+
+def save_history(history: List[Dict]) -> bool:
+    """Sauvegarde l'historique (cloud + local)"""
+    bin_id, api_key = get_cloud_config()
+    
+    cloud_ok = False
+    if bin_id and api_key:
+        cloud_ok = save_history_cloud(history, bin_id, api_key)
+    
+    try:
+        cutoff = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
+        history = [h for h in history if h.get("date", "") >= cutoff]
+        with open(HISTORY_FILE, "w") as f:
+            json.dump(history, f, indent=2)
+    except:
+        pass
+    
+    return cloud_ok
+
+def add_to_history(data: Dict, period_label: str) -> List[Dict]:
+    """Ajoute les données actuelles à l'historique"""
+    history = load_history()
+    
+    today = datetime.now().strftime("%Y-%m-%d")
+    
+    history = [h for h in history if not (h.get("date") == today and h.get("period") == period_label)]
+    
+    entry = {
+        "date": today,
+        "timestamp": datetime.now().isoformat(),
+        "period": period_label,
+        "scores": {}
+    }
+    
+    for cid, d in data.items():
+        entry["scores"][d["info"]["name"]] = {
+            "total": d["score"]["total"],
+            "trends": d["trends_score"],
+            "press": d["press"]["count"],
+            "wiki": d["wikipedia"]["views"],
+            "youtube": d["youtube"].get("total_views", 0) if d["youtube"].get("available") else 0
+        }
+    
+    history.append(entry)
+    save_history(history)
+    
+    return history
+
+def get_historical_comparison(candidate_name: str, current_score: float) -> Dict:
+    """Compare le score actuel avec l'historique"""
+    history = load_history()
+    
+    if not history:
+        return {"available": False}
+    
+    past_scores = []
+    for entry in history:
+        if candidate_name in entry.get("scores", {}):
+            past_scores.append({
+                "date": entry["date"],
+                "score": entry["scores"][candidate_name]["total"]
+            })
+    
+    if not past_scores:
+        return {"available": False}
+    
+    past_scores.sort(key=lambda x: x["date"])
+    
+    week_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+    month_ago = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+    
+    week_score = None
+    month_score = None
+    
+    for ps in past_scores:
+        if ps["date"] <= week_ago:
+            week_score = ps["score"]
+        if ps["date"] <= month_ago:
+            month_score = ps["score"]
+    
+    return {
+        "available": True,
+        "history": past_scores[-30:],
+        "week_change": round(current_score - week_score, 1) if week_score else None,
+        "month_change": round(current_score - month_score, 1) if month_score else None
+    }
+
+# =============================================================================
 # FONCTIONS DE COLLECTE
 # =============================================================================
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def get_wikipedia_views(page_title: str, start_date: date, end_date: date) -> Dict:
-    """Wikipedia API - Calcul rigoureux des vues et variations"""
+    """Wikipedia API"""
     try:
         days_in_period = (end_date - start_date).days + 1
         ref_end = start_date - timedelta(days=1)
@@ -164,7 +343,7 @@ def get_wikipedia_views(page_title: str, start_date: date, end_date: date) -> Di
             f"{ref_start.strftime('%Y%m%d')}/{end_date.strftime('%Y%m%d')}"
         )
         
-        response = requests.get(url, headers={"User-Agent": "VisibilityIndex/7.0"}, timeout=15)
+        response = requests.get(url, headers={"User-Agent": "VisibilityIndex/7.1"}, timeout=15)
         
         if response.status_code != 200:
             return {"views": 0, "variation": 0, "daily": {}, "avg_daily": 0, 
@@ -289,7 +468,7 @@ def get_google_news_articles(search_term: str) -> List[Dict]:
 
 
 def get_all_press_coverage(candidate_name: str, search_terms: List[str], start_date: date, end_date: date) -> Dict:
-    """Récupère tous les articles pour un candidat, filtrés par période"""
+    """Récupère tous les articles pour un candidat"""
     all_articles = []
     seen_urls = set()
     
@@ -312,9 +491,8 @@ def get_all_press_coverage(candidate_name: str, search_terms: List[str], start_d
     date_filtered = []
     for art in all_articles:
         art_date = art.get("date", "")
-        if art_date:
-            if start_str <= art_date <= end_str:
-                date_filtered.append(art)
+        if art_date and start_str <= art_date <= end_str:
+            date_filtered.append(art)
     
     name_parts = candidate_name.lower().split()
     last_name = name_parts[-1] if name_parts else ""
@@ -345,12 +523,9 @@ def get_all_press_coverage(candidate_name: str, search_terms: List[str], start_d
     }
 
 
-@st.cache_data(ttl=7200, show_spinner=False)  # Cache 2h pour éviter trop de requêtes
+@st.cache_data(ttl=7200, show_spinner=False)
 def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> Dict:
-    """
-    Google Trends (pytrends) — requête groupée uniquement (max 5 candidats)
-    Limité à 5 candidats pour éviter le rate-limiting de Google
-    """
+    """Google Trends via pytrends"""
     try:
         from pytrends.request import TrendReq
         import time
@@ -360,23 +535,17 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
             return {"success": False, "scores": {}, "errors": ["keywords vides"]}
 
         timeframe = f"{start_date.strftime('%Y-%m-%d')} {end_date.strftime('%Y-%m-%d')}"
-
         scores = {}
         errors = []
         
-        # Limiter à 5 candidats (limite de pytrends)
         keywords_limited = keywords[:5]
         
-        # Retry avec backoff exponentiel
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                # Délai aléatoire pour éviter les patterns détectables
                 time.sleep(2 + random.uniform(0, 2))
-                
                 pytrends = TrendReq(hl="fr-FR", tz=60)
                 pytrends.build_payload(keywords_limited, timeframe=timeframe, geo="FR")
-                
                 time.sleep(1 + random.uniform(0, 1))
                 df = pytrends.interest_over_time()
 
@@ -384,43 +553,34 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
                     if "isPartial" in df.columns:
                         df = df.drop(columns=["isPartial"])
                     
-                    # Moyenne sur la période pour chaque candidat
                     for kw in keywords_limited:
                         if kw in df.columns:
                             scores[kw] = round(float(df[kw].mean()), 1)
                         else:
                             scores[kw] = 0.0
-                    
-                    # Succès, sortir de la boucle
                     break
                 else:
                     if attempt < max_retries - 1:
-                        time.sleep(5 * (attempt + 1))  # Backoff
+                        time.sleep(5 * (attempt + 1))
                     else:
-                        errors.append("DataFrame vide après plusieurs tentatives")
+                        errors.append("DataFrame vide")
                         
             except Exception as e:
                 err_str = str(e)
                 if "429" in err_str:
                     if attempt < max_retries - 1:
-                        # Attendre plus longtemps si rate-limited
-                        wait_time = 10 * (attempt + 1) + random.uniform(0, 5)
-                        time.sleep(wait_time)
+                        time.sleep(10 * (attempt + 1) + random.uniform(0, 5))
                     else:
-                        errors.append(f"Rate limit Google (429) - réessayez dans quelques minutes")
+                        errors.append("Rate limit Google (429)")
                 else:
                     errors.append(f"Erreur: {err_str[:50]}")
                     break
 
-        # Pour les candidats au-delà de 5, on ne fait PAS de requête supplémentaire
-        # pour éviter le rate-limiting. On leur attribue un score estimé.
         if len(keywords) > 5 and scores:
             avg_score = sum(scores.values()) / len(scores) if scores else 0
             for kw in keywords[5:]:
-                # Score estimé = moyenne des autres (approximation)
-                scores[kw] = round(avg_score * 0.5, 1)  # Estimation conservatrice
+                scores[kw] = round(avg_score * 0.5, 1)
 
-        # S'assurer que tous les keywords ont un score
         for kw in keywords:
             if kw not in scores:
                 scores[kw] = 0.0
@@ -428,26 +588,16 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
         return {
             "success": any(v > 0 for v in scores.values()),
             "scores": scores,
-            "errors": errors if errors else None,
-            "meta": {"timeframe": timeframe, "geo": "FR", "limited_to": len(keywords_limited)}
+            "errors": errors if errors else None
         }
 
     except ImportError:
-        return {
-            "success": False,
-            "scores": {kw: 0.0 for kw in keywords},
-            "error": "pytrends non installé"
-        }
+        return {"success": False, "scores": {kw: 0.0 for kw in keywords}, "error": "pytrends non installé"}
     except Exception as e:
-        return {
-            "success": False,
-            "scores": {kw: 0.0 for kw in keywords},
-            "error": str(e)[:120]
-        }
+        return {"success": False, "scores": {kw: 0.0 for kw in keywords}, "error": str(e)[:100]}
 
 
 def _is_short(duration: str) -> bool:
-    """Vérifie si une vidéo est un short (< 60 secondes)"""
     if not duration:
         return False
     match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration)
@@ -456,8 +606,7 @@ def _is_short(duration: str) -> bool:
     hours = int(match.group(1) or 0)
     minutes = int(match.group(2) or 0)
     seconds = int(match.group(3) or 0)
-    total_seconds = hours * 3600 + minutes * 60 + seconds
-    return total_seconds < 60
+    return (hours * 3600 + minutes * 60 + seconds) < 60
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
@@ -473,7 +622,7 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
     published_after = start_date.strftime("%Y-%m-%dT00:00:00Z")
     published_before = (end_date + timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
     
-    params_relevance = {
+    params = {
         "part": "snippet",
         "q": search_term,
         "type": "video",
@@ -486,83 +635,37 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
         "key": api_key
     }
     
-    response1 = None
     error_msg = None
     
     try:
-        response1 = requests.get(search_url, params=params_relevance, timeout=15)
+        response = requests.get(search_url, params=params, timeout=15)
         
-        if response1.status_code == 200:
-            data = response1.json()
-            for item in data.get("items", []):
+        if response.status_code == 200:
+            for item in response.json().get("items", []):
                 vid_id = item.get("id", {}).get("videoId", "")
                 if vid_id and vid_id not in seen_ids:
                     seen_ids.add(vid_id)
-                    pub_date = item.get("snippet", {}).get("publishedAt", "")[:10]
                     all_videos.append({
                         "id": vid_id,
                         "title": item.get("snippet", {}).get("title", ""),
                         "channel": item.get("snippet", {}).get("channelTitle", ""),
-                        "published": pub_date
+                        "published": item.get("snippet", {}).get("publishedAt", "")[:10]
                     })
         else:
             try:
-                err_data = response1.json()
-                err_detail = err_data.get("error", {})
-                error_msg = err_detail.get("message", "")
-                if not error_msg:
-                    errors = err_detail.get("errors", [])
-                    if errors:
-                        error_msg = errors[0].get("reason", f"HTTP {response1.status_code}")
-                    else:
-                        error_msg = f"HTTP {response1.status_code}"
+                err_data = response.json()
+                error_msg = err_data.get("error", {}).get("message", f"HTTP {response.status_code}")
             except:
-                error_msg = f"HTTP {response1.status_code}"
+                error_msg = f"HTTP {response.status_code}"
                 
-    except requests.exceptions.Timeout:
-        error_msg = "Timeout (15s)"
-    except requests.exceptions.ConnectionError as e:
-        error_msg = f"Connexion refusée: {str(e)[:50]}"
     except Exception as e:
-        error_msg = f"Exception: {str(e)[:50]}"
+        error_msg = str(e)[:50]
     
     if error_msg and not all_videos:
         return {"available": False, "videos": [], "total_views": 0, "error": error_msg}
     
-    if response1 and response1.status_code == 200:
-        params_views = {
-            "part": "snippet",
-            "q": search_term,
-            "type": "video",
-            "order": "viewCount",
-            "maxResults": 25,
-            "regionCode": "FR",
-            "relevanceLanguage": "fr",
-            "publishedAfter": published_after,
-            "publishedBefore": published_before,
-            "key": api_key
-        }
-        
-        try:
-            response2 = requests.get(search_url, params=params_views, timeout=15)
-            
-            if response2.status_code == 200:
-                for item in response2.json().get("items", []):
-                    vid_id = item.get("id", {}).get("videoId", "")
-                    if vid_id and vid_id not in seen_ids:
-                        seen_ids.add(vid_id)
-                        pub_date = item.get("snippet", {}).get("publishedAt", "")[:10]
-                        all_videos.append({
-                            "id": vid_id,
-                            "title": item.get("snippet", {}).get("title", ""),
-                            "channel": item.get("snippet", {}).get("channelTitle", ""),
-                            "published": pub_date
-                        })
-        except:
-            pass
-    
     if not all_videos:
-        return {"available": False, "videos": [], "total_views": 0, "error": error_msg or "Aucune vidéo trouvée"}
+        return {"available": False, "videos": [], "total_views": 0, "error": "Aucune vidéo trouvée"}
     
     name_parts = search_term.lower().split()
     filtered_videos = []
@@ -581,7 +684,7 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
             })
     
     if not filtered_videos:
-        return {"available": False, "videos": [], "total_views": 0, "error": "Aucune vidéo avec le nom dans le titre"}
+        return {"available": False, "videos": [], "total_views": 0, "error": "Aucune vidéo pertinente"}
     
     total_views = 0
     if video_ids:
@@ -596,50 +699,39 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
             stats_response = requests.get(stats_url, params=stats_params, timeout=10)
             
             if stats_response.status_code == 200:
-                stats_items = stats_response.json().get("items", [])
-                stats_map = {item["id"]: item for item in stats_items}
+                stats_map = {item["id"]: item for item in stats_response.json().get("items", [])}
                 
                 for v in filtered_videos:
                     if v["id"] in stats_map:
                         item = stats_map[v["id"]]
                         views = int(item.get("statistics", {}).get("viewCount", 0))
                         duration = item.get("contentDetails", {}).get("duration", "")
-                        
                         v["views"] = views
                         v["duration"] = duration
                         v["is_short"] = _is_short(duration)
                         total_views += views
-        except Exception:
+        except:
             pass
     
     filtered_videos.sort(key=lambda x: x.get("views", 0), reverse=True)
-    
-    shorts_count = sum(1 for v in filtered_videos if v.get("is_short", False))
-    long_count = len(filtered_videos) - shorts_count
     
     return {
         "available": True,
         "videos": filtered_videos,
         "total_views": total_views,
         "count": len(filtered_videos),
-        "shorts_count": shorts_count,
-        "long_count": long_count
+        "shorts_count": sum(1 for v in filtered_videos if v.get("is_short", False)),
+        "long_count": sum(1 for v in filtered_videos if not v.get("is_short", False))
     }
 
-
-# =============================================================================
-# PASSAGES TV/RADIO
-# =============================================================================
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def get_tv_radio_mentions(candidate_name: str, start_date: date, end_date: date) -> Dict:
     """Recherche les mentions TV/Radio via Google News"""
-    
     mentions = []
     media_counts = {}
     
     last_name = candidate_name.split()[-1].lower()
-    
     media_query = " OR ".join(MEDIAS_TV_RADIO[:6])
     search_query = f"{candidate_name} ({media_query})"
     
@@ -671,15 +763,12 @@ def get_tv_radio_mentions(candidate_name: str, start_date: date, end_date: date)
                 if art_date and not (start_str <= art_date <= end_str):
                     continue
                 
-                title_lower = title.lower()
-                source_lower = source.lower()
-                
-                if last_name not in title_lower:
+                if last_name not in title.lower():
                     continue
                 
                 detected_media = None
                 for media in MEDIAS_TV_RADIO:
-                    if media.lower() in source_lower or media.lower() in title_lower:
+                    if media.lower() in source.lower() or media.lower() in title.lower():
                         detected_media = media
                         break
                 
@@ -692,8 +781,7 @@ def get_tv_radio_mentions(candidate_name: str, start_date: date, end_date: date)
                         "url": link
                     })
                     media_counts[detected_media] = media_counts.get(detected_media, 0) + 1
-    
-    except Exception as e:
+    except:
         pass
     
     return {
@@ -705,115 +793,14 @@ def get_tv_radio_mentions(candidate_name: str, start_date: date, end_date: date)
 
 
 # =============================================================================
-# HISTORIQUE
-# =============================================================================
-
-HISTORY_FILE = "visibility_history.json"
-
-def load_history() -> List[Dict]:
-    """Charge l'historique depuis le fichier JSON"""
-    try:
-        with open(HISTORY_FILE, "r") as f:
-            return json.load(f)
-    except:
-        return []
-
-def save_history(history: List[Dict]):
-    """Sauvegarde l'historique dans le fichier JSON"""
-    try:
-        cutoff = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
-        history = [h for h in history if h.get("date", "") >= cutoff]
-        
-        with open(HISTORY_FILE, "w") as f:
-            json.dump(history, f, indent=2)
-    except:
-        pass
-
-def add_to_history(data: Dict, period_label: str):
-    """Ajoute les données actuelles à l'historique"""
-    history = load_history()
-    
-    today = datetime.now().strftime("%Y-%m-%d")
-    
-    history = [h for h in history if not (h.get("date") == today and h.get("period") == period_label)]
-    
-    entry = {
-        "date": today,
-        "timestamp": datetime.now().isoformat(),
-        "period": period_label,
-        "scores": {}
-    }
-    
-    for cid, d in data.items():
-        entry["scores"][d["info"]["name"]] = {
-            "total": d["score"]["total"],
-            "trends": d["trends_score"],
-            "press": d["press"]["count"],
-            "wiki": d["wikipedia"]["views"],
-            "youtube": d["youtube"].get("total_views", 0) if d["youtube"].get("available") else 0
-        }
-    
-    history.append(entry)
-    save_history(history)
-    
-    return history
-
-def get_historical_comparison(candidate_name: str, current_score: float) -> Dict:
-    """Compare le score actuel avec l'historique"""
-    history = load_history()
-    
-    if not history:
-        return {"available": False}
-    
-    past_scores = []
-    for entry in history:
-        if candidate_name in entry.get("scores", {}):
-            past_scores.append({
-                "date": entry["date"],
-                "score": entry["scores"][candidate_name]["total"]
-            })
-    
-    if not past_scores:
-        return {"available": False}
-    
-    past_scores.sort(key=lambda x: x["date"])
-    
-    week_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
-    month_ago = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
-    
-    week_score = None
-    month_score = None
-    
-    for ps in past_scores:
-        if ps["date"] <= week_ago:
-            week_score = ps["score"]
-        if ps["date"] <= month_ago:
-            month_score = ps["score"]
-    
-    return {
-        "available": True,
-        "history": past_scores[-14:],
-        "week_change": round(current_score - week_score, 1) if week_score else None,
-        "month_change": round(current_score - month_score, 1) if month_score else None
-    }
-
-
-# =============================================================================
 # CALCUL DU SCORE
 # =============================================================================
 
-def calculate_score(wiki_views: int, press_count: int, press_domains: int, trends_score: float, youtube_views: int, youtube_available: bool) -> Dict:
-    """
-    Pondération :
-    - Google Trends : 35%
-    - Presse : 40%
-    - Wikipedia : 15%
-    - YouTube : 10%
-    """
+def calculate_score(wiki_views: int, press_count: int, press_domains: int, 
+                    trends_score: float, youtube_views: int, youtube_available: bool) -> Dict:
+    """Pondération: Trends 35%, Presse 40%, Wikipedia 15%, YouTube 10%"""
     
-    wiki_score = 0
-    if wiki_views > 0:
-        wiki_score = min((math.log10(wiki_views) / 4.7) * 100, 100)
+    wiki_score = min((math.log10(wiki_views) / 4.7) * 100, 100) if wiki_views > 0 else 0
     
     press_base = min((press_count / 50) * 80, 80)
     diversity_bonus = min((press_domains / 20) * 20, 20)
@@ -825,13 +812,7 @@ def calculate_score(wiki_views: int, press_count: int, press_domains: int, trend
     if youtube_available and youtube_views > 0:
         yt_score = min((math.log10(youtube_views) / 6) * 100, 100)
     
-    total = (
-        trends_norm * 0.35 +
-        press_score * 0.40 +
-        wiki_score * 0.15 +
-        yt_score * 0.10
-    )
-    
+    total = trends_norm * 0.35 + press_score * 0.40 + wiki_score * 0.15 + yt_score * 0.10
     total = min(max(total, 0), 100)
     
     return {
@@ -853,7 +834,6 @@ def calculate_score(wiki_views: int, press_count: int, press_domains: int, trend
 
 def collect_data(candidate_ids: List[str], start_date: date, end_date: date, youtube_key: Optional[str]) -> Dict:
     """Collecte toutes les données"""
-    
     results = {}
     
     progress = st.progress(0)
@@ -880,7 +860,6 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         
         wiki = get_wikipedia_views(c["wikipedia"], start_date, end_date)
         press = get_all_press_coverage(name, c["search_terms"], start_date, end_date)
-        
         tv_radio = get_tv_radio_mentions(name, start_date, end_date)
         
         yt_start = date.today() - timedelta(days=30)
@@ -935,7 +914,6 @@ def format_num(n: int) -> str:
 
 
 def _format_duration(duration: str) -> str:
-    """Convertit PT1H2M3S en 1:02:03"""
     match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration)
     if not match:
         return ""
@@ -945,8 +923,7 @@ def _format_duration(duration: str) -> str:
     
     if hours > 0:
         return f"{hours}:{minutes:02d}:{seconds:02d}"
-    else:
-        return f"{minutes}:{seconds:02d}"
+    return f"{minutes}:{seconds:02d}"
 
 
 # =============================================================================
@@ -954,30 +931,21 @@ def _format_duration(duration: str) -> str:
 # =============================================================================
 
 def main():
-    st.markdown("# Visibility Index v7.0")
+    st.markdown("# Visibility Index v7.1")
     st.markdown("**Municipales Paris 2026** — Analyse de visibilité médiatique")
     
     with st.sidebar:
         st.markdown("## Configuration")
         
+        # Période
         st.markdown("### Période d'analyse")
         
-        period_type = st.radio(
-            "Type de période",
-            ["Prédéfinie", "Personnalisée"],
-            horizontal=True
-        )
+        period_type = st.radio("Type de période", ["Prédéfinie", "Personnalisée"], horizontal=True)
         
         if period_type == "Prédéfinie":
-            period_options = {
-                "48 heures": 2,
-                "7 jours": 7,
-                "14 jours": 14,
-                "30 jours": 30
-            }
+            period_options = {"48 heures": 2, "7 jours": 7, "14 jours": 14, "30 jours": 30}
             period_label = st.selectbox("Durée", list(period_options.keys()))
             period_days = period_options[period_label]
-            
             end_date = date.today()
             start_date = end_date - timedelta(days=period_days - 1)
         else:
@@ -988,11 +956,12 @@ def main():
                 end_date = st.date_input("Fin", value=date.today(), max_value=date.today())
             
             if start_date > end_date:
-                st.error("La date de début doit être avant la date de fin")
+                st.error("Date début > date fin")
                 return
         
         st.caption(f"{start_date.strftime('%d/%m/%Y')} → {end_date.strftime('%d/%m/%Y')}")
         
+        # Candidats
         st.markdown("### Candidats")
         selected = st.multiselect(
             "Sélection",
@@ -1001,42 +970,63 @@ def main():
             format_func=lambda x: CANDIDATES[x]["name"]
         )
         
+        # YouTube
         st.markdown("### YouTube API")
-        
         st.code("AIzaSyCu27YMexJiCrzagkCnawkECG7WA1_wzDI", language=None)
-        
         yt_key = st.text_input("Clé API", value="", placeholder="Coller la clé ci-dessus")
         
         if yt_key and yt_key.strip().startswith("AIza"):
-            st.success("Clé YouTube activée")
-        elif yt_key:
-            st.warning("Clé invalide (doit commencer par AIza)")
+            st.success("✓ YouTube activé")
+        
+        # Persistance cloud
+        st.markdown("### 💾 Persistance historique")
+        
+        cloud_configured = is_cloud_configured()
+        if cloud_configured:
+            st.success("✓ Cloud configuré")
         else:
-            st.caption("Sans clé = données YouTube indisponibles")
+            with st.expander("Configurer (optionnel)"):
+                st.markdown("""
+                **Pour conserver l'historique :**
+                1. Créer un compte sur [jsonbin.io](https://jsonbin.io)
+                2. Copier la **Master Key**
+                3. Créer un bin avec `[]`
+                4. Copier l'**ID du bin**
+                """)
+                
+                bin_id = st.text_input("Bin ID", value=st.session_state.get("jsonbin_bin_id", ""))
+                api_key = st.text_input("Master Key", value=st.session_state.get("jsonbin_api_key", ""), type="password")
+                
+                if bin_id:
+                    st.session_state["jsonbin_bin_id"] = bin_id
+                if api_key:
+                    st.session_state["jsonbin_api_key"] = api_key
+                
+                if bin_id and api_key:
+                    if st.button("Tester connexion"):
+                        test = load_history_cloud(bin_id, api_key)
+                        if test is not None:
+                            st.success(f"✓ OK ({len(test)} entrées)")
+                        else:
+                            st.error("Échec")
         
         st.markdown("---")
         
-        if st.button("Rafraîchir les données", use_container_width=True):
+        if st.button("🔄 Rafraîchir", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
         
         st.markdown("---")
         st.markdown("### Pondération")
-        st.caption("Presse : 40%")
-        st.caption("Google Trends : 35%")
-        st.caption("Wikipedia : 15%")
-        st.caption("Vues YouTube : 10%")
+        st.caption("Presse 40% · Trends 35% · Wiki 15% · YT 10%")
     
     if not selected:
         st.warning("Sélectionnez au moins un candidat")
         return
     
-    youtube_key = None
-    if yt_key and yt_key.strip().startswith("AIza"):
-        youtube_key = yt_key.strip()
+    youtube_key = yt_key.strip() if yt_key and yt_key.strip().startswith("AIza") else None
     
     data = collect_data(selected, start_date, end_date, youtube_key)
-    
     sorted_data = sorted(data.items(), key=lambda x: x[1]["score"]["total"], reverse=True)
     
     # === CLASSEMENT ===
@@ -1054,10 +1044,10 @@ def main():
             "Score": d["score"]["total"],
             "Wikipedia": d["wikipedia"]["views"],
             "Articles": d["press"]["count"],
-            "Google Trends": d["trends_score"],
+            "Trends": d["trends_score"],
         }
         if youtube_enabled:
-            row["Vues YouTube"] = d["youtube"].get("total_views", 0) if d["youtube"].get("available") else 0
+            row["YouTube"] = d["youtube"].get("total_views", 0)
         rows.append(row)
     
     df = pd.DataFrame(rows)
@@ -1065,46 +1055,45 @@ def main():
     col_config = {
         "Rang": st.column_config.NumberColumn("Rang", format="%d"),
         "Score": st.column_config.ProgressColumn("Score /100", min_value=0, max_value=100, format="%.1f"),
-        "Wikipedia": st.column_config.NumberColumn("Wikipedia", format="%d"),
+        "Wikipedia": st.column_config.NumberColumn("Wiki", format="%d"),
         "Articles": st.column_config.NumberColumn("Presse", format="%d"),
-        "Google Trends": st.column_config.NumberColumn("Google Trends", format="%.0f"),
+        "Trends": st.column_config.NumberColumn("Trends", format="%.0f"),
     }
-    
     if youtube_enabled:
-        col_config["Vues YouTube"] = st.column_config.NumberColumn("Vues YouTube", format="%d")
+        col_config["YouTube"] = st.column_config.NumberColumn("YT", format="%d")
     
     st.dataframe(df, column_config=col_config, hide_index=True, use_container_width=True)
     
-    # === MÉTRIQUES LEADER ===
+    # Métriques
     leader = sorted_data[0][1]
-    
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("Leader", leader["info"]["name"])
     with col2:
-        st.metric("Score du leader", f"{leader['score']['total']:.1f}/100")
+        st.metric("Score", f"{leader['score']['total']:.1f}/100")
     with col3:
-        total_articles = sum(d["press"]["count"] for _, d in sorted_data)
-        st.metric("Total articles concurrence", total_articles)
+        st.metric("Articles", sum(d["press"]["count"] for _, d in sorted_data))
     with col4:
-        total_wiki = sum(d["wikipedia"]["views"] for _, d in sorted_data)
-        st.metric("Total vues des pages Wikipedia", format_num(total_wiki))
+        st.metric("Wikipedia", format_num(sum(d["wikipedia"]["views"] for _, d in sorted_data)))
     
-    # === GRAPHIQUES ===
+    # === ONGLETS ===
     st.markdown("---")
     st.markdown("## Visualisations")
     
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Scores", "Sondages", "TV/Radio", "Historique", "Wikipedia", "Presse", "Données brutes"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+        ["Scores", "Sondages", "TV/Radio", "Historique", "Wikipedia", "Presse", "Debug"]
+    )
     
     names = [d["info"]["name"] for _, d in sorted_data]
     colors = [d["info"]["color"] for _, d in sorted_data]
     
+    # TAB 1: SCORES
     with tab1:
         col1, col2 = st.columns(2)
         
         with col1:
             scores = [d["score"]["total"] for _, d in sorted_data]
-            fig = px.bar(x=names, y=scores, color=names, color_discrete_sequence=colors, 
+            fig = px.bar(x=names, y=scores, color=names, color_discrete_sequence=colors,
                         title="Score de visibilité")
             fig.update_layout(showlegend=False, yaxis_range=[0, 100])
             st.plotly_chart(fig, use_container_width=True)
@@ -1116,127 +1105,56 @@ def main():
                 decomp_data.append({
                     "Candidat": d["info"]["name"],
                     "Presse (40%)": s["contrib_press"],
-                    "Google Trends (35%)": s["contrib_trends"],
+                    "Trends (35%)": s["contrib_trends"],
                     "Wikipedia (15%)": s["contrib_wiki"],
                     "YouTube (10%)": s["contrib_youtube"],
                 })
             
             df_decomp = pd.DataFrame(decomp_data)
-            fig = px.bar(df_decomp, x="Candidat", 
-                        y=["Presse (40%)", "Google Trends (35%)", "Wikipedia (15%)", "YouTube (10%)"],
-                        barmode="stack", 
-                        title="Décomposition du score",
+            fig = px.bar(df_decomp, x="Candidat",
+                        y=["Presse (40%)", "Trends (35%)", "Wikipedia (15%)", "YouTube (10%)"],
+                        barmode="stack", title="Décomposition du score",
                         color_discrete_map={
                             "Presse (40%)": "#2563eb",
-                            "Google Trends (35%)": "#16a34a",
+                            "Trends (35%)": "#16a34a",
                             "Wikipedia (15%)": "#eab308",
                             "YouTube (10%)": "#dc2626"
                         })
-            fig.update_layout(
-                yaxis_range=[0, 100],
-                yaxis_title="Points",
-                legend_title="Source",
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-            )
+            fig.update_layout(yaxis_range=[0, 100], yaxis_title="Points",
+                             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             st.plotly_chart(fig, use_container_width=True)
     
-    # === TAB 2: SONDAGES ===
+    # TAB 2: SONDAGES
     with tab2:
         latest = get_latest_sondage()
         
         if latest:
             st.markdown(f"### Dernier sondage : {latest['institut']}")
-            st.caption(f"📅 {latest['date']} · {latest['media']} · {latest['sample']} personnes interrogées")
-            if latest.get("hypothese"):
-                st.caption(f"📊 Hypothèse : {latest['hypothese']}")
+            st.caption(f"📅 {latest['date']} · {latest['media']} · {latest['sample']} pers.")
             
             sondage_rows = []
             for name, score in sorted(latest["scores"].items(), key=lambda x: x[1], reverse=True):
-                party = "-"
-                for cid, c in CANDIDATES.items():
-                    if c["name"] == name:
-                        party = c["party"]
-                        break
-                sondage_rows.append({
-                    "Rang": len(sondage_rows) + 1,
-                    "Candidat": name,
-                    "Parti": party,
-                    "Intentions de vote": f"{score}%"
-                })
+                party = next((c["party"] for c in CANDIDATES.values() if c["name"] == name), "-")
+                sondage_rows.append({"Candidat": name, "Parti": party, "Intentions": f"{score}%"})
             
             st.dataframe(pd.DataFrame(sondage_rows), use_container_width=True, hide_index=True)
             
-            sondage_names = [r["Candidat"] for r in sondage_rows]
-            sondage_values = [int(r["Intentions de vote"].replace("%", "")) for r in sondage_rows]
+            sondage_colors = [next((c["color"] for c in CANDIDATES.values() if c["name"] == r["Candidat"]), "#888") 
+                            for r in sondage_rows]
             
-            sondage_colors = []
-            for name in sondage_names:
-                color = "#888888"
-                for cid, c in CANDIDATES.items():
-                    if c["name"] == name:
-                        color = c["color"]
-                        break
-                sondage_colors.append(color)
-            
-            fig = px.bar(x=sondage_names, y=sondage_values, color=sondage_names,
+            fig = px.bar(x=[r["Candidat"] for r in sondage_rows],
+                        y=[int(r["Intentions"].replace("%", "")) for r in sondage_rows],
+                        color=[r["Candidat"] for r in sondage_rows],
                         color_discrete_sequence=sondage_colors,
-                        title=f"Intentions de vote - 1er tour ({latest['institut']})")
+                        title=f"Intentions de vote ({latest['institut']})")
             fig.update_layout(showlegend=False, yaxis_title="%", yaxis_range=[0, 40])
             st.plotly_chart(fig, use_container_width=True)
-            
-            if len(SONDAGES) > 1:
-                st.markdown("---")
-                st.markdown("### Historique des sondages")
-                
-                for s in reversed(SONDAGES):
-                    with st.expander(f"{s['date']} — {s['institut']} ({s['media']})"):
-                        st.caption(f"Échantillon : {s['sample']} personnes")
-                        if s.get("hypothese"):
-                            st.caption(f"Hypothèse : {s['hypothese']}")
-                        
-                        for name, score in sorted(s["scores"].items(), key=lambda x: x[1], reverse=True):
-                            st.write(f"• **{name}** : {score}%")
-                
-                st.markdown("### Évolution dans les sondages")
-                evolution_data = []
-                for s in SONDAGES:
-                    for name, score in s["scores"].items():
-                        evolution_data.append({
-                            "Date": s["date"],
-                            "Candidat": name,
-                            "Score": score
-                        })
-                
-                if evolution_data:
-                    df_evol = pd.DataFrame(evolution_data)
-                    
-                    color_map = {c["name"]: c["color"] for c in CANDIDATES.values()}
-                    
-                    fig = px.line(df_evol, x="Date", y="Score", color="Candidat",
-                                 markers=True,
-                                 color_discrete_map=color_map)
-                    fig.update_layout(
-                        yaxis_title="Intentions de vote (%)", 
-                        yaxis_range=[0, 40],
-                        xaxis_title="Date du sondage",
-                        legend=dict(
-                            orientation="h", 
-                            yanchor="top", 
-                            y=-0.15, 
-                            xanchor="center", 
-                            x=0.5
-                        ),
-                        height=450,
-                        margin=dict(b=100)
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Aucun sondage disponible")
     
-    # === TAB 3: TV/RADIO ===
+    # TAB 3: TV/RADIO
     with tab3:
         st.markdown("### Passages TV/Radio détectés")
-        st.caption("Mentions dans les médias audiovisuels (via Google News)")
         
         tv_data = []
         for _, d in sorted_data:
@@ -1249,51 +1167,26 @@ def main():
         
         st.dataframe(pd.DataFrame(tv_data), use_container_width=True, hide_index=True)
         
-        tv_names = [d["Candidat"] for d in tv_data]
-        tv_counts = [d["Mentions"] for d in tv_data]
-        
-        if sum(tv_counts) > 0:
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                fig = px.bar(x=tv_names, y=tv_counts, color=tv_names, color_discrete_sequence=colors,
-                            title="Mentions TV/Radio")
-                fig.update_layout(showlegend=False)
-                st.plotly_chart(fig, use_container_width=True)
-            
-            with col2:
-                all_media = {}
-                for _, d in sorted_data:
-                    for media, count in d.get("tv_radio", {}).get("media_counts", {}).items():
-                        all_media[media] = all_media.get(media, 0) + count
-                
-                if all_media:
-                    media_sorted = sorted(all_media.items(), key=lambda x: x[1], reverse=True)[:10]
-                    fig = px.bar(x=[m[0] for m in media_sorted], y=[m[1] for m in media_sorted],
-                                title="Médias les plus actifs")
-                    st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("Aucune mention TV/Radio détectée sur cette période")
-        
-        for _, d in sorted_data:
-            tv = d.get("tv_radio", {})
-            if tv.get("mentions"):
-                with st.expander(f"{d['info']['name']} — {tv['count']} mention(s)"):
-                    for m in tv["mentions"][:10]:
-                        st.markdown(f"**{m.get('media', '')}** · {m.get('date', '')}")
-                        st.markdown(f"[{m['title']}]({m.get('url', '#')})")
-                        st.caption(f"Source: {m.get('source', '')}")
+        if sum(d["Mentions"] for d in tv_data) > 0:
+            fig = px.bar(x=[d["Candidat"] for d in tv_data], y=[d["Mentions"] for d in tv_data],
+                        color=[d["Candidat"] for d in tv_data], color_discrete_sequence=colors,
+                        title="Mentions TV/Radio")
+            fig.update_layout(showlegend=False)
+            st.plotly_chart(fig, use_container_width=True)
     
-    # === TAB 4: HISTORIQUE ===
+    # TAB 4: HISTORIQUE
     with tab4:
         st.markdown("### Évolution des scores de visibilité")
         
-        period_label_for_history = f"{start_date} to {end_date}"
-        history = add_to_history(data, period_label_for_history)
+        period_label_hist = f"{start_date} to {end_date}"
+        history = add_to_history(data, period_label_hist)
         
-        st.caption(f"📊 {len(history)} analyse(s) enregistrée(s)")
+        if is_cloud_configured():
+            st.success(f"☁️ Cloud : {len(history)} entrée(s)")
+        else:
+            st.warning(f"💾 Local : {len(history)} entrée(s) — perdu au redémarrage")
         
-        if len(history) >= 1:
+        if history:
             history_df_data = []
             for entry in sorted(history, key=lambda x: x["date"]):
                 for name, scores in entry.get("scores", {}).items():
@@ -1305,129 +1198,77 @@ def main():
             
             if history_df_data:
                 df_hist = pd.DataFrame(history_df_data)
-                
                 color_map = {c["name"]: c["color"] for c in CANDIDATES.values()}
                 
-                if len(history) == 1:
-                    st.info("Une seule analyse enregistrée. Le graphique d'évolution apparaîtra après plusieurs analyses.")
+                unique_dates = df_hist["Date"].nunique()
+                
+                if unique_dates == 1:
+                    st.info("📊 Une seule date. Revenez demain pour l'évolution !")
                     
-                    current_scores = [(name, scores["total"]) for name, scores in history[0]["scores"].items()]
-                    current_scores.sort(key=lambda x: x[1], reverse=True)
+                    today_data = df_hist[df_hist["Date"] == df_hist["Date"].max()]
+                    today_data = today_data.sort_values("Score", ascending=False)
                     
-                    fig = px.bar(
-                        x=[s[0] for s in current_scores],
-                        y=[s[1] for s in current_scores],
-                        color=[s[0] for s in current_scores],
-                        color_discrete_map=color_map,
-                        title="Scores actuels"
-                    )
-                    fig.update_layout(showlegend=False, yaxis_range=[0, 100], yaxis_title="Score")
+                    fig = px.bar(today_data, x="Candidat", y="Score",
+                                color="Candidat", color_discrete_map=color_map,
+                                title=f"Scores du {df_hist['Date'].max()}")
+                    fig.update_layout(showlegend=False, yaxis_range=[0, 100])
                     st.plotly_chart(fig, use_container_width=True)
                 else:
-                    fig = px.line(
-                        df_hist, 
-                        x="Date", 
-                        y="Score", 
-                        color="Candidat",
-                        markers=True,
-                        color_discrete_map=color_map
-                    )
+                    fig = px.line(df_hist, x="Date", y="Score", color="Candidat",
+                                 markers=True, color_discrete_map=color_map,
+                                 title="Évolution des scores")
                     fig.update_layout(
                         yaxis_range=[0, 100],
-                        yaxis_title="Score de visibilité",
-                        xaxis_title="Date d'analyse",
-                        legend=dict(
-                            orientation="h", 
-                            yanchor="top", 
-                            y=-0.15, 
-                            xanchor="center", 
-                            x=0.5
-                        ),
+                        yaxis_title="Score",
+                        xaxis_title="Date",
+                        legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
                         height=500,
                         margin=dict(b=100)
                     )
                     st.plotly_chart(fig, use_container_width=True)
-                
-                if len(history) > 1:
-                    st.markdown("### Variations par rapport aux analyses précédentes")
+                    
+                    st.markdown("### Variations")
                     var_rows = []
                     for _, d in sorted_data:
                         name = d["info"]["name"]
                         current = d["score"]["total"]
                         hist = get_historical_comparison(name, current)
                         
-                        row = {
-                            "Candidat": name,
-                            "Score actuel": current,
-                        }
-                        
-                        if hist.get("week_change") is not None:
-                            change = hist["week_change"]
-                            row["vs 7j"] = f"{change:+.1f}" if change != 0 else "="
-                        else:
-                            row["vs 7j"] = "-"
-                        
-                        if hist.get("month_change") is not None:
-                            change = hist["month_change"]
-                            row["vs 30j"] = f"{change:+.1f}" if change != 0 else "="
-                        else:
-                            row["vs 30j"] = "-"
-                        
+                        row = {"Candidat": name, "Actuel": current}
+                        row["vs 7j"] = f"{hist['week_change']:+.1f}" if hist.get("week_change") is not None else "-"
+                        row["vs 30j"] = f"{hist['month_change']:+.1f}" if hist.get("month_change") is not None else "-"
                         var_rows.append(row)
                     
                     st.dataframe(pd.DataFrame(var_rows), use_container_width=True, hide_index=True)
-        
-        st.caption("💡 L'historique se construit automatiquement. Sur Streamlit Cloud, les données sont réinitialisées à chaque redémarrage.")
+        else:
+            st.info("Aucun historique")
     
-    # === TAB 5: WIKIPEDIA ===
+    # TAB 5: WIKIPEDIA
     with tab5:
         days_in_period = (end_date - start_date).days + 1
         
-        # Avertissement si la période inclut les dernières 48h
-        today = date.today()
-        if end_date >= today - timedelta(days=1):
-            st.warning("⚠️ L'API Wikipedia a un délai de 24-48h. Les données d'aujourd'hui et d'hier ne sont pas encore disponibles. Choisissez une période plus ancienne ou attendez.")
-        
-        st.caption(f"📊 Comparaison : période analysée ({days_in_period}j) vs période précédente équivalente ({days_in_period}j)")
+        if end_date >= date.today() - timedelta(days=1):
+            st.warning("⚠️ Wikipedia a un délai de 24-48h")
         
         col1, col2 = st.columns(2)
         
         with col1:
             wiki_views = [d["wikipedia"]["views"] for _, d in sorted_data]
             fig = px.bar(x=names, y=wiki_views, color=names, color_discrete_sequence=colors,
-                        title=f"Vues Wikipedia ({start_date.strftime('%d/%m')} - {end_date.strftime('%d/%m')})")
-            fig.update_layout(showlegend=False, yaxis_title="Vues totales")
+                        title="Vues Wikipedia")
+            fig.update_layout(showlegend=False)
             st.plotly_chart(fig, use_container_width=True)
         
         with col2:
-            variations = []
-            for _, d in sorted_data:
-                v = d["wikipedia"]["variation"]
-                v = max(min(v, 100), -100)
-                variations.append(v)
-            
+            variations = [max(min(d["wikipedia"]["variation"], 100), -100) for _, d in sorted_data]
             fig = px.bar(x=names, y=variations, color=variations,
                         color_continuous_scale=["#dc2626", "#6b7280", "#16a34a"],
                         range_color=[-100, 100],
-                        title=f"Variation vs {days_in_period}j précédents (%)")
-            fig.update_layout(yaxis_range=[-100, 100], yaxis_title="Variation (%)")
+                        title=f"Variation vs {days_in_period}j précédents")
+            fig.update_layout(yaxis_range=[-100, 100])
             st.plotly_chart(fig, use_container_width=True)
-        
-        st.markdown("### Détails Wikipedia")
-        wiki_rows = []
-        for _, d in sorted_data:
-            w = d["wikipedia"]
-            wiki_rows.append({
-                "Candidat": d["info"]["name"],
-                "Vues (période)": w["views"],
-                "Moy/jour": w.get("avg_daily", round(w["views"] / max(days_in_period, 1), 1)),
-                "Vues (réf.)": w.get("ref_views", "-"),
-                "Moy/jour (réf.)": w.get("ref_avg", "-"),
-                "Variation": f"{w['variation']:+.1f}%" if w['variation'] != 0 else "="
-            })
-        st.dataframe(pd.DataFrame(wiki_rows), use_container_width=True, hide_index=True)
     
-    # === TAB 6: PRESSE ===
+    # TAB 6: PRESSE
     with tab6:
         col1, col2 = st.columns(2)
         
@@ -1440,21 +1281,11 @@ def main():
         
         with col2:
             fig = px.pie(names=names, values=articles, color=names, color_discrete_sequence=colors,
-                        title="Part de voix médiatique")
+                        title="Part de voix")
             st.plotly_chart(fig, use_container_width=True)
     
-    # === TAB 7: DONNÉES BRUTES ===
+    # TAB 7: DEBUG
     with tab7:
-        trends_errors = [d.get("trends_error") for _, d in sorted_data if d.get("trends_error")]
-        trends_zero_count = sum(1 for _, d in sorted_data if d["trends_score"] == 0)
-        
-        if trends_errors:
-            st.warning(f"⚠️ Google Trends indisponible : {trends_errors[0]}")
-        elif trends_zero_count == len(sorted_data):
-            st.warning("⚠️ Google Trends : tous les scores à 0. L'API est probablement bloquée.")
-        elif trends_zero_count > len(sorted_data) / 2:
-            st.info("ℹ️ Google Trends : données partielles.")
-        
         debug_rows = []
         for rank, (cid, d) in enumerate(sorted_data, 1):
             yt = d["youtube"]
@@ -1462,41 +1293,20 @@ def main():
             if yt.get("available"):
                 yt_info = f"{yt.get('total_views', 0)} ({yt.get('count', 0)} vidéos)"
             elif yt.get("error"):
-                err = yt.get('error', '')
-                if "quota" in err.lower():
-                    yt_info = "Quota dépassé"
-                else:
-                    yt_info = "Erreur"
+                yt_info = "Erreur" if "quota" not in yt.get("error", "").lower() else "Quota"
             
-            tv = d.get("tv_radio", {})
-            
-            row = {
+            debug_rows.append({
                 "Rang": rank,
                 "Candidat": d["info"]["name"],
-                "Wikipedia (vues)": d["wikipedia"]["views"],
-                "Variation Wiki": f"{max(min(d['wikipedia']['variation'], 100), -100):+.0f}%",
-                "Articles presse": d["press"]["count"],
-                "TV/Radio": tv.get("count", 0),
-                "Google Trends": d["trends_score"] if d["trends_score"] > 0 else "⚠️ 0",
-                "YouTube": yt_info,
-                "Score total": d["score"]["total"]
-            }
-            
-            debug_rows.append(row)
+                "Wiki": d["wikipedia"]["views"],
+                "Presse": d["press"]["count"],
+                "TV": d.get("tv_radio", {}).get("count", 0),
+                "Trends": d["trends_score"],
+                "YT": yt_info,
+                "Score": d["score"]["total"]
+            })
         
         st.dataframe(pd.DataFrame(debug_rows), use_container_width=True, hide_index=True)
-        
-        errors_found = []
-        for _, d in sorted_data:
-            if d["wikipedia"].get("error"):
-                errors_found.append(f"Wikipedia {d['info']['name']}: {d['wikipedia']['error']}")
-            if d.get("trends_error"):
-                errors_found.append(f"Google Trends: {d['trends_error']}")
-        
-        if errors_found:
-            with st.expander("Erreurs détectées"):
-                for err in set(errors_found):
-                    st.write(f"• {err}")
     
     # === ARTICLES ===
     st.markdown("---")
@@ -1506,85 +1316,36 @@ def main():
         arts = d["press"]["articles"]
         with st.expander(f"{rank}. {d['info']['name']} — {len(arts)} article(s)"):
             if arts:
-                for i, a in enumerate(arts[:20], 1):
+                for i, a in enumerate(arts[:15], 1):
                     st.markdown(f"**{i}.** [{a['title']}]({a['url']})")
-                    st.caption(f"{a['date']} · {a['domain']} · {a['source']}")
-                if len(arts) > 20:
-                    st.info(f"+ {len(arts) - 20} autres articles")
+                    st.caption(f"{a['date']} · {a['domain']}")
+                if len(arts) > 15:
+                    st.info(f"+ {len(arts) - 15} autres")
             else:
-                st.info("Aucun article trouvé pour cette période")
+                st.info("Aucun article")
     
     # === YOUTUBE ===
     st.markdown("---")
     st.markdown("## Vidéos YouTube")
     
-    youtube_available = any(d["youtube"].get("available", False) for _, d in sorted_data)
-    has_yt_key = yt_key and yt_key.strip().startswith("AIza")
-    
-    if not youtube_available:
-        if has_yt_key:
-            errors = []
-            quota_exceeded = False
-            for cid, d in sorted_data:
-                yt = d["youtube"]
-                if yt.get("error"):
-                    err = yt["error"]
-                    if "quota" in err.lower() or "exceeded" in err.lower():
-                        quota_exceeded = True
-                    else:
-                        errors.append(f"{d['info']['name']}: {err}")
-            
-            if quota_exceeded:
-                st.warning("⚠️ Quota YouTube dépassé — réessayez demain (après 9h)")
-            elif errors:
-                st.warning("Erreurs YouTube:\n" + "\n".join(errors))
-            else:
-                st.info("Aucune vidéo trouvée pour les 30 derniers jours")
+    if not any(d["youtube"].get("available") for _, d in sorted_data):
+        if youtube_key:
+            st.warning("Aucune vidéo ou quota dépassé")
         else:
-            st.info("Entrez une clé API YouTube dans la barre latérale pour activer")
+            st.info("Clé API YouTube requise")
     else:
         for rank, (cid, d) in enumerate(sorted_data, 1):
             yt = d["youtube"]
             if yt.get("available") and yt.get("videos"):
-                shorts = yt.get("shorts_count", 0)
-                longs = yt.get("long_count", 0)
-                label = f"{rank}. {d['info']['name']} — {format_num(yt['total_views'])} vues ({longs} vidéos, {shorts} shorts)"
-                
-                with st.expander(label):
-                    for i, v in enumerate(yt["videos"][:15], 1):
+                with st.expander(f"{rank}. {d['info']['name']} — {format_num(yt['total_views'])} vues"):
+                    for i, v in enumerate(yt["videos"][:10], 1):
                         views = v.get("views", 0)
-                        is_short = v.get("is_short", False)
-                        duration = v.get("duration", "")
-                        pub_date = v.get("published", "")
-                        
-                        duration_str = _format_duration(duration) if duration else ""
-                        type_label = "[Short]" if is_short else f"[{duration_str}]" if duration_str else ""
-                        
-                        st.markdown(f"**{i}.** [{v['title']}]({v['url']}) — {format_num(views)} vues {type_label}")
-                        st.caption(f"Publié le {pub_date} · {v.get('channel', '')}")
-
+                        st.markdown(f"**{i}.** [{v['title']}]({v['url']}) — {format_num(views)} vues")
+                        st.caption(f"{v.get('published', '')} · {v.get('channel', '')}")
+    
     # Footer
     st.markdown("---")
-    st.caption(f"Visibility Index v7.0 · Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}")
-    
-    with st.expander("Suggestions d'amélioration"):
-        st.markdown("""
-        **Sources de données supplémentaires possibles :**
-        - Twitter/X API : Mentions, engagement, followers (API payante)
-        - LinkedIn : Activité des comptes politiques
-        - Données INA officielles : Temps d'antenne TV/radio précis
-        - Sondages officiels : Intégration automatique quand disponibles
-        
-        **Améliorations techniques :**
-        - Système d'alertes par email sur changements significatifs
-        - Export PDF automatique des rapports
-        - Analyse de sentiment des articles (positif/négatif/neutre)
-        - Base de données cloud pour l'historique (persistance)
-        
-        **Nouveaux candidats potentiels :**
-        - Rémi Féraud (PS)
-        - Autres candidats déclarés
-        """)
+    st.caption(f"Visibility Index v7.1 · {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
 
 if __name__ == "__main__":
