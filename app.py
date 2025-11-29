@@ -993,25 +993,6 @@ def main():
         st.caption("Presse 40% · Trends 35% · Wikipedia 15% · YouTube 10%")
 
         st.markdown("---")
-        with st.expander("ℹ️ À propos de la méthodologie"):
-            st.markdown("""
-            **Sources de données** :
-            - Wikipedia (API officielle)
-            - GDELT & Google News (presse)
-            - Google Trends (pytrends)
-            - YouTube Data API v3
-
-            **Calibrations** :
-            - Wikipedia : 50 000 vues = 100 pts
-            - Presse : 50 articles = 80 pts
-            - YouTube : 1M de vues = 100 pts
-
-            **Sondages** : Fourchettes simplifiées à la valeur médiane.
-
-            Les scores sont indicatifs et ne reflètent que la visibilité médiatique, pas les intentions de vote réelles.
-            """)
-
-        st.markdown("---")
         st.caption("Kléothime Bourdon · bourdonkleothime@gmail.com")
 
     if not selected:
