@@ -45,25 +45,41 @@ st.markdown("""
         -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Masquer les noms d'icônes Material UI qui s'affichent en texte */
-    [data-testid="stExpander"] summary::before,
-    [data-testid="stExpander"] summary span[class*="material"] {
-        content: "" !important;
-    }
-
-    /* Cacher les textes keyboard_arrow et similaires */
-    span:has-text("keyboard_arrow_right"),
-    span:has-text("keyboard_double_arrow_right"),
-    span:has-text("keyboard_arrow_down") {
-        font-size: 0 !important;
-        display: none !important;
-    }
-
     /* Style personnalisé pour les expanders */
     [data-testid="stExpander"] summary {
         background-color: transparent !important;
     }
 </style>
+
+<script>
+    // Masquer les textes d'icônes Material UI (keyboard_arrow, etc.)
+    function hideIconText() {
+        const spans = document.querySelectorAll('span');
+        spans.forEach(span => {
+            const text = span.textContent.trim();
+            if (text === 'keyboard_arrow_right' ||
+                text === 'keyboard_double_arrow_right' ||
+                text === 'keyboard_arrow_down' ||
+                text === 'keyboard_arrow_up') {
+                span.style.display = 'none';
+            }
+        });
+    }
+
+    // Exécuter au chargement et à chaque modification du DOM
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', hideIconText);
+    } else {
+        hideIconText();
+    }
+
+    // Observer les changements du DOM pour les éléments ajoutés dynamiquement
+    const observer = new MutationObserver(hideIconText);
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    // Exécuter périodiquement pour garantir le masquage
+    setInterval(hideIconText, 500);
+</script>
 """, unsafe_allow_html=True)
 
 # Clé API YouTube (sécurisée via secrets)
