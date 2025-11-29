@@ -358,7 +358,7 @@ def get_all_press_coverage(candidate_name: str, search_terms: List[str], start_d
 
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> Dict:
     """
@@ -376,14 +376,17 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
         anchor = keywords[0]
         timeframe = f"{start_date.strftime('%Y-%m-%d')} {end_date.strftime('%Y-%m-%d')}"
 
-        pytrends = TrendReq(
-            hl="fr-FR",
-            tz=60,
-            timeout=(10, 25),
-            retries=4,
-            backoff_factor=1.2
-        )
-
+        try:
+    pytrends = TrendReq(
+        hl="fr-FR",
+        tz=60,
+        timeout=(10, 25),
+        retries=4,
+        backoff_factor=1.2
+    )
+except TypeError:
+    # anciennes versions de pytrends
+    pytrends = TrendReq(hl="fr-FR", tz=60, timeout=(10, 25))
         ratios = {anchor: 1.0}
         errors = []
 
