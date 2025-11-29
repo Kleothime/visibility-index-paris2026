@@ -22,7 +22,8 @@ import xml.etree.ElementTree as ET
 st.set_page_config(
     page_title="Baromètre Visibilité Médiatique - Paris 2026",
     page_icon="BVM",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 # Clé API YouTube (sécurisée via secrets)
@@ -943,6 +944,16 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
 # =============================================================================
 
 def main():
+    # Cacher les éléments Streamlit par défaut
+    hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    </style>
+    """
+    st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
     st.markdown("# Baromètre de visibilité médiatique")
     st.markdown("**Élections municipales Paris 2026**")
 

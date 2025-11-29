@@ -1,0 +1,10 @@
+# Configuration Streamlit
+
+[client]
+# Cacher la barre d'outils en haut à droite
+toolbarMode = "minimal"
+
+[ui]
+# Cacher le footer "Made with Streamlit"
+hideTopBar = false
+hideSidebarNav = false
