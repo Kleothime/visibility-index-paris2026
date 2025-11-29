@@ -384,9 +384,9 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
                 retries=4,
                 backoff_factor=1.2
             )
-        except TypeError:
+    except TypeError:
             # anciennes versions de pytrends
-            pytrends = TrendReq(hl="fr-FR", tz=60, timeout=(10, 25))
+        pytrends = TrendReq(hl="fr-FR", tz=60, timeout=(10, 25))
 
         ratios = {anchor: 1.0}
         errors = []
