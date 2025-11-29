@@ -1288,8 +1288,8 @@ def main():
         col_btn1, col_btn2 = st.columns([1, 3])
         with col_btn1:
             if st.button("Générer l'historique automatique", type="primary"):
-                with st.spinner("Analyse des 4 dernières semaines en cours..."):
-                    # Construire l'historique des 4 dernières semaines
+                with st.spinner("Analyse des 18 dernières semaines en cours..."):
+                    # Construire l'historique des 18 dernières semaines (126 jours = 4+ mois)
                     today = datetime.now().date()
 
                     # Supprimer l'ancien historique
@@ -1297,7 +1297,7 @@ def main():
 
                     progress_bar = st.progress(0)
 
-                    for week_num in range(4):
+                    for week_num in range(18):
                         # Calculer les dates de la semaine
                         week_end = today - timedelta(days=week_num * 7)
                         week_start = week_end - timedelta(days=6)
@@ -1309,13 +1309,13 @@ def main():
                         period_label = f"{week_start} à {week_end}"
                         add_to_history(week_data, period_label, week_end)
 
-                        progress_bar.progress((week_num + 1) / 4)
+                        progress_bar.progress((week_num + 1) / 18)
 
-                    st.success("Historique généré avec succès sur 4 semaines")
+                    st.success("Historique généré avec succès sur 18 semaines")
                     st.rerun()
 
         with col_btn2:
-            st.caption("Analyse automatique des 4 dernières semaines (28 jours)")
+            st.caption("Analyse automatique des 18 dernières semaines (126 jours)")
 
         # Charger l'historique existant
         history = load_history()
@@ -1342,20 +1342,44 @@ def main():
                 else:
                     st.success(f"Historique : {unique_dates} jours enregistrés")
 
-                # Graphique d'évolution
-                fig = px.line(df_hist, x="Date", y="Score", color="Candidat",
-                             markers=True, color_discrete_map=color_map,
-                             title="Évolution temporelle")
+                # Graphique d'évolution avec styles professionnels
+                fig = go.Figure()
+
+                # Styles de lignes et symboles pour chaque candidat
+                line_styles = ['solid', 'dash', 'dot', 'dashdot', 'longdash', 'longdashdot']
+                marker_symbols = ['circle', 'square', 'diamond', 'cross', 'x', 'triangle-up', 'star']
+
+                for idx, (candidate_name, candidate_color) in enumerate(color_map.items()):
+                    candidate_data = df_hist[df_hist["Candidat"] == candidate_name]
+                    if not candidate_data.empty:
+                        fig.add_trace(go.Scatter(
+                            x=candidate_data["Date"],
+                            y=candidate_data["Score"],
+                            name=candidate_name,
+                            mode='lines+markers',
+                            line=dict(
+                                color=candidate_color,
+                                width=2.5,
+                                dash=line_styles[idx % len(line_styles)]
+                            ),
+                            marker=dict(
+                                symbol=marker_symbols[idx % len(marker_symbols)],
+                                size=10,
+                                color=candidate_color,
+                                line=dict(color='white', width=1)
+                            ),
+                            hovertemplate='<b>%{fullData.name}</b><br>%{x}<br>Score: %{y:.1f}<extra></extra>'
+                        ))
+
                 fig.update_layout(
+                    title="Évolution temporelle",
                     yaxis_range=[0, 100],
                     yaxis_title="Score de visibilité",
                     xaxis_title="Date",
                     legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
                     height=500,
-                    margin=dict(b=100)
-                )
-                fig.update_traces(
-                    hovertemplate='<b>%{fullData.name}</b><br>%{x}<br>Score: %{y:.1f}<extra></extra>'
+                    margin=dict(b=100),
+                    hovermode='x unified'
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
