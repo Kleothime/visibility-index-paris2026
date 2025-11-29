@@ -877,6 +877,204 @@ def calculate_score(wiki_views: int, press_count: int, press_domains: int,
 
 
 # =============================================================================
+# INSTAGRAM (INSTALOADER)
+# =============================================================================
+
+@st.cache_data(ttl=3600)
+def fetch_instagram_data(candidate_name: str, search_terms: List[str], start_date: date, end_date: date) -> Dict:
+    """Récupère les posts Instagram mentionnant le candidat"""
+    try:
+        import instaloader
+        from datetime import datetime as dt
+
+        L = instaloader.Instaloader()
+
+        all_posts = []
+        total_likes = 0
+        total_comments = 0
+
+        # Recherche par hashtags principaux (sans espaces)
+        hashtags = []
+        for term in search_terms:
+            # Créer des hashtags à partir des termes de recherche
+            clean_term = term.replace(" ", "").replace("-", "")
+            if clean_term:
+                hashtags.append(clean_term.lower())
+
+        # Limiter à 2 hashtags pour éviter trop de requêtes
+        hashtags = hashtags[:2]
+
+        if not hashtags:
+            return {"available": False, "posts": [], "total_engagement": 0, "error": "Aucun hashtag valide"}
+
+        # Date de début et fin en datetime
+        start_dt = dt.combine(start_date, dt.min.time())
+        end_dt = dt.combine(end_date, dt.max.time())
+
+        for hashtag in hashtags:
+            try:
+                # Recherche par hashtag
+                posts = L.get_hashtag_posts(hashtag)
+
+                count = 0
+                for post in posts:
+                    # Limiter à 30 posts par hashtag pour éviter blocage
+                    if count >= 30:
+                        break
+
+                    try:
+                        post_date = post.date
+
+                        # Filtrer par date
+                        if start_dt <= post_date <= end_dt:
+                            # Vérifier si le caption mentionne le candidat
+                            caption = (post.caption or "").lower()
+                            name_parts = candidate_name.lower().split()
+
+                            if any(part in caption for part in name_parts if len(part) >= 3):
+                                likes = post.likes
+                                comments = post.comments
+
+                                all_posts.append({
+                                    "shortcode": post.shortcode,
+                                    "url": f"https://www.instagram.com/p/{post.shortcode}/",
+                                    "caption": (post.caption or "")[:200],
+                                    "likes": likes,
+                                    "comments": comments,
+                                    "date": post_date.strftime("%Y-%m-%d"),
+                                    "username": post.owner_username
+                                })
+
+                                total_likes += likes
+                                total_comments += comments
+
+                        # Arrêter si on dépasse la période
+                        if post_date < start_dt:
+                            break
+
+                        count += 1
+
+                    except Exception as e:
+                        # Ignorer les posts problématiques
+                        continue
+
+            except Exception as e:
+                # Continuer avec le hashtag suivant
+                continue
+
+        # Trier par engagement (likes + comments)
+        all_posts.sort(key=lambda x: x["likes"] + x["comments"], reverse=True)
+
+        if not all_posts:
+            return {"available": False, "posts": [], "total_engagement": 0, "error": "Aucun post trouvé"}
+
+        total_engagement = total_likes + total_comments
+
+        return {
+            "available": True,
+            "posts": all_posts[:50],  # Garder top 50
+            "total_likes": total_likes,
+            "total_comments": total_comments,
+            "total_engagement": total_engagement,
+            "count": len(all_posts)
+        }
+
+    except ImportError:
+        return {"available": False, "posts": [], "total_engagement": 0, "error": "Bibliothèque instaloader non installée"}
+    except Exception as e:
+        return {"available": False, "posts": [], "total_engagement": 0, "error": f"Erreur: {str(e)[:100]}"}
+
+
+# =============================================================================
+# TIKTOK (TIKTOKAPIPY)
+# =============================================================================
+
+@st.cache_data(ttl=3600)
+def fetch_tiktok_data(candidate_name: str, search_terms: List[str], start_date: date, end_date: date) -> Dict:
+    """Récupère les vidéos TikTok mentionnant le candidat"""
+    try:
+        from tiktokapipy.api import TikTokAPI
+        from datetime import datetime as dt
+        import time
+
+        all_videos = []
+        total_views = 0
+        total_likes = 0
+
+        # Utiliser les termes de recherche
+        search_queries = search_terms[:3]  # Limiter à 3 requêtes
+
+        start_dt = dt.combine(start_date, dt.min.time())
+        end_dt = dt.combine(end_date, dt.max.time())
+
+        with TikTokAPI() as api:
+            for query in search_queries:
+                try:
+                    # Recherche de vidéos
+                    videos = api.search.videos(query, count=30)
+
+                    for video in videos:
+                        try:
+                            # Récupérer la date de création
+                            create_time = dt.fromtimestamp(video.create_time)
+
+                            # Filtrer par date
+                            if start_dt <= create_time <= end_dt:
+                                # Vérifier si la description mentionne le candidat
+                                desc = (video.desc or "").lower()
+                                name_parts = candidate_name.lower().split()
+
+                                if any(part in desc for part in name_parts if len(part) >= 3):
+                                    views = video.stats.play_count or 0
+                                    likes = video.stats.digg_count or 0
+
+                                    all_videos.append({
+                                        "id": video.id,
+                                        "url": f"https://www.tiktok.com/@{video.author.unique_id}/video/{video.id}",
+                                        "description": (video.desc or "")[:200],
+                                        "views": views,
+                                        "likes": likes,
+                                        "comments": video.stats.comment_count or 0,
+                                        "shares": video.stats.share_count or 0,
+                                        "date": create_time.strftime("%Y-%m-%d"),
+                                        "author": video.author.unique_id
+                                    })
+
+                                    total_views += views
+                                    total_likes += likes
+
+                        except Exception as e:
+                            # Ignorer les vidéos problématiques
+                            continue
+
+                    # Petit délai entre requêtes pour éviter rate limiting
+                    time.sleep(0.5)
+
+                except Exception as e:
+                    # Continuer avec la requête suivante
+                    continue
+
+        # Trier par vues
+        all_videos.sort(key=lambda x: x["views"], reverse=True)
+
+        if not all_videos:
+            return {"available": False, "videos": [], "total_views": 0, "error": "Aucune vidéo trouvée"}
+
+        return {
+            "available": True,
+            "videos": all_videos[:50],  # Garder top 50
+            "total_views": total_views,
+            "total_likes": total_likes,
+            "count": len(all_videos)
+        }
+
+    except ImportError:
+        return {"available": False, "videos": [], "total_views": 0, "error": "Bibliothèque tiktokapipy non installée"}
+    except Exception as e:
+        return {"available": False, "videos": [], "total_views": 0, "error": f"Erreur: {str(e)[:100]}"}
+
+
+# =============================================================================
 # COLLECTE PRINCIPALE
 # =============================================================================
 
@@ -918,6 +1116,10 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         else:
             youtube = {"available": False, "total_views": 0, "videos": []}
 
+        # Réseaux sociaux
+        instagram = fetch_instagram_data(name, c["search_terms"], start_date, end_date)
+        tiktok = fetch_tiktok_data(name, c["search_terms"], start_date, end_date)
+
         trends_score = trends["scores"].get(name, 0)
 
         score = calculate_score(
@@ -935,6 +1137,8 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             "press": press,
             "tv_radio": tv_radio,
             "youtube": youtube,
+            "instagram": instagram,
+            "tiktok": tiktok,
             "trends_score": trends_score,
             "trends_success": trends["success"],
             "trends_error": trends.get("error") or trends.get("errors"),
@@ -1063,8 +1267,8 @@ def main():
     st.markdown("---")
     st.markdown("## Visualisations détaillées")
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
-        ["Scores", "Sondages", "TV / Radio", "Historique", "Wikipedia", "Presse"]
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+        ["Scores", "Sondages", "TV / Radio", "Historique", "Wikipedia", "Presse", "Réseaux sociaux"]
     )
 
     names = [d["info"]["name"] for _, d in sorted_data]
@@ -1518,6 +1722,174 @@ def main():
                 hovertemplate='<b>%{label}</b><br>%{value} articles<br>%{percent}<extra></extra>'
             )
             st.plotly_chart(fig, use_container_width=True)
+
+    # TAB 7: RÉSEAUX SOCIAUX
+    with tab7:
+        st.markdown("### Instagram et TikTok")
+
+        # Statistiques globales
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            total_insta_posts = sum(d.get("instagram", {}).get("count", 0) for _, d in sorted_data if d.get("instagram", {}).get("available"))
+            st.metric("Posts Instagram", format_number(total_insta_posts))
+
+        with col2:
+            total_insta_engagement = sum(d.get("instagram", {}).get("total_engagement", 0) for _, d in sorted_data if d.get("instagram", {}).get("available"))
+            st.metric("Engagement Instagram", format_number(total_insta_engagement))
+
+        with col3:
+            total_tiktok_videos = sum(d.get("tiktok", {}).get("count", 0) for _, d in sorted_data if d.get("tiktok", {}).get("available"))
+            st.metric("Vidéos TikTok", format_number(total_tiktok_videos))
+
+        with col4:
+            total_tiktok_views = sum(d.get("tiktok", {}).get("total_views", 0) for _, d in sorted_data if d.get("tiktok", {}).get("available"))
+            st.metric("Vues TikTok", format_number(total_tiktok_views))
+
+        # Graphiques
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # Graphique Instagram
+            insta_data = []
+            for _, d in sorted_data:
+                insta = d.get("instagram", {})
+                if insta.get("available"):
+                    insta_data.append({
+                        "Candidat": d["info"]["name"],
+                        "Engagement": insta.get("total_engagement", 0)
+                    })
+
+            if insta_data:
+                df_insta = pd.DataFrame(insta_data)
+                fig = px.bar(
+                    df_insta,
+                    x="Candidat",
+                    y="Engagement",
+                    color="Candidat",
+                    color_discrete_sequence=colors[:len(insta_data)],
+                    title="Engagement Instagram (likes + commentaires)"
+                )
+                fig.update_layout(
+                    showlegend=False,
+                    yaxis_title="Engagement total",
+                    xaxis_title=""
+                )
+                fig.update_traces(
+                    hovertemplate='<b>%{x}</b><br>%{y} interactions<extra></extra>'
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Aucune donnée Instagram disponible pour la période sélectionnée")
+
+        with col2:
+            # Graphique TikTok
+            tiktok_data = []
+            for _, d in sorted_data:
+                tiktok = d.get("tiktok", {})
+                if tiktok.get("available"):
+                    tiktok_data.append({
+                        "Candidat": d["info"]["name"],
+                        "Vues": tiktok.get("total_views", 0)
+                    })
+
+            if tiktok_data:
+                df_tiktok = pd.DataFrame(tiktok_data)
+                fig = px.bar(
+                    df_tiktok,
+                    x="Candidat",
+                    y="Vues",
+                    color="Candidat",
+                    color_discrete_sequence=colors[:len(tiktok_data)],
+                    title="Vues totales TikTok"
+                )
+                fig.update_layout(
+                    showlegend=False,
+                    yaxis_title="Vues totales",
+                    xaxis_title=""
+                )
+                fig.update_traces(
+                    hovertemplate='<b>%{x}</b><br>%{y} vues<extra></extra>'
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Aucune donnée TikTok disponible pour la période sélectionnée")
+
+        # Détails Instagram
+        st.markdown("---")
+        st.markdown("### Détails Instagram")
+
+        for rank, (cid, d) in enumerate(sorted_data, 1):
+            insta = d.get("instagram", {})
+            if insta.get("available") and insta.get("posts"):
+                posts = insta["posts"]
+                engagement = insta.get("total_engagement", 0)
+
+                with st.expander(f"{rank}. {d['info']['name']} — {len(posts)} post(s) · {format_number(engagement)} engagement"):
+                    # Clé unique pour chaque candidat
+                    show_all_insta_key = f"show_all_insta_{cid}"
+                    if show_all_insta_key not in st.session_state:
+                        st.session_state[show_all_insta_key] = False
+
+                    # Afficher tous les posts ou seulement les 10 premiers
+                    posts_to_show = posts if st.session_state[show_all_insta_key] else posts[:10]
+
+                    for i, post in enumerate(posts_to_show, 1):
+                        likes = format_number(post.get("likes", 0))
+                        comments = format_number(post.get("comments", 0))
+                        st.markdown(f"**{i}.** [@{post.get('username', 'inconnu')}]({post['url']}) — {likes} likes · {comments} commentaires")
+                        st.caption(f"{post['date']} · {post.get('caption', '')[:150]}...")
+
+                    # Bouton pour afficher plus/moins
+                    if len(posts) > 10:
+                        if st.session_state[show_all_insta_key]:
+                            if st.button(f"Voir moins", key=f"btn_less_insta_{cid}"):
+                                st.session_state[show_all_insta_key] = False
+                                st.rerun()
+                        else:
+                            if st.button(f"Voir plus ({len(posts) - 10} autres posts)", key=f"btn_more_insta_{cid}"):
+                                st.session_state[show_all_insta_key] = True
+                                st.rerun()
+            elif insta.get("error"):
+                st.info(f"{d['info']['name']} : {insta['error']}")
+
+        # Détails TikTok
+        st.markdown("---")
+        st.markdown("### Détails TikTok")
+
+        for rank, (cid, d) in enumerate(sorted_data, 1):
+            tiktok = d.get("tiktok", {})
+            if tiktok.get("available") and tiktok.get("videos"):
+                videos = tiktok["videos"]
+                total_views = tiktok.get("total_views", 0)
+
+                with st.expander(f"{rank}. {d['info']['name']} — {len(videos)} vidéo(s) · {format_number(total_views)} vues"):
+                    # Clé unique pour chaque candidat
+                    show_all_tiktok_key = f"show_all_tiktok_{cid}"
+                    if show_all_tiktok_key not in st.session_state:
+                        st.session_state[show_all_tiktok_key] = False
+
+                    # Afficher toutes les vidéos ou seulement les 10 premières
+                    videos_to_show = videos if st.session_state[show_all_tiktok_key] else videos[:10]
+
+                    for i, video in enumerate(videos_to_show, 1):
+                        views = format_number(video.get("views", 0))
+                        likes = format_number(video.get("likes", 0))
+                        st.markdown(f"**{i}.** [@{video.get('author', 'inconnu')}]({video['url']}) — {views} vues · {likes} likes")
+                        st.caption(f"{video['date']} · {video.get('description', '')[:150]}...")
+
+                    # Bouton pour afficher plus/moins
+                    if len(videos) > 10:
+                        if st.session_state[show_all_tiktok_key]:
+                            if st.button(f"Voir moins", key=f"btn_less_tiktok_{cid}"):
+                                st.session_state[show_all_tiktok_key] = False
+                                st.rerun()
+                        else:
+                            if st.button(f"Voir plus ({len(videos) - 10} autres vidéos)", key=f"btn_more_tiktok_{cid}"):
+                                st.session_state[show_all_tiktok_key] = True
+                                st.rerun()
+            elif tiktok.get("error"):
+                st.info(f"{d['info']['name']} : {tiktok['error']}")
 
     # === ARTICLES ===
     st.markdown("---")
