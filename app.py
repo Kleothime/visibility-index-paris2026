@@ -376,7 +376,7 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
         anchor = keywords[0]
         timeframe = f"{start_date.strftime('%Y-%m-%d')} {end_date.strftime('%Y-%m-%d')}"
 
-        try:
+    try:
     pytrends = TrendReq(
         hl="fr-FR",
         tz=60,
