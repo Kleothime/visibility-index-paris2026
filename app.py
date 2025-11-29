@@ -25,6 +25,28 @@ st.set_page_config(
     layout="wide"
 )
 
+# Police personnalisée (Inter - professionnelle et moderne)
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    html, body, [class*="css"], [class*="st-"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-weight: 600;
+    }
+
+    /* Amélioration de la lisibilité */
+    body {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Clé API YouTube (utilisée automatiquement)
 YOUTUBE_API_KEY = "AIzaSyCu27YMexJiCrzagkCnawkECG7WA1_wzDI"
 
@@ -877,162 +899,6 @@ def calculate_score(wiki_views: int, press_count: int, press_domains: int,
 
 
 # =============================================================================
-# INSTAGRAM (INSTALOADER)
-# =============================================================================
-
-@st.cache_data(ttl=3600)
-def fetch_instagram_data(candidate_name: str, search_terms: List[str], start_date: date, end_date: date) -> Dict:
-    """Récupère les posts Instagram mentionnant le candidat
-
-    Note: Instagram limite fortement l'accès aux données publiques sans authentification.
-    Cette fonction utilise la recherche par hashtag qui peut retourner des résultats limités.
-    """
-    try:
-        import instaloader
-        from datetime import datetime as dt
-        import time
-
-        # Configuration de l'instance Instaloader
-        L = instaloader.Instaloader(
-            download_pictures=False,
-            download_videos=False,
-            download_video_thumbnails=False,
-            download_geotags=False,
-            download_comments=False,
-            save_metadata=False,
-            compress_json=False,
-            max_connection_attempts=2
-        )
-
-        all_posts = []
-        total_likes = 0
-        total_comments = 0
-
-        # Créer plusieurs variantes de hashtags
-        hashtags = set()
-
-        # Ajouter les termes de recherche nettoyés
-        for term in search_terms[:3]:  # Limiter aux 3 premiers termes
-            clean = term.replace(" ", "").replace("-", "").replace("'", "")
-            if clean and len(clean) >= 3:
-                hashtags.add(clean.lower())
-
-        # Ajouter des variantes du nom complet
-        name_clean = candidate_name.replace(" ", "").replace("-", "").replace("'", "")
-        if name_clean:
-            hashtags.add(name_clean.lower())
-
-        # Ajouter le nom de famille si présent
-        name_parts = candidate_name.split()
-        if len(name_parts) >= 2:
-            lastname = name_parts[-1].replace("'", "").replace("-", "")
-            if len(lastname) >= 3:
-                hashtags.add(lastname.lower())
-
-        hashtags = list(hashtags)[:3]  # Limiter à 3 hashtags max
-
-        if not hashtags:
-            return {"available": False, "posts": [], "total_engagement": 0, "error": "Aucun hashtag valide généré"}
-
-        # Date de début et fin en datetime
-        start_dt = dt.combine(start_date, dt.min.time())
-        end_dt = dt.combine(end_date, dt.max.time())
-
-        for hashtag in hashtags:
-            try:
-                # Recherche par hashtag
-                posts = L.get_hashtag_posts(hashtag)
-
-                count = 0
-                for post in posts:
-                    # Limiter à 20 posts par hashtag pour éviter rate limiting
-                    if count >= 20:
-                        break
-
-                    try:
-                        post_date = post.date
-
-                        # Arrêter si les posts sont trop anciens (optimisation)
-                        if post_date < start_dt:
-                            break
-
-                        # Filtrer par date
-                        if start_dt <= post_date <= end_dt:
-                            # Récupérer le caption
-                            caption = (post.caption or "").lower()
-
-                            # Vérifier si le candidat est mentionné (plus permissif)
-                            name_parts = candidate_name.lower().split()
-                            mentioned = False
-
-                            # Vérifier présence du nom ou du prénom
-                            for part in name_parts:
-                                if len(part) >= 3 and part in caption:
-                                    mentioned = True
-                                    break
-
-                            if mentioned:
-                                likes = post.likes
-                                comments = post.comments
-
-                                all_posts.append({
-                                    "shortcode": post.shortcode,
-                                    "url": f"https://www.instagram.com/p/{post.shortcode}/",
-                                    "caption": (post.caption or "")[:200],
-                                    "likes": likes,
-                                    "comments": comments,
-                                    "date": post_date.strftime("%Y-%m-%d"),
-                                    "username": post.owner_username
-                                })
-
-                                total_likes += likes
-                                total_comments += comments
-
-                        count += 1
-
-                    except Exception:
-                        # Ignorer les posts problématiques
-                        continue
-
-                # Délai entre hashtags pour éviter rate limiting
-                time.sleep(1)
-
-            except Exception:
-                # Continuer avec le hashtag suivant en cas d'erreur
-                continue
-
-        # Trier par engagement (likes + comments)
-        all_posts.sort(key=lambda x: x["likes"] + x["comments"], reverse=True)
-
-        if not all_posts:
-            return {
-                "available": False,
-                "posts": [],
-                "total_engagement": 0,
-                "error": f"Aucun post trouvé (hashtags testés: {', '.join(['#' + h for h in hashtags])})"
-            }
-
-        total_engagement = total_likes + total_comments
-
-        return {
-            "available": True,
-            "posts": all_posts[:50],  # Garder top 50
-            "total_likes": total_likes,
-            "total_comments": total_comments,
-            "total_engagement": total_engagement,
-            "count": len(all_posts)
-        }
-
-    except ImportError:
-        return {"available": False, "posts": [], "total_engagement": 0, "error": "Bibliothèque instaloader non installée"}
-    except Exception as e:
-        error_msg = str(e)[:150]
-        return {"available": False, "posts": [], "total_engagement": 0, "error": f"Erreur Instagram: {error_msg}"}
-
-
-
-
-# =============================================================================
 # COLLECTE PRINCIPALE
 # =============================================================================
 
@@ -1074,9 +940,6 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         else:
             youtube = {"available": False, "total_views": 0, "videos": []}
 
-        # Réseaux sociaux
-        instagram = fetch_instagram_data(name, c["search_terms"], start_date, end_date)
-
         trends_score = trends["scores"].get(name, 0)
 
         score = calculate_score(
@@ -1094,7 +957,6 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             "press": press,
             "tv_radio": tv_radio,
             "youtube": youtube,
-            "instagram": instagram,
             "trends_score": trends_score,
             "trends_success": trends["success"],
             "trends_error": trends.get("error") or trends.get("errors"),
@@ -1162,6 +1024,7 @@ def main():
         st.markdown("---")
         st.markdown("### Pondération du score")
         st.caption("Presse 40% · Trends 35% · Wikipedia 15% · YouTube 10%")
+        st.caption("Kléothime Bourdon · bourdonkleothime@gmail.com")
 
     if not selected:
         st.warning("Veuillez sélectionner au moins un candidat")
@@ -1223,8 +1086,8 @@ def main():
     st.markdown("---")
     st.markdown("## Visualisations détaillées")
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
-        ["Scores", "Sondages", "TV / Radio", "Historique", "Wikipedia", "Presse", "Instagram"]
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+        ["Scores", "Sondages", "TV / Radio", "Historique", "Wikipedia", "Presse"]
     )
 
     names = [d["info"]["name"] for _, d in sorted_data]
@@ -1678,91 +1541,6 @@ def main():
                 hovertemplate='<b>%{label}</b><br>%{value} articles<br>%{percent}<extra></extra>'
             )
             st.plotly_chart(fig, use_container_width=True)
-
-    # TAB 7: RÉSEAUX SOCIAUX
-    with tab7:
-        st.markdown("### Instagram")
-
-        # Statistiques globales
-        col1, col2 = st.columns(2)
-
-        with col1:
-            total_insta_posts = sum(d.get("instagram", {}).get("count", 0) for _, d in sorted_data if d.get("instagram", {}).get("available"))
-            st.metric("Posts Instagram", format_number(total_insta_posts))
-
-        with col2:
-            total_insta_engagement = sum(d.get("instagram", {}).get("total_engagement", 0) for _, d in sorted_data if d.get("instagram", {}).get("available"))
-            st.metric("Engagement total", format_number(total_insta_engagement))
-
-        # Graphique Instagram
-        insta_data = []
-        for _, d in sorted_data:
-            insta = d.get("instagram", {})
-            if insta.get("available"):
-                insta_data.append({
-                    "Candidat": d["info"]["name"],
-                    "Engagement": insta.get("total_engagement", 0)
-                })
-
-        if insta_data:
-            df_insta = pd.DataFrame(insta_data)
-            fig = px.bar(
-                df_insta,
-                x="Candidat",
-                y="Engagement",
-                color="Candidat",
-                color_discrete_sequence=colors[:len(insta_data)],
-                title="Engagement Instagram (likes + commentaires)"
-            )
-            fig.update_layout(
-                showlegend=False,
-                yaxis_title="Engagement total",
-                xaxis_title=""
-            )
-            fig.update_traces(
-                hovertemplate='<b>%{x}</b><br>%{y} interactions<extra></extra>'
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("Aucune donnée Instagram disponible pour la période sélectionnée")
-
-        # Détails Instagram
-        st.markdown("---")
-        st.markdown("### Détails Instagram")
-
-        for rank, (cid, d) in enumerate(sorted_data, 1):
-            insta = d.get("instagram", {})
-            if insta.get("available") and insta.get("posts"):
-                posts = insta["posts"]
-                engagement = insta.get("total_engagement", 0)
-
-                with st.expander(f"{rank}. {d['info']['name']} — {len(posts)} post(s) · {format_number(engagement)} engagement"):
-                    # Clé unique pour chaque candidat
-                    show_all_insta_key = f"show_all_insta_{cid}"
-                    if show_all_insta_key not in st.session_state:
-                        st.session_state[show_all_insta_key] = False
-
-                    # Afficher tous les posts ou seulement les 10 premiers
-                    posts_to_show = posts if st.session_state[show_all_insta_key] else posts[:10]
-
-                    for i, post in enumerate(posts_to_show, 1):
-                        likes = format_number(post.get("likes", 0))
-                        comments = format_number(post.get("comments", 0))
-                        st.markdown(f"**{i}.** [@{post.get('username', 'inconnu')}]({post['url']}) — {likes} likes · {comments} commentaires")
-                        st.caption(f"{post['date']} · {post.get('caption', '')[:150]}...")
-
-                    # Bouton pour afficher plus/moins
-                    if len(posts) > 10:
-                        if st.session_state[show_all_insta_key]:
-                            if st.button(f"Voir moins", key=f"btn_less_insta_{cid}"):
-                                st.session_state[show_all_insta_key] = False
-                                st.rerun()
-                        else:
-                            if st.button(f"Voir plus ({len(posts) - 10} autres posts)", key=f"btn_more_insta_{cid}"):
-                                st.session_state[show_all_insta_key] = True
-                                st.rerun()
-            elif insta.get("error"):
-                st.info(f"{d['info']['name']} : {insta['error']}")
 
     # === ARTICLES ===
     st.markdown("---")

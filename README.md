@@ -50,7 +50,6 @@ L'application sera accessible sur http://localhost:8501
 - **Sondages officiels** : Intégration des sondages IFOP, Elabe et autres instituts reconnus
 - **Graphiques interactifs** : Visualisations Plotly optimisées
 - **Analyse TV/Radio** : Détection automatique des passages médias avec liens
-- **Suivi Instagram** : Recherche de posts publics par hashtag mentionnant les candidats
 - **Historique** : Suivi temporel avec sauvegarde cloud optionnelle
 
 ## Sources de données
@@ -100,11 +99,9 @@ SONDAGES = [
 
 ## Nouveautés v9.0
 
-- **Suivi Instagram** : Nouvel onglet pour suivre les posts Instagram mentionnant les candidats
-- Recherche par hashtag avec détection automatique des mentions
-- Métriques d'engagement (likes + commentaires)
-- Graphiques comparatifs entre candidats
-- Listes détaillées avec boutons "Voir plus"
+- **Typographie améliorée** : Police Inter moderne et professionnelle pour une meilleure lisibilité
+- **Signature** : Ajout des informations de contact du créateur dans la sidebar
+- Optimisations de performance et nettoyage du code
 
 ## Nouveautés v8.0
 
