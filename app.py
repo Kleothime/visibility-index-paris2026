@@ -1372,6 +1372,11 @@ def main():
     with tab5:
         days_in_period = (end_date - start_date).days + 1
         
+        # Avertissement si la période inclut les dernières 48h
+        today = date.today()
+        if end_date >= today - timedelta(days=1):
+            st.warning("⚠️ L'API Wikipedia a un délai de 24-48h. Les données d'aujourd'hui et d'hier ne sont pas encore disponibles. Choisissez une période plus ancienne ou attendez.")
+        
         st.caption(f"📊 Comparaison : période analysée ({days_in_period}j) vs période précédente équivalente ({days_in_period}j)")
         
         col1, col2 = st.columns(2)
