@@ -1203,30 +1203,25 @@ def main():
                 unique_dates = df_hist["Date"].nunique()
                 
                 if unique_dates == 1:
-                    st.info("📊 Une seule date. Revenez demain pour l'évolution !")
-                    
-                    today_data = df_hist[df_hist["Date"] == df_hist["Date"].max()]
-                    today_data = today_data.sort_values("Score", ascending=False)
-                    
-                    fig = px.bar(today_data, x="Candidat", y="Score",
-                                color="Candidat", color_discrete_map=color_map,
-                                title=f"Scores du {df_hist['Date'].max()}")
-                    fig.update_layout(showlegend=False, yaxis_range=[0, 100])
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    fig = px.line(df_hist, x="Date", y="Score", color="Candidat",
-                                 markers=True, color_discrete_map=color_map,
-                                 title="Évolution des scores")
-                    fig.update_layout(
-                        yaxis_range=[0, 100],
-                        yaxis_title="Score",
-                        xaxis_title="Date",
-                        legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
-                        height=500,
-                        margin=dict(b=100)
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-                    
+                    st.info("📊 Une seule date enregistrée. L'évolution apparaîtra dès demain !")
+                
+                # Toujours afficher un graphique en ligne
+                fig = px.line(df_hist, x="Date", y="Score", color="Candidat",
+                             markers=True, color_discrete_map=color_map,
+                             title="Évolution des scores de visibilité")
+                fig.update_layout(
+                    yaxis_range=[0, 100],
+                    yaxis_title="Score",
+                    xaxis_title="Date",
+                    xaxis=dict(type='category'),  # Force l'affichage correct des dates
+                    legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
+                    height=500,
+                    margin=dict(b=100)
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Tableau des variations (si plusieurs dates)
+                if unique_dates > 1:
                     st.markdown("### Variations")
                     var_rows = []
                     for _, d in sorted_data:
