@@ -1200,7 +1200,7 @@ def main():
                 fig_evolution.update_layout(
                     yaxis_range=[0, 40],
                     yaxis_title="Intentions de vote (%)",
-                    xaxis_title="Date du sondage",
+                    xaxis_title="",
                     legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
                     height=500,
                     margin=dict(b=100)
@@ -1251,18 +1251,34 @@ def main():
         st.markdown("---")
         st.markdown("### Détails des mentions")
 
-        for _, d in sorted_data:
+        for cid, d in sorted_data:
             tv = d.get("tv_radio", {})
             mentions = tv.get("mentions", [])
 
             if mentions:
                 with st.expander(f"{d['info']['name']} - {len(mentions)} mention(s)"):
-                    for i, mention in enumerate(mentions[:20], 1):
+                    # Clé unique pour chaque candidat
+                    show_all_mentions_key = f"show_all_mentions_{cid}"
+                    if show_all_mentions_key not in st.session_state:
+                        st.session_state[show_all_mentions_key] = False
+
+                    # Afficher toutes les mentions ou seulement les 20 premières
+                    mentions_to_show = mentions if st.session_state[show_all_mentions_key] else mentions[:20]
+
+                    for i, mention in enumerate(mentions_to_show, 1):
                         st.markdown(f"**{i}.** [{mention['title']}]({mention['url']})")
                         st.caption(f"{mention['date']} · {mention['source']} · {mention['media']}")
 
+                    # Bouton pour afficher plus/moins
                     if len(mentions) > 20:
-                        st.info(f"+ {len(mentions) - 20} autres mentions")
+                        if st.session_state[show_all_mentions_key]:
+                            if st.button(f"Voir moins", key=f"btn_less_mentions_{cid}"):
+                                st.session_state[show_all_mentions_key] = False
+                                st.rerun()
+                        else:
+                            if st.button(f"Voir plus ({len(mentions) - 20} autres mentions)", key=f"btn_more_mentions_{cid}"):
+                                st.session_state[show_all_mentions_key] = True
+                                st.rerun()
 
         if sum(d["Mentions"] for d in tv_data) > 0:
             st.markdown("---")
@@ -1378,7 +1394,7 @@ def main():
                     title="Évolution temporelle",
                     yaxis_range=[0, 100],
                     yaxis_title="Score de visibilité",
-                    xaxis_title="Date",
+                    xaxis_title="",
                     legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
                     height=500,
                     margin=dict(b=100)
@@ -1511,11 +1527,28 @@ def main():
         arts = d["press"]["articles"]
         with st.expander(f"{rank}. {d['info']['name']} — {len(arts)} article(s)"):
             if arts:
-                for i, a in enumerate(arts[:15], 1):
+                # Clé unique pour chaque candidat
+                show_all_key = f"show_all_articles_{cid}"
+                if show_all_key not in st.session_state:
+                    st.session_state[show_all_key] = False
+
+                # Afficher tous les articles ou seulement les 15 premiers
+                articles_to_show = arts if st.session_state[show_all_key] else arts[:15]
+
+                for i, a in enumerate(articles_to_show, 1):
                     st.markdown(f"**{i}.** [{a['title']}]({a['url']})")
                     st.caption(f"{a['date']} · {a['domain']}")
+
+                # Bouton pour afficher plus/moins
                 if len(arts) > 15:
-                    st.info(f"+ {len(arts) - 15} autres articles")
+                    if st.session_state[show_all_key]:
+                        if st.button(f"Voir moins", key=f"btn_less_{cid}"):
+                            st.session_state[show_all_key] = False
+                            st.rerun()
+                    else:
+                        if st.button(f"Voir plus ({len(arts) - 15} autres articles)", key=f"btn_more_{cid}"):
+                            st.session_state[show_all_key] = True
+                            st.rerun()
             else:
                 st.info("Aucun article trouvé")
 
@@ -1530,13 +1563,29 @@ def main():
             yt = d["youtube"]
             if yt.get("available") and yt.get("videos"):
                 with st.expander(f"{rank}. {d['info']['name']} — {format_number(yt['total_views'])} vues"):
-                    for i, v in enumerate(yt["videos"][:10], 1):
+                    # Clé unique pour chaque candidat
+                    show_all_videos_key = f"show_all_videos_{cid}"
+                    if show_all_videos_key not in st.session_state:
+                        st.session_state[show_all_videos_key] = False
+
+                    # Afficher toutes les vidéos ou seulement les 10 premières
+                    videos_to_show = yt["videos"] if st.session_state[show_all_videos_key] else yt["videos"][:10]
+
+                    for i, v in enumerate(videos_to_show, 1):
                         views = v.get("views", 0)
                         st.markdown(f"**{i}.** [{v['title']}]({v['url']}) — {format_number(views)} vues")
                         st.caption(f"{v.get('published', '')} · {v.get('channel', '')}")
 
+                    # Bouton pour afficher plus/moins
                     if len(yt["videos"]) > 10:
-                        st.info(f"+ {len(yt['videos']) - 10} autres vidéos")
+                        if st.session_state[show_all_videos_key]:
+                            if st.button(f"Voir moins", key=f"btn_less_videos_{cid}"):
+                                st.session_state[show_all_videos_key] = False
+                                st.rerun()
+                        else:
+                            if st.button(f"Voir plus ({len(yt['videos']) - 10} autres vidéos)", key=f"btn_more_videos_{cid}"):
+                                st.session_state[show_all_videos_key] = True
+                                st.rerun()
 
 
 if __name__ == "__main__":
