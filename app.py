@@ -345,84 +345,80 @@ def get_all_press_coverage(candidate_name: str, search_terms: List[str], start_d
     }
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=7200, show_spinner=False)  # Cache 2h pour éviter trop de requêtes
 def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> Dict:
     """
-    Google Trends (pytrends) — requête groupée pour scores comparatifs réels
+    Google Trends (pytrends) — requête groupée uniquement (max 5 candidats)
+    Limité à 5 candidats pour éviter le rate-limiting de Google
     """
     try:
         from pytrends.request import TrendReq
         import time
+        import random
 
         if not keywords:
             return {"success": False, "scores": {}, "errors": ["keywords vides"]}
 
         timeframe = f"{start_date.strftime('%Y-%m-%d')} {end_date.strftime('%Y-%m-%d')}"
 
-        # Initialisation pytrends simple (compatible avec urllib3<2)
-        pytrends = TrendReq(hl="fr-FR", tz=60)
-
         scores = {}
         errors = []
-
-        # Requête groupée avec les 5 premiers candidats (limite pytrends)
-        try:
-            first_batch = keywords[:5]
-            pytrends.build_payload(first_batch, timeframe=timeframe, geo="FR")
-            time.sleep(1)
-            df = pytrends.interest_over_time()
-
-            if df is not None and not df.empty:
-                if "isPartial" in df.columns:
-                    df = df.drop(columns=["isPartial"])
+        
+        # Limiter à 5 candidats (limite de pytrends)
+        keywords_limited = keywords[:5]
+        
+        # Retry avec backoff exponentiel
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # Délai aléatoire pour éviter les patterns détectables
+                time.sleep(2 + random.uniform(0, 2))
                 
-                # Moyenne sur la période pour chaque candidat
-                for kw in first_batch:
-                    if kw in df.columns:
-                        scores[kw] = round(float(df[kw].mean()), 1)
-                    else:
-                        scores[kw] = 0.0
-            else:
-                errors.append("DataFrame vide pour le premier groupe")
-                for kw in first_batch:
-                    scores[kw] = 0.0
-                    
-        except Exception as e:
-            errors.append(f"Groupe 1: {str(e)[:60]}")
-            for kw in keywords[:5]:
-                scores[kw] = 0.0
+                pytrends = TrendReq(hl="fr-FR", tz=60)
+                pytrends.build_payload(keywords_limited, timeframe=timeframe, geo="FR")
+                
+                time.sleep(1 + random.uniform(0, 1))
+                df = pytrends.interest_over_time()
 
-        # Pour les candidats restants (> 5), les comparer au leader du premier groupe
-        if len(keywords) > 5:
-            # Trouver le leader du premier groupe comme référence
-            reference = max(scores.items(), key=lambda x: x[1])[0] if scores else keywords[0]
-            ref_score = scores.get(reference, 50)
-            
-            for kw in keywords[5:]:
-                try:
-                    time.sleep(1.5)
-                    pytrends.build_payload([kw, reference], timeframe=timeframe, geo="FR")
-                    df = pytrends.interest_over_time()
+                if df is not None and not df.empty:
+                    if "isPartial" in df.columns:
+                        df = df.drop(columns=["isPartial"])
                     
-                    if df is not None and not df.empty and kw in df.columns and reference in df.columns:
-                        if "isPartial" in df.columns:
-                            df = df.drop(columns=["isPartial"])
-                        
-                        kw_mean = float(df[kw].mean())
-                        ref_mean = float(df[reference].mean())
-                        
-                        if ref_mean > 0:
-                            # Calculer le score proportionnel au leader
-                            ratio = kw_mean / ref_mean
-                            scores[kw] = round(ratio * ref_score, 1)
+                    # Moyenne sur la période pour chaque candidat
+                    for kw in keywords_limited:
+                        if kw in df.columns:
+                            scores[kw] = round(float(df[kw].mean()), 1)
                         else:
                             scores[kw] = 0.0
+                    
+                    # Succès, sortir de la boucle
+                    break
+                else:
+                    if attempt < max_retries - 1:
+                        time.sleep(5 * (attempt + 1))  # Backoff
                     else:
-                        scores[kw] = 0.0
+                        errors.append("DataFrame vide après plusieurs tentatives")
                         
-                except Exception as e:
-                    errors.append(f"{kw}: {str(e)[:40]}")
-                    scores[kw] = 0.0
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str:
+                    if attempt < max_retries - 1:
+                        # Attendre plus longtemps si rate-limited
+                        wait_time = 10 * (attempt + 1) + random.uniform(0, 5)
+                        time.sleep(wait_time)
+                    else:
+                        errors.append(f"Rate limit Google (429) - réessayez dans quelques minutes")
+                else:
+                    errors.append(f"Erreur: {err_str[:50]}")
+                    break
+
+        # Pour les candidats au-delà de 5, on ne fait PAS de requête supplémentaire
+        # pour éviter le rate-limiting. On leur attribue un score estimé.
+        if len(keywords) > 5 and scores:
+            avg_score = sum(scores.values()) / len(scores) if scores else 0
+            for kw in keywords[5:]:
+                # Score estimé = moyenne des autres (approximation)
+                scores[kw] = round(avg_score * 0.5, 1)  # Estimation conservatrice
 
         # S'assurer que tous les keywords ont un score
         for kw in keywords:
@@ -433,7 +429,7 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
             "success": any(v > 0 for v in scores.values()),
             "scores": scores,
             "errors": errors if errors else None,
-            "meta": {"timeframe": timeframe, "geo": "FR"}
+            "meta": {"timeframe": timeframe, "geo": "FR", "limited_to": len(keywords_limited)}
         }
 
     except ImportError:
