@@ -103,7 +103,6 @@ SONDAGES = [
         "echantillon": 1037,
         "methode": "Questionnaire auto-administré en ligne",
         "hypothese": "Hypothèse avec Pierre-Yves Bournazel candidat",
-        "url": "https://www.ifop.com/publication/intentions-de-vote-municipales-paris-2026/",
         "scores": {
             "Rachida Dati": 27,
             "Emmanuel Grégoire": 18,
@@ -121,7 +120,6 @@ SONDAGES = [
         "echantillon": 1097,
         "methode": "Questionnaire auto-administré en ligne",
         "hypothese": "Avec P-Y Bournazel, E. Grégoire candidat PS",
-        "url": "https://elabe.fr/municipales-paris-2026/",
         "scores": {
             "Rachida Dati": 28,
             "David Belliard": 22,
@@ -977,38 +975,6 @@ def main():
             default=list(CANDIDATES.keys()),
             format_func=lambda x: CANDIDATES[x]["name"]
         )
-
-        # Persistance cloud
-        st.markdown("### Persistance historique")
-
-        cloud_configured = is_cloud_configured()
-        if cloud_configured:
-            st.success("Sauvegarde cloud activée")
-        else:
-            with st.expander("Configurer la sauvegarde cloud"):
-                st.markdown("""
-                **Pour conserver l'historique :**
-                1. Créer un compte sur [jsonbin.io](https://jsonbin.io)
-                2. Copier la clé principale (Master Key)
-                3. Créer un bin avec contenu initial : `[]`
-                4. Copier l'identifiant du bin
-                """)
-
-                bin_id = st.text_input("ID du bin", value=st.session_state.get("jsonbin_bin_id", ""))
-                api_key = st.text_input("Clé principale", value=st.session_state.get("jsonbin_api_key", ""), type="password")
-
-                if bin_id:
-                    st.session_state["jsonbin_bin_id"] = bin_id
-                if api_key:
-                    st.session_state["jsonbin_api_key"] = api_key
-
-                if bin_id and api_key:
-                    if st.button("Tester la connexion"):
-                        test = load_history_cloud(bin_id, api_key)
-                        if test is not None:
-                            st.success(f"Connexion réussie ({len(test)} entrées)")
-                        else:
-                            st.error("Échec de la connexion")
 
         st.markdown("---")
 
