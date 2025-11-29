@@ -325,8 +325,6 @@ def get_historical_comparison(candidate_name: str, current_score: float, referen
         "7j": (ref_date - timedelta(days=7)).strftime("%Y-%m-%d"),
         "14j": (ref_date - timedelta(days=14)).strftime("%Y-%m-%d"),
         "30j": (ref_date - timedelta(days=30)).strftime("%Y-%m-%d"),
-        "2m": (ref_date - timedelta(days=60)).strftime("%Y-%m-%d"),
-        "4m": (ref_date - timedelta(days=120)).strftime("%Y-%m-%d"),
     }
 
     scores_at_periods = {}
@@ -1293,8 +1291,8 @@ def main():
         col_btn1, col_btn2 = st.columns([1, 3])
         with col_btn1:
             if st.button("Générer l'historique automatique", type="primary"):
-                with st.spinner("Analyse des 18 dernières semaines en cours..."):
-                    # Construire l'historique des 18 dernières semaines (126 jours = 4+ mois)
+                with st.spinner("Analyse des 8 dernières semaines en cours..."):
+                    # Construire l'historique des 8 dernières semaines (56 jours = 2 mois)
                     today = datetime.now().date()
 
                     # Supprimer l'ancien historique
@@ -1302,7 +1300,7 @@ def main():
 
                     progress_bar = st.progress(0)
 
-                    for week_num in range(18):
+                    for week_num in range(8):
                         # Calculer les dates de la semaine
                         week_end = today - timedelta(days=week_num * 7)
                         week_start = week_end - timedelta(days=6)
@@ -1314,13 +1312,13 @@ def main():
                         period_label = f"{week_start} à {week_end}"
                         add_to_history(week_data, period_label, week_end)
 
-                        progress_bar.progress((week_num + 1) / 18)
+                        progress_bar.progress((week_num + 1) / 8)
 
-                    st.success("Historique généré avec succès sur 18 semaines")
+                    st.success("Historique généré avec succès sur 8 semaines")
                     st.rerun()
 
         with col_btn2:
-            st.caption("Analyse automatique des 18 dernières semaines (126 jours)")
+            st.caption("Analyse automatique des 8 dernières semaines (56 jours)")
 
         # Charger l'historique existant
         history = load_history()
@@ -1343,9 +1341,9 @@ def main():
                 unique_dates = df_hist["Date"].nunique()
 
                 if unique_dates == 1:
-                    st.info(f"Historique : {unique_dates} jour enregistré")
+                    st.info(f"Historique : {unique_dates} semaine enregistrée")
                 else:
-                    st.success(f"Historique : {unique_dates} jours enregistrés")
+                    st.success(f"Historique : {unique_dates} semaines enregistrées")
 
                 # Graphique d'évolution avec styles professionnels
                 fig = go.Figure()
@@ -1409,8 +1407,6 @@ def main():
                                     "vs 7j": f"{changes['7j']:+.1f}" if changes.get('7j') is not None else "-",
                                     "vs 14j": f"{changes['14j']:+.1f}" if changes.get('14j') is not None else "-",
                                     "vs 30j": f"{changes['30j']:+.1f}" if changes.get('30j') is not None else "-",
-                                    "vs 2 mois": f"{changes['2m']:+.1f}" if changes.get('2m') is not None else "-",
-                                    "vs 4 mois": f"{changes['4m']:+.1f}" if changes.get('4m') is not None else "-",
                                 }
                             else:
                                 row = {
@@ -1419,8 +1415,6 @@ def main():
                                     "vs 7j": "-",
                                     "vs 14j": "-",
                                     "vs 30j": "-",
-                                    "vs 2 mois": "-",
-                                    "vs 4 mois": "-",
                                 }
                             var_rows.append(row)
 
