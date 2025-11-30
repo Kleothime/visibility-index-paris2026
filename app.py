@@ -423,21 +423,6 @@ YOUTUBE_CACHE_FILE = "youtube_cache.json"
 TRENDS_CACHE_FILE = "trends_cache.json"
 
 # =============================================================================
-# THÈMES STRATÉGIQUES POUR COMPARAISON
-# =============================================================================
-
-THEMES_STRATEGIQUES = {
-    "logement": ["logement", "loyer", "HLM", "immobilier", "expulsion"],
-    "sécurité": ["sécurité", "police", "délinquance", "insécurité", "criminalité"],
-    "transport": ["transport", "métro", "vélo", "voiture", "circulation"],
-    "propreté": ["propreté", "poubelle", "rat", "déchet", "saleté"],
-    "immigration": ["immigration", "migrant", "étranger", "clandestin"],
-    "économie": ["économie", "emploi", "entreprise", "commerce", "chômage"],
-    "écologie": ["écologie", "environnement", "pollution", "vert", "climat"],
-    "culture": ["culture", "musée", "spectacle", "art", "patrimoine"],
-}
-
-# =============================================================================
 # LEMMATISATION BASIQUE FRANÇAIS
 # =============================================================================
 
@@ -774,64 +759,6 @@ def get_trends_related_queries(candidate_name: str, timeframe: str = "today 1-m"
         error_str = str(e)
         if "429" in error_str:
             result["error"] = "Limite Google Trends atteinte (429)"
-        else:
-            result["error"] = error_str[:100]
-
-    return result
-
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_thematic_comparison(candidates: List[str], theme_keywords: List[str], timeframe: str = "today 1-m") -> Dict:
-    """
-    Compare l'intérêt de recherche pour un thème associé à chaque candidat.
-
-    Ex: Compare "Rachida Dati logement" vs "Sarah Knafo logement" vs ...
-    """
-    import time
-    import random
-
-    result = {
-        "success": False,
-        "scores": {},
-        "error": None
-    }
-
-    if not candidates or not theme_keywords:
-        return result
-
-    try:
-        from pytrends.request import TrendReq
-
-        # Construire les requêtes: "Candidat + thème"
-        # On prend le premier mot-clé du thème pour simplifier
-        theme_word = theme_keywords[0]
-        queries = [f"{name} {theme_word}" for name in candidates[:5]]  # Max 5 pour Trends
-
-        time.sleep(2 + random.uniform(0, 2))
-
-        pytrends = TrendReq(hl="fr-FR", tz=60)
-        pytrends.build_payload(queries, timeframe=timeframe, geo="FR")
-
-        time.sleep(1 + random.uniform(0, 1))
-
-        df = pytrends.interest_over_time()
-
-        if df is not None and not df.empty:
-            if "isPartial" in df.columns:
-                df = df.drop(columns=["isPartial"])
-
-            for query in queries:
-                if query in df.columns:
-                    # Extraire le nom du candidat de la requête
-                    candidate_name = query.replace(f" {theme_word}", "")
-                    result["scores"][candidate_name] = round(float(df[query].mean()), 1)
-
-            result["success"] = any(v > 0 for v in result["scores"].values())
-
-    except Exception as e:
-        error_str = str(e)
-        if "429" in error_str:
-            result["error"] = "Limite Google Trends atteinte"
         else:
             result["error"] = error_str[:100]
 
@@ -2157,60 +2084,6 @@ header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visi
                 # Erreur Trends si presente
                 if related.get('error'):
                     st.error(f"Erreur Trends: {related['error']}")
-
-        # === COMPARAISON THEMATIQUE ===
-        st.markdown('---')
-        st.markdown('### Qui domine quel sujet ?')
-        st.markdown('*Comparaison de l\'interet de recherche par theme strategique*')
-
-        # Sélecteur de thème
-        theme_selected = st.selectbox(
-            'Choisir un theme',
-            list(THEMES_STRATEGIQUES.keys()),
-            format_func=lambda x: x.capitalize()
-        )
-
-        if theme_selected:
-            theme_keywords = THEMES_STRATEGIQUES[theme_selected]
-            candidate_names = [d['info']['name'] for _, d in sorted_data]
-
-            with st.spinner(f'Analyse du theme "{theme_selected}"...'):
-                comparison = get_thematic_comparison(candidate_names, theme_keywords)
-
-            if comparison.get('success') and comparison.get('scores'):
-                scores = comparison['scores']
-
-                # Trier par score decroissant
-                sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-
-                # Graphique
-                fig = px.bar(
-                    x=[s[0] for s in sorted_scores],
-                    y=[s[1] for s in sorted_scores],
-                    color=[s[0] for s in sorted_scores],
-                    color_discrete_sequence=[
-                        next((c['color'] for c in CANDIDATES.values() if c['name'] == s[0]), '#888')
-                        for s in sorted_scores
-                    ],
-                    title=f'Interet de recherche: "{theme_selected}"'
-                )
-                fig.update_layout(
-                    showlegend=False,
-                    yaxis_title='Score relatif',
-                    xaxis_title='',
-                    yaxis_range=[0, max(s[1] for s in sorted_scores) * 1.2] if sorted_scores else [0, 100]
-                )
-                st.plotly_chart(fig, use_container_width=True, config=plotly_config)
-
-                # Leader du theme
-                if sorted_scores:
-                    leader = sorted_scores[0]
-                    st.success(f'**{leader[0]}** domine le sujet "{theme_selected}" avec un score de {leader[1]:.0f}')
-
-            elif comparison.get('error'):
-                st.error(f"Erreur: {comparison['error']}")
-            else:
-                st.info('Pas assez de donnees pour cette comparaison')
 
         # === TABLEAU RECAPITULATIF TOP QUERIES ===
         st.markdown('---')
