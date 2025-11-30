@@ -1010,7 +1010,11 @@ def main():
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header[data-testid="stHeader"] {visibility: hidden;}
+    header[data-testid="stHeader"] {
+        height: 0;
+        min-height: 0;
+        visibility: visible;
+    }
 
     /* Agrandir le bouton du sidebar */
     [data-testid="collapsedControl"] {
