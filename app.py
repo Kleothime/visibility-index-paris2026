@@ -1910,12 +1910,15 @@ header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visi
             'Articles': d['press']['count'],
             'Trends': d['trends_score'],
             'Wikipedia': format_number(d['wikipedia']['views']),
+            'Vues YT': format_number(d['youtube'].get('total_views', 0)) if youtube_enabled else None,
         }
-        if youtube_enabled:
-            row['Vues YT'] = format_number(d['youtube'].get('total_views', 0))
         rows.append(row)
 
     df = pd.DataFrame(rows)
+
+    # Supprimer la colonne Vues YT si YouTube n'est pas activé
+    if not youtube_enabled and 'Vues YT' in df.columns:
+        df = df.drop(columns=['Vues YT'])
 
     col_config = {
         'Rang': st.column_config.NumberColumn('Rang', format='%d'),
@@ -1924,9 +1927,8 @@ header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visi
         'Articles': st.column_config.NumberColumn('Articles', format='%d'),
         'Trends': st.column_config.NumberColumn('Trends', format='%.0f'),
         'Wikipedia': st.column_config.TextColumn('Wikipedia'),
+        'Vues YT': st.column_config.TextColumn('Vues YT', help='Vues cumulees des videos YouTube mentionnant le candidat'),
     }
-    if youtube_enabled:
-        col_config['Vues YT'] = st.column_config.TextColumn('Vues YT sorties sur periode', help='Vues cumulees des videos YouTube mentionnant le candidat, publiees sur la periode selectionnee')
 
     st.dataframe(df, column_config=col_config, hide_index=True, use_container_width=True)
 
