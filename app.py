@@ -1612,11 +1612,10 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
     expected_youtube_cost = len(candidate_ids) * YOUTUBE_COST_PER_CANDIDATE if youtube_key else 0
 
     if youtube_key:
-        youtube_refresh_allowed, youtube_refresh_reason = can_refresh_youtube(
-            force=force_youtube_refresh,
-            expected_cost=expected_youtube_cost
-        )
-        youtube_mode = "api" if youtube_refresh_allowed else "cache"
+        # Toujours utiliser l'API si la clé existe
+        youtube_refresh_allowed = True
+        youtube_refresh_reason = "OK"
+        youtube_mode = "api"
     else:
         youtube_refresh_allowed = False
         youtube_refresh_reason = "Clé API YouTube manquante"
