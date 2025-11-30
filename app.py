@@ -1818,6 +1818,11 @@ header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visi
         )
 
         st.markdown("---")
+        if st.button("🔄 Rafraîchir les données", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
+
+        st.markdown("---")
         st.markdown("### Pondération du score")
         st.caption("Presse 40% · Trends 35% · Wikipedia 15% · YouTube 10%")
 
