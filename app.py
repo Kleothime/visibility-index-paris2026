@@ -228,6 +228,152 @@ def is_cloud_configured() -> bool:
 # =============================================================================
 
 HISTORY_FILE = "visibility_history.json"
+YOUTUBE_CACHE_FILE = "youtube_cache.json"
+
+# =============================================================================
+# CACHE YOUTUBE PERSISTANT + QUOTA MANAGEMENT
+# =============================================================================
+
+YOUTUBE_QUOTA_DAILY_LIMIT = 10000
+YOUTUBE_COST_PER_CANDIDATE = 101  # 100 (search) + 1 (videos)
+YOUTUBE_COOLDOWN_HOURS = 2
+
+
+def load_youtube_cache() -> Dict:
+    """Charge le cache YouTube persistant"""
+    try:
+        with open(YOUTUBE_CACHE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {
+            "last_refresh": None,
+            "quota_date": None,
+            "quota_used": 0,
+            "data": {}
+        }
+
+
+def save_youtube_cache(cache: Dict) -> bool:
+    """Sauvegarde le cache YouTube"""
+    try:
+        with open(YOUTUBE_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(cache, f, indent=2, ensure_ascii=False)
+        return True
+    except:
+        return False
+
+
+def get_youtube_cache_age_hours() -> float:
+    """Retourne l'âge du cache YouTube en heures"""
+    cache = load_youtube_cache()
+    last_refresh = cache.get("last_refresh")
+
+    if not last_refresh:
+        return float('inf')  # Jamais rafraîchi
+
+    try:
+        last_dt = datetime.fromisoformat(last_refresh)
+        age = (datetime.now() - last_dt).total_seconds() / 3600
+        return age
+    except:
+        return float('inf')
+
+
+def get_youtube_quota_remaining() -> int:
+    """Retourne le quota YouTube restant pour aujourd'hui"""
+    cache = load_youtube_cache()
+    today = date.today().isoformat()
+
+    # Reset si nouveau jour
+    if cache.get("quota_date") != today:
+        return YOUTUBE_QUOTA_DAILY_LIMIT
+
+    return max(0, YOUTUBE_QUOTA_DAILY_LIMIT - cache.get("quota_used", 0))
+
+
+def can_refresh_youtube(force: bool = False, expected_cost: int = YOUTUBE_COST_PER_CANDIDATE) -> tuple[bool, str]:
+    """
+    Vérifie si un refresh YouTube est autorisé.
+    Retourne (autorisé, raison)
+    """
+    cache_age = get_youtube_cache_age_hours()
+    quota_remaining = get_youtube_quota_remaining()
+
+    # Vérifier quota
+    if quota_remaining < expected_cost:
+        return False, f"Quota épuisé ({quota_remaining} unités restantes, besoin de {expected_cost})"
+
+    # Vérifier cooldown (sauf si jamais rafraîchi)
+    if cache_age < YOUTUBE_COOLDOWN_HOURS and cache_age != float('inf'):
+        if not force:
+            minutes_left = int((YOUTUBE_COOLDOWN_HOURS - cache_age) * 60)
+            return False, f"Cooldown actif (encore {minutes_left} min)"
+        # Force autorisé seulement si > 30 min
+        elif cache_age < 0.5:
+            return False, "Données trop récentes (< 30 min)"
+
+    return True, "OK"
+
+
+def increment_youtube_quota(cost: int = YOUTUBE_COST_PER_CANDIDATE):
+    """Incrémente le compteur de quota YouTube"""
+    cache = load_youtube_cache()
+    today = date.today().isoformat()
+
+    # Reset si nouveau jour
+    if cache.get("quota_date") != today:
+        cache["quota_date"] = today
+        cache["quota_used"] = 0
+
+    cache["quota_used"] = cache.get("quota_used", 0) + cost
+    cache["last_refresh"] = datetime.now().isoformat()
+    save_youtube_cache(cache)
+
+
+def get_cached_youtube_data(candidate_name: str) -> Optional[Dict]:
+    """Récupère les données YouTube en cache pour un candidat et une période exacte"""
+    cache = load_youtube_cache()
+    entry = cache.get("data", {}).get(candidate_name)
+    if not entry:
+        return None
+
+    start = entry.get("start")
+    end = entry.get("end")
+    payload = entry.get("payload")
+
+    if not (start and end and payload):
+        return None
+
+    return payload
+
+
+def get_cached_youtube_data_for_period(candidate_name: str, start_date: date, end_date: date) -> Optional[Dict]:
+    """Récupère le cache seulement si la période correspond exactement"""
+    cache = load_youtube_cache()
+    entry = cache.get("data", {}).get(candidate_name)
+    if not entry:
+        return None
+
+    if entry.get("start") != start_date.isoformat() or entry.get("end") != end_date.isoformat():
+        return None
+
+    payload = entry.get("payload")
+    if isinstance(payload, dict):
+        return dict(payload)
+    return payload
+
+
+def set_cached_youtube_data(candidate_name: str, data: Dict, start_date: date, end_date: date):
+    """Stocke les données YouTube en cache pour un candidat et une période"""
+    cache = load_youtube_cache()
+    if "data" not in cache:
+        cache["data"] = {}
+    cache["data"][candidate_name] = {
+        "start": start_date.isoformat(),
+        "end": end_date.isoformat(),
+        "payload": data
+    }
+    save_youtube_cache(cache)
 
 def load_history() -> List[Dict]:
     """Charge l'historique (cloud prioritaire, sinon local)"""
@@ -979,23 +1125,38 @@ def calculate_score(wiki_views: int, press_count: int, press_domains: int,
 # COLLECTE PRINCIPALE
 # =============================================================================
 
-def collect_data(candidate_ids: List[str], start_date: date, end_date: date, youtube_key: Optional[str]) -> Dict:
-    """Collecte toutes les données pour les candidats sélectionnés"""
+def collect_data(candidate_ids: List[str], start_date: date, end_date: date, youtube_key: Optional[str], force_youtube_refresh: bool = False) -> Dict:
+    """Collecte toutes les donn?es pour les candidats s?lectionn?s"""
     results = {}
 
     progress = st.progress(0)
     status = st.empty()
 
-    status.text("Chargement des données Google Trends...")
+    status.text("Chargement des donn?es Google Trends...")
     names = [CANDIDATES[cid]["name"] for cid in candidate_ids]
     trends = get_google_trends(names, start_date, end_date)
 
-    if not trends["success"]:
+    if not trends.get("success", True):
         err = trends.get("error") or trends.get("errors")
         if err:
             st.warning(f"Attention : Google Trends indisponible - {err}")
 
     progress.progress(0.1)
+
+    expected_youtube_cost = len(candidate_ids) * YOUTUBE_COST_PER_CANDIDATE if youtube_key else 0
+
+    if youtube_key:
+        youtube_refresh_allowed, youtube_refresh_reason = can_refresh_youtube(
+            force=force_youtube_refresh,
+            expected_cost=expected_youtube_cost
+        )
+        youtube_mode = "api" if youtube_refresh_allowed else "cache"
+    else:
+        youtube_refresh_allowed = False
+        youtube_refresh_reason = "Cl? API YouTube manquante"
+        youtube_mode = "disabled"
+
+    youtube_api_called = False
 
     total = len(candidate_ids)
 
@@ -1003,21 +1164,31 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         c = CANDIDATES[cid]
         name = c["name"]
 
-        status.text(f"Analyse de {name}...")
+        status.text(f"Analyse de {name} ({i+1}/{total})...")
 
         wiki = get_wikipedia_views(c["wikipedia"], start_date, end_date)
         press = get_all_press_coverage(name, c["search_terms"], start_date, end_date)
         tv_radio = get_tv_radio_mentions(name, start_date, end_date)
 
-        yt_start = date.today() - timedelta(days=30)
-        yt_end = date.today()
+        yt_start = start_date
+        yt_end = end_date
 
-        if youtube_key:
+        if youtube_mode == "api":
+            status.text(f"Analyse YouTube de {name}...")
             youtube = get_youtube_data(name, youtube_key, yt_start, yt_end)
+            set_cached_youtube_data(name, youtube, yt_start, yt_end)
+            youtube_api_called = True
+        elif youtube_mode == "cache":
+            cached = get_cached_youtube_data_for_period(name, yt_start, yt_end)
+            if cached:
+                youtube = dict(cached)
+                youtube["from_cache"] = True
+            else:
+                youtube = {"available": False, "total_views": 0, "videos": [], "from_cache": True, "no_cache": True}
         else:
-            youtube = {"available": False, "total_views": 0, "videos": []}
+            youtube = {"available": False, "total_views": 0, "videos": [], "disabled": True}
 
-        trends_score = trends["scores"].get(name, 0)
+        trends_score = trends.get("scores", {}).get(name, 0)
 
         score = calculate_score(
             wiki_views=wiki["views"],
@@ -1028,7 +1199,6 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             youtube_available=youtube.get("available", False)
         )
 
-        # Extraction des mots-clés thématiques
         keywords = extract_keywords_from_articles(press["articles"], name, top_n=15)
 
         results[cid] = {
@@ -1038,7 +1208,7 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             "tv_radio": tv_radio,
             "youtube": youtube,
             "trends_score": trends_score,
-            "trends_success": trends["success"],
+            "trends_success": trends.get("success", True),
             "trends_error": trends.get("error") or trends.get("errors"),
             "score": score,
             "keywords": keywords
@@ -1046,10 +1216,22 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
 
         progress.progress((i + 1) / total)
 
+    if youtube_api_called and expected_youtube_cost > 0:
+        increment_youtube_quota(cost=expected_youtube_cost)
+
     progress.empty()
     status.empty()
 
-    return results
+    return {
+        "candidates": results,
+        "youtube": {
+            "mode": youtube_mode,
+            "cache_age_hours": get_youtube_cache_age_hours(),
+            "quota_remaining": get_youtube_quota_remaining(),
+            "refresh_reason": youtube_refresh_reason if youtube_mode == "cache" else None,
+            "cost": expected_youtube_cost
+        }
+    }
 
 
 # =============================================================================
@@ -1139,8 +1321,58 @@ def main():
         st.warning("Veuillez sélectionner au moins un candidat")
         return
 
-    data = collect_data(selected, start_date, end_date, YOUTUBE_API_KEY)
+    # Gestion du refresh YouTube forcé
+    force_yt_refresh = st.session_state.get("force_youtube_refresh", False)
+    if force_yt_refresh:
+        st.session_state["force_youtube_refresh"] = False  # Reset
+
+    result = collect_data(selected, start_date, end_date, YOUTUBE_API_KEY, force_youtube_refresh=force_yt_refresh)
+    data = result["candidates"]
     sorted_data = sorted(data.items(), key=lambda x: x[1]["score"]["total"], reverse=True)
+
+    # === STATUS YOUTUBE ===
+    yt_status = result["youtube"]
+    yt_cache_age = yt_status["cache_age_hours"]
+    yt_quota = yt_status["quota_remaining"]
+    yt_mode = yt_status["mode"]
+
+    # Affichage status YouTube
+    with st.expander("Status YouTube API", expanded=False):
+        col_yt1, col_yt2, col_yt3 = st.columns(3)
+
+        with col_yt1:
+            if yt_cache_age == float('inf'):
+                st.metric("?ge des donn?es", "Jamais charg?")
+            elif yt_cache_age < 1:
+                st.metric("?ge des donn?es", f"{int(yt_cache_age * 60)} min")
+            else:
+                st.metric("?ge des donn?es", f"{yt_cache_age:.1f}h")
+
+        with col_yt2:
+            quota_pct = (yt_quota / YOUTUBE_QUOTA_DAILY_LIMIT) * 100
+            st.metric("Quota restant", f"{yt_quota:,} / {YOUTUBE_QUOTA_DAILY_LIMIT:,}", f"{quota_pct:.0f}%")
+
+        with col_yt3:
+            if yt_mode == "disabled":
+                st.info("API YouTube non configur?e")
+            elif yt_mode == "cache":
+                st.info(f"Depuis cache ({yt_status.get('refresh_reason')})")
+            else:
+                st.success("Donn?es fra?ches")
+
+        # Bouton refresh manuel avec gardes-fous
+        if yt_mode == "disabled":
+            st.warning("Refresh impossible : cl? API YouTube absente")
+        else:
+            expected_cost = len(selected) * YOUTUBE_COST_PER_CANDIDATE
+            can_refresh, refresh_reason = can_refresh_youtube(force=True, expected_cost=expected_cost)
+            if can_refresh:
+                help_text = f"Rafra?chir les donn?es YouTube (co?t estim? {expected_cost} unit?s)"
+                if st.button("Forcer refresh YouTube", help=help_text):
+                    st.session_state["force_youtube_refresh"] = True
+                    st.rerun()
+            else:
+                st.warning(f"Refresh bloqu? : {refresh_reason}")
 
     # === CLASSEMENT ===
     st.markdown("---")
@@ -1513,7 +1745,8 @@ def main():
                         week_start = week_end - timedelta(days=6)
 
                         # Collecter les données pour cette semaine
-                        week_data = collect_data(selected, week_start, week_end, YOUTUBE_API_KEY)
+                        week_result = collect_data(selected, week_start, week_end, YOUTUBE_API_KEY)
+                        week_data = week_result["candidates"]
 
                         # Enregistrer dans l'historique
                         period_label = f"{week_start} à {week_end}"
