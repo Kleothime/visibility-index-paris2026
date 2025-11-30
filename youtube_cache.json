@@ -1,0 +1,209 @@
+{
+  "last_refresh": "2025-11-30T18:23:55.592698",
+  "quota_date": "2025-11-30",
+  "quota_used": 808,
+  "data": {
+    "Rachida Dati": {
+      "start": "2025-11-30",
+      "end": "2025-11-30",
+      "payload": {
+        "available": true,
+        "videos": [
+          {
+            "id": "tNbHYic3tpU",
+            "title": "Rachida Dati ramasse les poubelles - La semaine de Naïm",
+            "channel": "NAÏM",
+            "published": "2025-11-30",
+            "url": "https://www.youtube.com/watch?v=tNbHYic3tpU",
+            "views": 108015,
+            "duration": "PT1M3S",
+            "is_short": false
+          },
+          {
+            "id": "iOEZ3CS1Xhc",
+            "title": "Rachida Dati Reine de la Com à Paris 👑spectacle places billet reduc 🎟️ #paris #humour",
+            "channel": "Malik Fares",
+            "published": "2025-11-30",
+            "url": "https://www.youtube.com/watch?v=iOEZ3CS1Xhc",
+            "views": 3245,
+            "duration": "PT1M3S",
+            "is_short": false
+          },
+          {
+            "id": "NF0o9HZSeQU",
+            "title": "RACHIDA DATI : PETITS MÉFAITS ENTRE AMIS",
+            "channel": "BLAST, Le souffle de l'info",
+            "published": "2025-11-30",
+            "url": "https://www.youtube.com/watch?v=NF0o9HZSeQU",
+            "views": 2109,
+            "duration": "PT16M35S",
+            "is_short": false
+          },
+          {
+            "id": "CSM9WtvHxl4",
+            "title": "RACHIDA DATI SE MET EN SCENE AVEC LES EBOUEURS",
+            "channel": "MURIEL",
+            "published": "2025-11-30",
+            "url": "https://www.youtube.com/watch?v=CSM9WtvHxl4",
+            "views": 0,
+            "duration": "PT46S",
+            "is_short": true
+          }
+        ],
+        "total_views": 113369,
+        "count": 4,
+        "shorts_count": 1,
+        "long_count": 3
+      }
+    },
+    "Emmanuel Grégoire": {
+      "start": "2025-11-30",
+      "end": "2025-11-30",
+      "payload": {
+        "available": false,
+        "videos": [],
+        "total_views": 0,
+        "error": "Aucune vidéo pertinente"
+      }
+    },
+    "Pierre-Yves Bournazel": {
+      "start": "2025-11-30",
+      "end": "2025-11-30",
+      "payload": {
+        "available": false,
+        "videos": [],
+        "total_views": 0,
+        "error": "Aucune vidéo pertinente"
+      }
+    },
+    "Ian Brossat": {
+      "start": "2025-11-30",
+      "end": "2025-11-30",
+      "payload": {
+        "available": true,
+        "videos": [
+          {
+            "id": "lyUS7Gfx0bI",
+            "title": "IAN BROSSAT : &quot;CNEWS, CE NE SONT PAS DES JOURNALISTES, CE SONT DES ADVERSAIRES POLITIQUES&quot;",
+            "channel": "Le Média",
+            "published": "2025-11-30",
+            "url": "https://www.youtube.com/watch?v=lyUS7Gfx0bI",
+            "views": 28544,
+            "duration": "PT37M44S",
+            "is_short": false
+          }
+        ],
+        "total_views": 28544,
+        "count": 1,
+        "shorts_count": 0,
+        "long_count": 1
+      }
+    },
+    "David Belliard": {
+      "start": "2025-11-30",
+      "end": "2025-11-30",
+      "payload": {
+        "available": false,
+        "videos": [],
+        "total_views": 0,
+        "error": "Aucune vidéo pertinente"
+      }
+    },
+    "Sophia Chikirou": {
+      "start": "2025-11-30",
+      "end": "2025-11-30",
+      "payload": {
+        "available": true,
+        "videos": [
+          {
+            "id": "YBg5ZIogVXE",
+            "title": "React&#39; #69 – S.Chikirou – F.Gay – JLM - R.Gluskman",
+            "channel": "LFI-Monde",
+            "published": "2025-11-30",
+            "url": "https://www.youtube.com/watch?v=YBg5ZIogVXE",
+            "views": 584,
+            "duration": "PT2H38M40S",
+            "is_short": false
+          }
+        ],
+        "total_views": 584,
+        "count": 1,
+        "shorts_count": 0,
+        "long_count": 1
+      }
+    },
+    "Thierry Mariani": {
+      "start": "2025-11-30",
+      "end": "2025-11-30",
+      "payload": {
+        "available": false,
+        "videos": [],
+        "total_views": 0,
+        "error": "Aucune vidéo pertinente"
+      }
+    },
+    "Sarah Knafo": {
+      "start": "2025-11-30",
+      "end": "2025-11-30",
+      "payload": {
+        "available": true,
+        "videos": [
+          {
+            "id": "3cxjLRWBKzw",
+            "title": "La différence entre L&#39;Iran et l&#39;Israël | Sarah Knafo",
+            "channel": "Idéocratie TV",
+            "published": "2025-11-30",
+            "url": "https://www.youtube.com/watch?v=3cxjLRWBKzw",
+            "views": 1343,
+            "duration": "PT23S",
+            "is_short": true
+          },
+          {
+            "id": "HzDByQWUinU",
+            "title": "Ce que Les Français Financent | Sarah Knafo",
+            "channel": "Idéocratie TV",
+            "published": "2025-11-30",
+            "url": "https://www.youtube.com/watch?v=HzDByQWUinU",
+            "views": 1287,
+            "duration": "PT27S",
+            "is_short": true
+          },
+          {
+            "id": "Di9Q448RotM",
+            "title": "😡🔥 SARAH KNAFO 🚨DÉTRUIT ÉRIC NAULLEAU🤯 SUR L’IMMIGRATION ⚠️🇫🇷✝️",
+            "channel": "Croix & Patrie Officiel ",
+            "published": "2025-11-30",
+            "url": "https://www.youtube.com/watch?v=Di9Q448RotM",
+            "views": 444,
+            "duration": "PT49S",
+            "is_short": true
+          },
+          {
+            "id": "iGh2qQPbRHI",
+            "title": "L’effet Knafo : Elle retourne son adversaire et le rallie à sa cause !",
+            "channel": "Les Zélus",
+            "published": "2025-11-30",
+            "url": "https://www.youtube.com/watch?v=iGh2qQPbRHI",
+            "views": 356,
+            "duration": "PT3M7S",
+            "is_short": false
+          },
+          {
+            "id": "8ICL7CnCrmQ",
+            "title": "La moitié de l&#39;année on travaille pour l&#39;état | Sarah Knafo",
+            "channel": "Idéocratie TV",
+            "published": "2025-11-30",
+            "url": "https://www.youtube.com/watch?v=8ICL7CnCrmQ",
+            "views": 20,
+            "duration": "PT27S",
+            "is_short": true
+          }
+        ],
+        "total_views": 3450,
+        "count": 5,
+        "shorts_count": 4,
+        "long_count": 1
+      }
+    }
+  }
+}

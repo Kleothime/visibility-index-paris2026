@@ -518,6 +518,7 @@ def format_number_short(n: int) -> str:
 
 # Mots vides français à ignorer dans l'analyse
 STOP_WORDS = {
+    # Mots grammaticaux
     "le", "la", "les", "de", "du", "des", "un", "une", "et", "en", "à", "au", "aux",
     "pour", "par", "sur", "avec", "dans", "qui", "que", "son", "sa", "ses", "ce",
     "cette", "ces", "est", "sont", "a", "été", "être", "avoir", "fait", "faire",
@@ -527,34 +528,80 @@ STOP_WORDS = {
     "c", "d", "l", "n", "s", "j", "m", "t", "quand", "après", "avant", "entre",
     "sous", "sans", "vers", "chez", "contre", "depuis", "pendant", "selon",
     "aussi", "bien", "encore", "déjà", "alors", "ainsi", "peut", "doit", "va",
-    "veut", "dit", "deux", "trois", "quatre", "cinq", "premier", "première",
+    "veut", "dit", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix",
+    "premier", "première", "nouveau", "nouvelle", "nouveaux", "nouvelles",
     "via", "the", "of", "and", "to", "in", "for", "is", "on", "that", "by", "this",
-    "video", "vidéo", "photo", "photos", "images", "image", "article", "articles"
+    "video", "vidéo", "photo", "photos", "images", "image", "article", "articles",
+
+    # Lieux génériques
+    "paris", "parisien", "parisiens", "parisienne", "parisiennes", "capitale",
+    "france", "français", "française", "françaises", "français",
+
+    # Élections / politique générique
+    "municipales", "municipal", "municipale", "élection", "élections",
+    "candidat", "candidate", "candidats", "candidates", "candidature", "candidatures",
+    "mairie", "maire", "maires", "campagne", "campagnes",
+    "ministre", "ministère", "député", "députée", "députés", "sénateur", "sénatrice",
+    "politique", "politiques", "gouvernement",
+
+    # Médias
+    "bfm", "bfmtv", "rtl", "cnews", "rmc", "lci", "tf1", "france",
+    "agence", "presse", "afp", "reuters", "média", "médias",
+    "figaro", "monde", "libération", "liberation", "parisien", "ouest", "sud",
+    "actu", "actualités", "actualites", "news", "info", "infos", "minutes",
+
+    # Verbes d'action journalistiques
+    "lance", "annonce", "révèle", "affirme", "confie", "déclare", "explique",
+    "raconte", "officialise", "présente", "veut", "souhaite", "demande",
+    "faut", "falloir", "doit", "peut", "pourrait", "devrait", "soit", "être",
+    "mettre", "créer", "faire", "aller", "allant", "avoir", "venir",
+
+    # Mots génériques divers
+    "ans", "année", "années", "jour", "jours", "mois", "semaine", "semaines",
+    "tête", "idée", "idées", "fin", "début", "face", "côté", "suis",
+    "ceux", "celle", "celles", "celui", "autres", "autre", "même", "mêmes",
+    "public", "publique", "publics", "publiques", "plutôt", "encore",
+    "cours", "course", "investie", "investi", "officiellement",
+
+    # Prénoms communs (pour éviter les parties de noms d'autres personnes)
+    "anne", "éric", "eric", "yves", "pierre", "jean", "marie", "michel", "jacques",
+    "nicolas", "françois", "bruno", "gérald", "gerald", "olivier", "laurent",
+    "rachida", "hidalgo", "darmanin", "attal", "zohra", "dati",
+
+    # Faits divers / bruit
+    "fille", "fils", "enfant", "enfants", "enlèvement", "tentative", "bayonne",
+    "psg", "football", "match"
 }
 
 
 def extract_keywords_from_articles(articles: List[Dict], candidate_name: str, top_n: int = 10) -> List[tuple]:
-    """Extrait les mots-clés les plus fréquents des titres d'articles pour un candidat"""
+    """Extrait les mots-cl?s les plus fr?quents des titres d'articles pour un candidat"""
     if not articles:
         return []
 
-    # Nom du candidat à exclure
+    # Nom du candidat ? exclure
     name_parts = set(candidate_name.lower().split())
 
     word_counts = Counter()
+    word_articles = {}  # Stocke les articles par mot-cl?
 
     for article in articles:
         title = article.get("title", "")
         # Nettoyer et tokeniser
-        words = re.findall(r'\b[a-zA-ZàâäéèêëïîôùûüçÀÂÄÉÈÊËÏÎÔÙÛÜÇ]{3,}\b', title.lower())
+        words = re.findall(r'\b[a-zA-Z????????????????????????????]{3,}\b', title.lower())
 
         for word in words:
             # Ignorer stop words et nom du candidat
             if word not in STOP_WORDS and word not in name_parts:
                 word_counts[word] += 1
+                if word not in word_articles:
+                    word_articles[word] = []
+                if article not in word_articles[word]:
+                    word_articles[word].append(article)
 
-    return word_counts.most_common(top_n)
-
+    # Retourner les top mots-cl?s avec leurs articles associ?s
+    top_keywords = word_counts.most_common(top_n)
+    return [(word, count, word_articles.get(word, [])) for word, count in top_keywords]
 
 def get_keywords_summary(keywords: List[tuple], max_display: int = 5) -> str:
     """Formate les mots-clés pour affichage"""
@@ -1199,7 +1246,7 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             youtube_available=youtube.get("available", False)
         )
 
-        keywords = extract_keywords_from_articles(press["articles"], name, top_n=15)
+        keywords = extract_keywords_from_articles(press["articles"], name, top_n=5)
 
         results[cid] = {
             "info": c,
@@ -1305,12 +1352,6 @@ def main():
         )
 
         st.markdown("---")
-
-        if st.button("Rafraîchir les données", use_container_width=True):
-            st.cache_data.clear()
-            st.rerun()
-
-        st.markdown("---")
         st.markdown("### Pondération du score")
         st.caption("Presse 40% · Trends 35% · Wikipedia 15% · YouTube 10%")
 
@@ -1378,79 +1419,82 @@ def main():
     st.markdown("---")
     st.markdown("## Classement général")
 
-    youtube_enabled = any(d["youtube"].get("available", False) for _, d in sorted_data)
+    youtube_enabled = any(d['youtube'].get('available', False) for _, d in sorted_data)
 
     rows = []
     for rank, (cid, d) in enumerate(sorted_data, 1):
-        # Top 3 mots-clés pour le tableau
-        top_keywords = d.get("keywords", [])[:3]
-        themes_str = " · ".join([word for word, count in top_keywords]) if top_keywords else "-"
+        top_keywords = d.get('keywords', [])[:3]
+        themes_str = ' ? '.join([word for word, count, arts in top_keywords]) if top_keywords else '-'
 
         row = {
-            "Rang": rank,
-            "Candidat": d["info"]["name"],
-            "Parti": d["info"]["party"],
-            "Score": d["score"]["total"],
-            "Thèmes": themes_str,
-            "Articles": d["press"]["count"],
-            "Trends": d["trends_score"],
+            'Rang': rank,
+            'Candidat': d['info']['name'],
+            'Parti': d['info']['party'],
+            'Score': d['score']['total'],
+            'Themes': themes_str,
+            'Articles': d['press']['count'],
+            'Trends': d['trends_score'],
         }
         if youtube_enabled:
-            row["Vues YouTube"] = format_number(d["youtube"].get("total_views", 0))
+            row['Vues YT'] = format_number(d['youtube'].get('total_views', 0))
         rows.append(row)
 
     df = pd.DataFrame(rows)
 
     col_config = {
-        "Rang": st.column_config.NumberColumn("Rang", format="%d"),
-        "Score": st.column_config.ProgressColumn("Score / 100", min_value=0, max_value=100, format="%.1f"),
-        "Thèmes": st.column_config.TextColumn("Thèmes dominants"),
-        "Articles": st.column_config.NumberColumn("Articles", format="%d"),
-        "Trends": st.column_config.NumberColumn("Trends", format="%.0f"),
+        'Rang': st.column_config.NumberColumn('Rang', format='%d'),
+        'Score': st.column_config.ProgressColumn('Score / 100', min_value=0, max_value=100, format='%.1f'),
+        'Themes': st.column_config.TextColumn('Themes dominants'),
+        'Articles': st.column_config.NumberColumn('Articles', format='%d'),
+        'Trends': st.column_config.NumberColumn('Trends', format='%.0f'),
     }
     if youtube_enabled:
-        col_config["Vues YouTube"] = st.column_config.TextColumn("Vues YouTube")
+        col_config['Vues YT'] = st.column_config.TextColumn('Vues YT sorties sur periode', help='Vues cumulees des videos YouTube mentionnant le candidat, publiees sur la periode selectionnee')
 
     st.dataframe(df, column_config=col_config, hide_index=True, use_container_width=True)
 
-    # Métriques
+    # Metriques
     leader = sorted_data[0][1]
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Leader", leader["info"]["name"])
+        st.metric('Leader', leader['info']['name'])
     with col2:
-        st.metric("Score", f"{leader['score']['total']:.1f} / 100")
+        st.metric('Score', f"{leader['score']['total']:.1f} / 100")
     with col3:
-        total_articles = sum(d["press"]["count"] for _, d in sorted_data)
-        st.metric("Total articles (tous candidats)", format_number(total_articles))
+        total_articles = sum(d['press']['count'] for _, d in sorted_data)
+        st.metric('Total articles (tous candidats)', format_number(total_articles))
     with col4:
-        total_wiki = sum(d["wikipedia"]["views"] for _, d in sorted_data)
-        st.metric("Total Wikipedia (tous candidats)", format_number(total_wiki))
+        period_days = (end_date - start_date).days + 1
+        if period_days < 2:
+            st.metric('Total Wikipedia (tous candidats)', 'N/A', help='Wikipedia requiert une periode de 48h minimum')
+        else:
+            total_wiki = sum(d['wikipedia']['views'] for _, d in sorted_data)
+            st.metric('Total Wikipedia (tous candidats)', format_number(total_wiki))
 
     # === ONGLETS ===
-    st.markdown("---")
-    st.markdown("## Visualisations détaillées")
+    st.markdown('---')
+    st.markdown('## Visualisations detaillees')
 
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
-        ["Scores", "Thèmes", "Sondages", "TV / Radio", "Historique", "Wikipedia", "Presse"]
+        ['Scores', 'Themes', 'Sondages', 'TV / Radio', 'Historique', 'Wikipedia', 'Presse']
     )
 
-    names = [d["info"]["name"] for _, d in sorted_data]
-    colors = [d["info"]["color"] for _, d in sorted_data]
+    names = [d['info']['name'] for _, d in sorted_data]
+    colors = [d['info']['color'] for _, d in sorted_data]
 
     # TAB 1: SCORES
     with tab1:
         col1, col2 = st.columns(2)
 
         with col1:
-            scores = [d["score"]["total"] for _, d in sorted_data]
+            scores = [d['score']['total'] for _, d in sorted_data]
             fig = px.bar(x=names, y=scores, color=names, color_discrete_sequence=colors,
-                        title="Score de visibilité")
+                        title='Score de visibilite')
             fig.update_layout(
                 showlegend=False,
                 yaxis_range=[0, 100],
-                yaxis_title="Score",
-                xaxis_title=""
+                yaxis_title='Score',
+                xaxis_title=''
             )
             fig.update_traces(
                 hovertemplate='<b>%{x}</b><br>Score: %{y:.1f}<extra></extra>'
@@ -1460,91 +1504,76 @@ def main():
         with col2:
             decomp_data = []
             for _, d in sorted_data:
-                s = d["score"]
+                s = d['score']
                 decomp_data.append({
-                    "Candidat": d["info"]["name"],
-                    "Presse (40%)": s["contrib_press"],
-                    "Trends (35%)": s["contrib_trends"],
-                    "Wikipedia (15%)": s["contrib_wiki"],
-                    "YouTube (10%)": s["contrib_youtube"],
+                    'Candidat': d['info']['name'],
+                    'Presse (40%)': s['contrib_press'],
+                    'Trends (35%)': s['contrib_trends'],
+                    'Wikipedia (15%)': s['contrib_wiki'],
+                    'YouTube (10%)': s['contrib_youtube'],
                 })
 
             df_decomp = pd.DataFrame(decomp_data)
-            fig = px.bar(df_decomp, x="Candidat",
-                        y=["Presse (40%)", "Trends (35%)", "Wikipedia (15%)", "YouTube (10%)"],
-                        barmode="stack", title="Décomposition du score",
+            fig = px.bar(df_decomp, x='Candidat',
+                        y=['Presse (40%)', 'Trends (35%)', 'Wikipedia (15%)', 'YouTube (10%)'],
+                        barmode='stack', title='Decomposition du score',
                         color_discrete_map={
-                            "Presse (40%)": "#2563eb",
-                            "Trends (35%)": "#16a34a",
-                            "Wikipedia (15%)": "#eab308",
-                            "YouTube (10%)": "#dc2626"
+                            'Presse (40%)': '#2563eb',
+                            'Trends (35%)': '#16a34a',
+                            'Wikipedia (15%)': '#eab308',
+                            'YouTube (10%)': '#dc2626'
                         })
             fig.update_layout(
                 yaxis_range=[0, 100],
-                yaxis_title="Points",
-                xaxis_title="",
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                yaxis_title='Points',
+                xaxis_title='',
+                legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
             )
             fig.update_traces(
                 hovertemplate='%{y:.1f}<extra></extra>'
             )
             st.plotly_chart(fig, use_container_width=True)
 
-    # TAB 2: THÈMES / ANALYSE QUALITATIVE
+    # TAB 2: THEMES / ANALYSE QUALITATIVE
     with tab2:
-        st.markdown("### Analyse thématique par candidat")
-        st.markdown("*Mots-clés extraits des titres d'articles de presse*")
+        st.markdown('### Analyse thematique par candidat')
+        st.markdown('*Mots-cles extraits des titres d\'articles de presse*')
 
         for rank, (cid, d) in enumerate(sorted_data, 1):
-            keywords = d.get("keywords", [])
-            name = d["info"]["name"]
-            color = d["info"]["color"]
+            keywords = d.get('keywords', [])
+            name = d['info']['name']
 
-            with st.expander(f"{rank}. {name} — {len(keywords)} thèmes identifiés", expanded=(rank <= 3)):
+            with st.expander(f'{rank}. {name} - {len(keywords)} themes identifies', expanded=(rank <= 3)):
                 if keywords:
-                    # Affichage des mots-clés avec leur fréquence
-                    cols = st.columns(3)
-                    for idx, (word, count) in enumerate(keywords[:12]):
-                        with cols[idx % 3]:
-                            st.markdown(f"**{word}** ({count})")
-
-                    # Graphique en barres des top mots-clés
-                    if len(keywords) >= 3:
-                        fig = px.bar(
-                            x=[w for w, c in keywords[:10]],
-                            y=[c for w, c in keywords[:10]],
-                            title=f"Thèmes dominants - {name}",
-                            color_discrete_sequence=[color]
-                        )
-                        fig.update_layout(
-                            showlegend=False,
-                            yaxis_title="Occurrences",
-                            xaxis_title="",
-                            height=300
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
+                    for word, count, articles in keywords:
+                        with st.expander(f'**{word}** ({count} mentions)', expanded=False):
+                            if articles:
+                                for art in articles[:10]:
+                                    st.markdown(f"- [{art.get('title', 'Sans titre')}]({art.get('url', '#')})")
+                                    st.caption(f"   {art.get('date', '')} - {art.get('domain', '')}")
+                                if len(articles) > 10:
+                                    st.caption(f"... et {len(articles) - 10} autres articles")
+                            else:
+                                st.info('Aucun article trouve')
                 else:
-                    st.info("Pas assez d'articles pour extraire des thèmes")
+                    st.info('Pas assez d\'articles pour extraire des themes')
 
-        # Comparaison des thèmes entre candidats
-        st.markdown("---")
-        st.markdown("### Comparaison des thèmes")
+        st.markdown('---')
+        st.markdown('### Comparaison des themes')
 
-        # Créer un tableau comparatif
         comparison_data = []
         for _, d in sorted_data:
-            keywords = d.get("keywords", [])[:5]
+            keywords = d.get('keywords', [])[:5]
             comparison_data.append({
-                "Candidat": d["info"]["name"],
-                "Thème 1": keywords[0][0] if len(keywords) > 0 else "-",
-                "Thème 2": keywords[1][0] if len(keywords) > 1 else "-",
-                "Thème 3": keywords[2][0] if len(keywords) > 2 else "-",
-                "Thème 4": keywords[3][0] if len(keywords) > 3 else "-",
-                "Thème 5": keywords[4][0] if len(keywords) > 4 else "-",
+                'Candidat': d['info']['name'],
+                'Theme 1': keywords[0][0] if len(keywords) > 0 else '-',
+                'Theme 2': keywords[1][0] if len(keywords) > 1 else '-',
+                'Theme 3': keywords[2][0] if len(keywords) > 2 else '-',
+                'Theme 4': keywords[3][0] if len(keywords) > 3 else '-',
+                'Theme 5': keywords[4][0] if len(keywords) > 4 else '-',
             })
 
         st.dataframe(pd.DataFrame(comparison_data), use_container_width=True, hide_index=True)
-
     # TAB 3: SONDAGES
     with tab3:
         st.markdown("### Sondages d'intentions de vote")
@@ -1866,6 +1895,9 @@ def main():
     with tab6:
         days_in_period = (end_date - start_date).days + 1
 
+        if days_in_period < 2:
+            st.warning("Wikipedia requiert une période de 48h minimum. Les données affichées peuvent être incomplètes.")
+
         col1, col2 = st.columns(2)
 
         with col1:
@@ -1978,7 +2010,7 @@ def main():
 
     # === YOUTUBE ===
     st.markdown("---")
-    st.markdown("## Vidéos YouTube les mentionnant")
+    st.markdown("## Vidéos YouTube publiées sur la période")
 
     if not any(d["youtube"].get("available") for _, d in sorted_data):
         st.info("Aucune vidéo YouTube trouvée pour la période sélectionnée")
