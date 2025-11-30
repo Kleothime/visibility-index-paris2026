@@ -1010,7 +1010,7 @@ def main():
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
+    header[data-testid="stHeader"] {visibility: hidden;}
 
     /* Cacher le bouton pour replier le sidebar */
     [data-testid="collapsedControl"] {
