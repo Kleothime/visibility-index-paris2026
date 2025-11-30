@@ -568,7 +568,7 @@ def get_all_press_coverage(candidate_name: str, search_terms: List[str], start_d
 
 @st.cache_data(ttl=7200, show_spinner=False)
 def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> Dict:
-    """Récupère les données Google Trends avec fiabilité améliorée"""
+    """Récupère les données Google Trends avec support de plus de 5 candidats via pivot"""
     try:
         from pytrends.request import TrendReq
         import time
@@ -580,49 +580,102 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
         timeframe = f"{start_date.strftime('%Y-%m-%d')} {end_date.strftime('%Y-%m-%d')}"
         scores = {}
         errors = []
-
-        keywords_limited = keywords[:5]
-
         max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                time.sleep(2 + random.uniform(0, 2))
-                pytrends = TrendReq(hl="fr-FR", tz=60)
-                pytrends.build_payload(keywords_limited, timeframe=timeframe, geo="FR")
-                time.sleep(1 + random.uniform(0, 1))
-                df = pytrends.interest_over_time()
 
-                if df is not None and not df.empty:
-                    if "isPartial" in df.columns:
-                        df = df.drop(columns=["isPartial"])
+        # Si 5 candidats ou moins, une seule requête suffit
+        if len(keywords) <= 5:
+            for attempt in range(max_retries):
+                try:
+                    time.sleep(2 + random.uniform(0, 2))
+                    pytrends = TrendReq(hl="fr-FR", tz=60)
+                    pytrends.build_payload(keywords, timeframe=timeframe, geo="FR")
+                    time.sleep(1 + random.uniform(0, 1))
+                    df = pytrends.interest_over_time()
 
-                    for kw in keywords_limited:
-                        if kw in df.columns:
-                            scores[kw] = round(float(df[kw].mean()), 1)
+                    if df is not None and not df.empty:
+                        if "isPartial" in df.columns:
+                            df = df.drop(columns=["isPartial"])
+
+                        for kw in keywords:
+                            if kw in df.columns:
+                                scores[kw] = round(float(df[kw].mean()), 1)
+                            else:
+                                scores[kw] = 0.0
+                        break
+                    else:
+                        if attempt < max_retries - 1:
+                            time.sleep(5 * (attempt + 1))
                         else:
-                            scores[kw] = 0.0
-                    break
-                else:
-                    if attempt < max_retries - 1:
-                        time.sleep(5 * (attempt + 1))
-                    else:
-                        errors.append("Données vides retournées par Google Trends")
+                            errors.append("Données vides retournées par Google Trends")
 
-            except Exception as e:
-                err_str = str(e)
-                if "429" in err_str:
-                    if attempt < max_retries - 1:
-                        time.sleep(10 * (attempt + 1) + random.uniform(0, 5))
+                except Exception as e:
+                    err_str = str(e)
+                    if "429" in err_str:
+                        if attempt < max_retries - 1:
+                            time.sleep(10 * (attempt + 1) + random.uniform(0, 5))
+                        else:
+                            errors.append("Limite de requêtes Google atteinte (429)")
                     else:
-                        errors.append("Limite de requêtes Google atteinte (429)")
-                else:
-                    errors.append(f"Erreur: {err_str[:50]}")
-                    break
+                        errors.append(f"Erreur: {err_str[:50]}")
+                        break
 
-        if len(keywords) > 5 and scores:
-            avg_score = sum(scores.values()) / len(scores) if scores else 0
-            for kw in keywords[5:]:
-                scores[kw] = round(avg_score * 0.5, 1)
+        # Si plus de 5 candidats, utiliser un pivot pour normaliser
+        else:
+            pivot = keywords[0]  # Premier candidat comme référence
+            pivot_score = None
+
+            # Diviser en groupes de 4 + pivot
+            batch_size = 4
+            for i in range(0, len(keywords), batch_size):
+                batch = keywords[i:i+batch_size]
+                if pivot not in batch:
+                    batch = [pivot] + batch
+
+                for attempt in range(max_retries):
+                    try:
+                        time.sleep(2 + random.uniform(0, 2))
+                        pytrends = TrendReq(hl="fr-FR", tz=60)
+                        pytrends.build_payload(batch, timeframe=timeframe, geo="FR")
+                        time.sleep(1 + random.uniform(0, 1))
+                        df = pytrends.interest_over_time()
+
+                        if df is not None and not df.empty:
+                            if "isPartial" in df.columns:
+                                df = df.drop(columns=["isPartial"])
+
+                            # Stocker le score du pivot de la première requête
+                            if pivot_score is None and pivot in df.columns:
+                                pivot_score = float(df[pivot].mean())
+
+                            # Normaliser tous les scores par rapport au pivot
+                            for kw in batch:
+                                if kw in df.columns:
+                                    raw_score = float(df[kw].mean())
+                                    if pivot_score and pivot_score > 0:
+                                        # Normaliser par rapport au pivot
+                                        normalized = (raw_score / float(df[pivot].mean())) * pivot_score
+                                        scores[kw] = round(normalized, 1)
+                                    else:
+                                        scores[kw] = round(raw_score, 1)
+                                else:
+                                    scores[kw] = 0.0
+                            break
+                        else:
+                            if attempt < max_retries - 1:
+                                time.sleep(5 * (attempt + 1))
+                            else:
+                                errors.append(f"Données vides pour le batch {i//batch_size + 1}")
+
+                    except Exception as e:
+                        err_str = str(e)
+                        if "429" in err_str:
+                            if attempt < max_retries - 1:
+                                time.sleep(10 * (attempt + 1) + random.uniform(0, 5))
+                            else:
+                                errors.append("Limite de requêtes Google atteinte (429)")
+                        else:
+                            errors.append(f"Erreur batch {i//batch_size + 1}: {err_str[:50]}")
+                            break
 
         for kw in keywords:
             if kw not in scores:
