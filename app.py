@@ -549,22 +549,7 @@ def can_refresh_youtube(force: bool = False, expected_cost: int = YOUTUBE_COST_P
     Vérifie si un refresh YouTube est autorisé.
     Retourne (autorisé, raison)
     """
-    cache_age = get_youtube_cache_age_hours()
-    quota_remaining = get_youtube_quota_remaining()
-
-    # Vérifier quota
-    if quota_remaining < expected_cost:
-        return False, f"Quota épuisé ({quota_remaining} unités restantes, besoin de {expected_cost})"
-
-    # Vérifier cooldown (sauf si jamais rafraîchi)
-    if cache_age < YOUTUBE_COOLDOWN_HOURS and cache_age != float('inf'):
-        if not force:
-            minutes_left = int((YOUTUBE_COOLDOWN_HOURS - cache_age) * 60)
-            return False, f"Cooldown actif (encore {minutes_left} min)"
-        # Force autorisé seulement si > 30 min
-        elif cache_age < 0.5:
-            return False, "Données trop récentes (< 30 min)"
-
+    # Toujours autoriser le refresh
     return True, "OK"
 
 
@@ -1645,8 +1630,9 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         press = get_all_press_coverage(name, c["search_terms"], start_date, end_date)
         tv_radio = get_tv_radio_mentions(name, start_date, end_date)
 
-        yt_start = start_date
-        yt_end = end_date
+        # YouTube: toujours chercher sur 30 jours minimum pour avoir des résultats
+        yt_end = date.today()
+        yt_start = yt_end - timedelta(days=30)
 
         if youtube_mode == "api":
             status.text(f"Analyse YouTube de {name}...")
