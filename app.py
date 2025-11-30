@@ -14,6 +14,7 @@ import math
 from typing import Optional, Dict, List
 from urllib.parse import quote_plus
 import xml.etree.ElementTree as ET
+from collections import Counter
 
 # =============================================================================
 # CONFIG
@@ -367,6 +368,53 @@ def format_number_short(n: int) -> str:
     elif n >= 1_000:
         return f"{n/1_000:.0f}k".replace(".", ",")
     return str(n)
+
+
+# Mots vides français à ignorer dans l'analyse
+STOP_WORDS = {
+    "le", "la", "les", "de", "du", "des", "un", "une", "et", "en", "à", "au", "aux",
+    "pour", "par", "sur", "avec", "dans", "qui", "que", "son", "sa", "ses", "ce",
+    "cette", "ces", "est", "sont", "a", "été", "être", "avoir", "fait", "faire",
+    "plus", "moins", "très", "tout", "tous", "toute", "toutes", "comme", "mais",
+    "ou", "où", "donc", "car", "ni", "ne", "pas", "si", "se", "qu", "leur", "leurs",
+    "elle", "elles", "il", "ils", "nous", "vous", "on", "lui", "eux", "y", "dont",
+    "c", "d", "l", "n", "s", "j", "m", "t", "quand", "après", "avant", "entre",
+    "sous", "sans", "vers", "chez", "contre", "depuis", "pendant", "selon",
+    "aussi", "bien", "encore", "déjà", "alors", "ainsi", "peut", "doit", "va",
+    "veut", "dit", "deux", "trois", "quatre", "cinq", "premier", "première",
+    "via", "the", "of", "and", "to", "in", "for", "is", "on", "that", "by", "this",
+    "video", "vidéo", "photo", "photos", "images", "image", "article", "articles"
+}
+
+
+def extract_keywords_from_articles(articles: List[Dict], candidate_name: str, top_n: int = 10) -> List[tuple]:
+    """Extrait les mots-clés les plus fréquents des titres d'articles pour un candidat"""
+    if not articles:
+        return []
+
+    # Nom du candidat à exclure
+    name_parts = set(candidate_name.lower().split())
+
+    word_counts = Counter()
+
+    for article in articles:
+        title = article.get("title", "")
+        # Nettoyer et tokeniser
+        words = re.findall(r'\b[a-zA-ZàâäéèêëïîôùûüçÀÂÄÉÈÊËÏÎÔÙÛÜÇ]{3,}\b', title.lower())
+
+        for word in words:
+            # Ignorer stop words et nom du candidat
+            if word not in STOP_WORDS and word not in name_parts:
+                word_counts[word] += 1
+
+    return word_counts.most_common(top_n)
+
+
+def get_keywords_summary(keywords: List[tuple], max_display: int = 5) -> str:
+    """Formate les mots-clés pour affichage"""
+    if not keywords:
+        return "-"
+    return " · ".join([f"{word} ({count})" for word, count in keywords[:max_display]])
 
 # =============================================================================
 # FONCTIONS DE COLLECTE
@@ -980,6 +1028,9 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             youtube_available=youtube.get("available", False)
         )
 
+        # Extraction des mots-clés thématiques
+        keywords = extract_keywords_from_articles(press["articles"], name, top_n=15)
+
         results[cid] = {
             "info": c,
             "wikipedia": wiki,
@@ -989,7 +1040,8 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             "trends_score": trends_score,
             "trends_success": trends["success"],
             "trends_error": trends.get("error") or trends.get("errors"),
-            "score": score
+            "score": score,
+            "keywords": keywords
         }
 
         progress.progress((i + 1) / total)
@@ -1043,8 +1095,8 @@ def main():
         period_type = st.radio("Type de période", ["Prédéfinie", "Personnalisée"], horizontal=True)
 
         if period_type == "Prédéfinie":
-            period_options = {"7 jours": 7, "14 jours": 14, "30 jours": 30}
-            period_label = st.selectbox("Durée", list(period_options.keys()))
+            period_options = {"24 heures": 1, "7 jours": 7, "14 jours": 14, "30 jours": 30}
+            period_label = st.selectbox("Durée", list(period_options.keys()), index=1)  # 7 jours par défaut
             period_days = period_options[period_label]
             end_date = date.today()
             start_date = end_date - timedelta(days=period_days - 1)
@@ -1098,12 +1150,16 @@ def main():
 
     rows = []
     for rank, (cid, d) in enumerate(sorted_data, 1):
+        # Top 3 mots-clés pour le tableau
+        top_keywords = d.get("keywords", [])[:3]
+        themes_str = " · ".join([word for word, count in top_keywords]) if top_keywords else "-"
+
         row = {
             "Rang": rank,
             "Candidat": d["info"]["name"],
             "Parti": d["info"]["party"],
             "Score": d["score"]["total"],
-            "Wikipedia": format_number(d["wikipedia"]["views"]),
+            "Thèmes": themes_str,
             "Articles": d["press"]["count"],
             "Trends": d["trends_score"],
         }
@@ -1116,7 +1172,7 @@ def main():
     col_config = {
         "Rang": st.column_config.NumberColumn("Rang", format="%d"),
         "Score": st.column_config.ProgressColumn("Score / 100", min_value=0, max_value=100, format="%.1f"),
-        "Wikipedia": st.column_config.TextColumn("Wikipedia"),
+        "Thèmes": st.column_config.TextColumn("Thèmes dominants"),
         "Articles": st.column_config.NumberColumn("Articles", format="%d"),
         "Trends": st.column_config.NumberColumn("Trends", format="%.0f"),
     }
@@ -1143,8 +1199,8 @@ def main():
     st.markdown("---")
     st.markdown("## Visualisations détaillées")
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
-        ["Scores", "Sondages", "TV / Radio", "Historique", "Wikipedia", "Presse"]
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+        ["Scores", "Thèmes", "Sondages", "TV / Radio", "Historique", "Wikipedia", "Presse"]
     )
 
     names = [d["info"]["name"] for _, d in sorted_data]
@@ -1202,8 +1258,63 @@ def main():
             )
             st.plotly_chart(fig, use_container_width=True)
 
-    # TAB 2: SONDAGES
+    # TAB 2: THÈMES / ANALYSE QUALITATIVE
     with tab2:
+        st.markdown("### Analyse thématique par candidat")
+        st.markdown("*Mots-clés extraits des titres d'articles de presse*")
+
+        for rank, (cid, d) in enumerate(sorted_data, 1):
+            keywords = d.get("keywords", [])
+            name = d["info"]["name"]
+            color = d["info"]["color"]
+
+            with st.expander(f"{rank}. {name} — {len(keywords)} thèmes identifiés", expanded=(rank <= 3)):
+                if keywords:
+                    # Affichage des mots-clés avec leur fréquence
+                    cols = st.columns(3)
+                    for idx, (word, count) in enumerate(keywords[:12]):
+                        with cols[idx % 3]:
+                            st.markdown(f"**{word}** ({count})")
+
+                    # Graphique en barres des top mots-clés
+                    if len(keywords) >= 3:
+                        fig = px.bar(
+                            x=[w for w, c in keywords[:10]],
+                            y=[c for w, c in keywords[:10]],
+                            title=f"Thèmes dominants - {name}",
+                            color_discrete_sequence=[color]
+                        )
+                        fig.update_layout(
+                            showlegend=False,
+                            yaxis_title="Occurrences",
+                            xaxis_title="",
+                            height=300
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("Pas assez d'articles pour extraire des thèmes")
+
+        # Comparaison des thèmes entre candidats
+        st.markdown("---")
+        st.markdown("### Comparaison des thèmes")
+
+        # Créer un tableau comparatif
+        comparison_data = []
+        for _, d in sorted_data:
+            keywords = d.get("keywords", [])[:5]
+            comparison_data.append({
+                "Candidat": d["info"]["name"],
+                "Thème 1": keywords[0][0] if len(keywords) > 0 else "-",
+                "Thème 2": keywords[1][0] if len(keywords) > 1 else "-",
+                "Thème 3": keywords[2][0] if len(keywords) > 2 else "-",
+                "Thème 4": keywords[3][0] if len(keywords) > 3 else "-",
+                "Thème 5": keywords[4][0] if len(keywords) > 4 else "-",
+            })
+
+        st.dataframe(pd.DataFrame(comparison_data), use_container_width=True, hide_index=True)
+
+    # TAB 3: SONDAGES
+    with tab3:
         st.markdown("### Sondages d'intentions de vote")
 
         if SONDAGES:
@@ -1292,8 +1403,8 @@ def main():
         else:
             st.info("Aucun sondage disponible")
 
-    # TAB 3: TV/RADIO
-    with tab3:
+    # TAB 4: TV/RADIO
+    with tab4:
         st.markdown("### Passages TV / Radio détectés")
 
         tv_data = []
@@ -1379,8 +1490,8 @@ def main():
             )
             st.plotly_chart(fig, use_container_width=True)
 
-    # TAB 4: HISTORIQUE
-    with tab4:
+    # TAB 5: HISTORIQUE
+    with tab5:
         st.markdown("### Évolution des scores de visibilité")
 
         # Bouton pour construire l'historique automatiquement
@@ -1518,8 +1629,8 @@ def main():
         else:
             st.info("Aucun historique disponible")
 
-    # TAB 5: WIKIPEDIA
-    with tab5:
+    # TAB 6: WIKIPEDIA
+    with tab6:
         days_in_period = (end_date - start_date).days + 1
 
         col1, col2 = st.columns(2)
@@ -1563,8 +1674,8 @@ def main():
             )
             st.plotly_chart(fig, use_container_width=True)
 
-    # TAB 6: PRESSE
-    with tab6:
+    # TAB 7: PRESSE
+    with tab7:
         col1, col2 = st.columns(2)
 
         with col1:
