@@ -1018,14 +1018,6 @@ def main():
         background: transparent;
     }
 
-    /* Garder la sidebar affichée par défaut */
-    [data-testid="stSidebar"][aria-expanded="false"] {
-        transform: translateX(0) !important;
-    }
-    [data-testid="stSidebar"] section:first-child {
-        min-width: 320px;
-    }
-
     /* Agrandir le bouton du sidebar */
     [data-testid="collapsedControl"] {
         width: 60px !important;
