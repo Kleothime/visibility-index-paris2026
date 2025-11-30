@@ -1011,9 +1011,11 @@ def main():
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header[data-testid="stHeader"] {
-        height: 0;
-        min-height: 0;
+        height: 48px;
+        min-height: 48px;
         visibility: visible;
+        padding: 4px 0;
+        background: transparent;
     }
 
     /* Agrandir le bouton du sidebar */
