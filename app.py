@@ -92,6 +92,14 @@ CANDIDATES = {
         "color": "#0D2C54",
         "wikipedia": "Thierry_Mariani",
         "search_terms": ["Thierry Mariani", "Mariani RN"],
+    },
+    "sarah_knafo": {
+        "name": "Sarah Knafo",
+        "party": "RN",
+        "role": "Députée européenne",
+        "color": "#1E3A5F",
+        "wikipedia": "Sarah_Knafo",
+        "search_terms": ["Sarah Knafo", "Knafo RN", "Knafo Paris"],
     }
 }
 
@@ -944,12 +952,26 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
 # =============================================================================
 
 def main():
-    # Cacher les éléments Streamlit par défaut
+    # Cacher les éléments Streamlit par défaut et forcer l'affichage du sidebar
     hide_streamlit_style = """
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
+    header[data-testid="stHeader"] {visibility: hidden;}
+
+    /* Forcer le sidebar à rester visible */
+    section[data-testid="stSidebar"] {
+        display: block !important;
+        visibility: visible !important;
+    }
+    section[data-testid="stSidebar"][aria-expanded="false"] {
+        margin-left: 0px !important;
+    }
+
+    /* Cacher le bouton pour fermer le sidebar */
+    button[kind="header"] {
+        display: none !important;
+    }
     </style>
     """
     st.markdown(hide_streamlit_style, unsafe_allow_html=True)
