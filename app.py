@@ -1012,9 +1012,14 @@ def main():
     footer {visibility: hidden;}
     header[data-testid="stHeader"] {visibility: hidden;}
 
-    /* Cacher le bouton pour replier le sidebar */
+    /* Agrandir le bouton du sidebar */
     [data-testid="collapsedControl"] {
-        display: none;
+        width: 60px !important;
+        height: 60px !important;
+    }
+    [data-testid="collapsedControl"] svg {
+        width: 30px !important;
+        height: 30px !important;
     }
     </style>
     """
