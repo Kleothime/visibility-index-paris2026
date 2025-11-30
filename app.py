@@ -1814,31 +1814,42 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
 # =============================================================================
 
 def main():
-    # Cacher les éléments Streamlit par défaut
-    hide_streamlit_style = """
-    <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header[data-testid="stHeader"] {
-        height: 48px;
-        min-height: 48px;
-        visibility: visible;
-        padding: 4px 0;
-        background: transparent;
-    }
-
-    /* Agrandir le bouton du sidebar */
-    [data-testid="collapsedControl"] {
-        width: 60px !important;
-        height: 60px !important;
-    }
-    [data-testid="collapsedControl"] svg {
-        width: 30px !important;
-        height: 30px !important;
-    }
-    </style>
-    """
-    st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+    # Viewport meta pour iPhone + CSS responsive
+    mobile_css = """<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><style>
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visible; padding: 4px 0; background: transparent;}
+[data-testid="collapsedControl"] {width: 60px !important; height: 60px !important;}
+[data-testid="collapsedControl"] svg {width: 30px !important; height: 30px !important;}
+@media screen and (max-width: 768px) {
+    h1 {font-size: 1.5rem !important; line-height: 1.2 !important;}
+    h2 {font-size: 1.2rem !important;}
+    h3 {font-size: 1rem !important;}
+    .main .block-container {padding: 1rem 0.5rem !important;}
+    [data-testid="column"] {width: 100% !important; flex: 100% !important; min-width: 100% !important;}
+    [data-testid="stMetric"] {padding: 0.5rem !important;}
+    [data-testid="stMetricValue"] {font-size: 1.2rem !important;}
+    [data-testid="stMetricLabel"] {font-size: 0.7rem !important;}
+    [data-testid="stDataFrame"] th:nth-child(3), [data-testid="stDataFrame"] td:nth-child(3),
+    [data-testid="stDataFrame"] th:nth-child(5), [data-testid="stDataFrame"] td:nth-child(5),
+    [data-testid="stDataFrame"] th:nth-child(6), [data-testid="stDataFrame"] td:nth-child(6),
+    [data-testid="stDataFrame"] th:nth-child(7), [data-testid="stDataFrame"] td:nth-child(7),
+    [data-testid="stDataFrame"] th:nth-child(8), [data-testid="stDataFrame"] td:nth-child(8) {display: none !important;}
+    [data-testid="stDataFrame"] {font-size: 0.8rem !important;}
+    .stTabs [data-baseweb="tab-list"] {gap: 0 !important;}
+    .stTabs [data-baseweb="tab"] {padding: 0.3rem 0.5rem !important; font-size: 0.75rem !important;}
+    [data-testid="stExpander"] {margin-bottom: 0.5rem !important;}
+    [data-testid="stPlotlyChart"] {width: 100% !important;}
+    [data-testid="stSidebar"] {min-width: 250px !important; width: 250px !important;}
+    .stButton > button {min-height: 44px !important; font-size: 0.9rem !important;}
+    [data-testid="stMultiSelect"], [data-testid="stSelectbox"] {min-height: 44px !important;}
+}
+@media screen and (max-width: 380px) {
+    h1 {font-size: 1.2rem !important;}
+    .stTabs [data-baseweb="tab"] {padding: 0.2rem 0.3rem !important; font-size: 0.65rem !important;}
+}
+</style>"""
+    st.markdown(mobile_css, unsafe_allow_html=True)
 
     st.markdown("# Baromètre de visibilité médiatique")
     st.markdown("**Élections municipales Paris 2026**")
@@ -2019,6 +2030,14 @@ def main():
     names = [d['info']['name'] for _, d in sorted_data]
     colors = [d['info']['color'] for _, d in sorted_data]
 
+    # Config Plotly pour mobile (désactive zoom/pan au touch)
+    plotly_config = {
+        'displayModeBar': False,  # Cache la barre d'outils
+        'staticPlot': False,
+        'scrollZoom': False,
+        'doubleClick': False,
+    }
+
     # TAB 1: SCORES
     with tab1:
         col1, col2 = st.columns(2)
@@ -2031,12 +2050,15 @@ def main():
                 showlegend=False,
                 yaxis_range=[0, 100],
                 yaxis_title='Score',
-                xaxis_title=''
+                xaxis_title='',
+                xaxis_tickangle=-45,  # Rotation labels pour mobile
+                margin=dict(b=100),  # Marge pour labels tournés
+                dragmode=False,  # Désactive drag
             )
             fig.update_traces(
                 hovertemplate='<b>%{x}</b><br>Score: %{y:.1f}<extra></extra>'
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
 
         with col2:
             decomp_data = []
@@ -2064,12 +2086,15 @@ def main():
                 yaxis_range=[0, 100],
                 yaxis_title='Points',
                 xaxis_title='',
+                xaxis_tickangle=-45,
+                margin=dict(b=100),
+                dragmode=False,
                 legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
             )
             fig.update_traces(
                 hovertemplate='%{y:.1f}<extra></extra>'
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
 
     # TAB 2: THEMES / ANALYSE QUALITATIVE
     with tab2:
@@ -2175,7 +2200,7 @@ def main():
                     xaxis_title='',
                     yaxis_range=[0, max(s[1] for s in sorted_scores) * 1.2] if sorted_scores else [0, 100]
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, config=plotly_config)
 
                 # Leader du theme
                 if sorted_scores:
@@ -2267,7 +2292,7 @@ def main():
                 yaxis_range=[0, 45],
                 xaxis_title=""
             )
-            st.plotly_chart(fig_synthesis, use_container_width=True)
+            st.plotly_chart(fig_synthesis, use_container_width=True, config=plotly_config)
 
             # Tableau synthese
             st.dataframe(
@@ -2323,7 +2348,7 @@ def main():
             fig_evolution.update_traces(
                 hovertemplate='<b>%{fullData.name}</b><br>%{x}<br>%{y}%<extra></extra>'
             )
-            st.plotly_chart(fig_evolution, use_container_width=True)
+            st.plotly_chart(fig_evolution, use_container_width=True, config=plotly_config)
 
             st.markdown("---")
 
@@ -2368,7 +2393,7 @@ def main():
                             height=300,
                             margin=dict(t=10)
                         )
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, use_container_width=True, config=plotly_config)
 
         else:
             st.info("Aucun sondage disponible")
@@ -2458,7 +2483,7 @@ def main():
             fig.update_traces(
                 hovertemplate='<b>%{x}</b><br>%{y} mentions<extra></extra>'
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
 
     # TAB 5: HISTORIQUE
     with tab5:
@@ -2597,7 +2622,7 @@ def main():
                     height=500,
                     margin=dict(b=100)
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, config=plotly_config)
 
                 # Tableau des variations
                 if unique_dates > 1:
@@ -2662,7 +2687,7 @@ def main():
             fig.update_traces(
                 hovertemplate='<b>%{x}</b><br>%{y} vues<extra></extra>'
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
 
         with col2:
             variations = [max(min(d["wikipedia"]["variation"], 100), -100) for _, d in sorted_data]
@@ -2682,7 +2707,7 @@ def main():
             fig.update_traces(
                 hovertemplate='<b>%{x}</b><br>%{y:+.1f} %<extra></extra>'
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
 
     # TAB 7: PRESSE
     with tab7:
@@ -2705,7 +2730,7 @@ def main():
             fig.update_traces(
                 hovertemplate='<b>%{x}</b><br>%{y} articles<extra></extra>'
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
 
         with col2:
             fig = px.pie(
@@ -2718,7 +2743,7 @@ def main():
             fig.update_traces(
                 hovertemplate='<b>%{label}</b><br>%{value} articles<br>%{percent}<extra></extra>'
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
 
     # === ARTICLES ===
     st.markdown("---")
