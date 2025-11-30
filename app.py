@@ -108,25 +108,216 @@ CANDIDATES = {
 # SONDAGES OFFICIELS - Instituts reconnus uniquement
 # =============================================================================
 
-SONDAGES = [
+SONDAGES_FILE = "sondages_paris2026.json"
+
+# Sondages de base - DONNÉES VÉRIFIÉES aux sources officielles
+SONDAGES_BASE = [
+    # --- IFOP Novembre 2025 --- VÉRIFIÉ sur ifop.com
     {
-        "date": "2025-11-03",
+        "date": "2025-11-05",
         "institut": "IFOP-Fiducial",
         "commanditaire": "Le Figaro / Sud Radio",
         "echantillon": 1037,
-        "methode": "Questionnaire auto-administré en ligne",
-        "hypothese": "Scénario avec listes séparées (Dati LR-MoDem-UDI, Bournazel Horizons-Renaissance)",
+        "methode": "Internet, 29 oct - 3 nov 2025",
+        "hypothese": "Listes separees (Dati LR-MoDem-UDI vs Bournazel Horizons-Renaissance)",
         "source_url": "https://www.ifop.com/article/le-climat-politique-a-paris-11/",
-        "note": "Fourchettes simplifiées à la valeur médiane",
         "scores": {
             "Rachida Dati": 27,
             "Emmanuel Grégoire": 21,
-            "Pierre-Yves Bournazel": 15,
+            "Pierre-Yves Bournazel": 14,
             "David Belliard": 13,
             "Sophia Chikirou": 12,
         }
     },
+    # --- ELABE Juin 2025 --- VÉRIFIÉ sur elabe.fr
+    {
+        "date": "2025-06-21",
+        "institut": "Elabe",
+        "commanditaire": "BFMTV / La Tribune Dimanche",
+        "echantillon": 1206,
+        "methode": "Internet, 6-16 juin 2025",
+        "hypothese": "Sans candidature Bournazel",
+        "source_url": "https://elabe.fr/municipale-paris/",
+        "scores": {
+            "Rachida Dati": 34,
+            "David Belliard": 19,
+            "Emmanuel Grégoire": 17,
+            "Sophia Chikirou": 15,
+            "Thierry Mariani": 7,
+            "Sarah Knafo": 5,
+        }
+    },
+    {
+        "date": "2025-06-21",
+        "institut": "Elabe",
+        "commanditaire": "BFMTV / La Tribune Dimanche",
+        "echantillon": 1206,
+        "methode": "Internet, 6-16 juin 2025",
+        "hypothese": "Avec candidature Bournazel (Horizons)",
+        "source_url": "https://elabe.fr/municipale-paris/",
+        "scores": {
+            "Rachida Dati": 29,
+            "David Belliard": 19,
+            "Emmanuel Grégoire": 16,
+            "Sophia Chikirou": 15,
+            "Pierre-Yves Bournazel": 8,
+            "Thierry Mariani": 7,
+            "Sarah Knafo": 5,
+        }
+    },
 ]
+
+
+def load_sondages() -> List[Dict]:
+    """Charge les sondages depuis le fichier JSON + base"""
+    sondages = list(SONDAGES_BASE)  # Copie des sondages de base
+
+    try:
+        with open(SONDAGES_FILE, "r", encoding="utf-8") as f:
+            saved = json.load(f)
+            if isinstance(saved, list):
+                # Fusionner sans doublons (clé = date + institut + hypothese)
+                existing_keys = {
+                    (s["date"], s["institut"], s.get("hypothese", ""))
+                    for s in sondages
+                }
+                for s in saved:
+                    key = (s["date"], s["institut"], s.get("hypothese", ""))
+                    if key not in existing_keys:
+                        sondages.append(s)
+                        existing_keys.add(key)
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        st.warning(f"Erreur chargement sondages: {e}")
+
+    return sorted(sondages, key=lambda x: x["date"], reverse=True)
+
+
+def save_sondages(sondages: List[Dict]) -> bool:
+    """Sauvegarde les sondages dans le fichier JSON"""
+    try:
+        # Ne sauvegarder que les sondages qui ne sont pas dans SONDAGES_BASE
+        base_keys = {
+            (s["date"], s["institut"], s.get("hypothese", ""))
+            for s in SONDAGES_BASE
+        }
+        to_save = [
+            s for s in sondages
+            if (s["date"], s["institut"], s.get("hypothese", "")) not in base_keys
+        ]
+
+        with open(SONDAGES_FILE, "w", encoding="utf-8") as f:
+            json.dump(to_save, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        st.error(f"Erreur sauvegarde sondages: {e}")
+        return False
+
+
+def add_sondage(sondage: Dict) -> bool:
+    """Ajoute un sondage s'il n'existe pas déjà"""
+    sondages = load_sondages()
+    key = (sondage["date"], sondage["institut"], sondage.get("hypothese", ""))
+
+    existing_keys = {
+        (s["date"], s["institut"], s.get("hypothese", ""))
+        for s in sondages
+    }
+
+    if key not in existing_keys:
+        sondages.append(sondage)
+        return save_sondages(sondages)
+    return False  # Déjà existant
+
+
+def fetch_new_sondages() -> List[Dict]:
+    """
+    Recherche de nouveaux sondages sur les sources officielles.
+    Retourne la liste des nouveaux sondages trouvés.
+    """
+    new_sondages = []
+
+    # Sources à scraper
+    sources = [
+        {
+            "name": "IFOP",
+            "search_url": "https://www.google.com/search?q=site:ifop.com+sondage+municipales+paris+2026",
+        },
+        {
+            "name": "Elabe",
+            "search_url": "https://www.google.com/search?q=site:elabe.fr+sondage+municipales+paris+2026",
+        },
+        {
+            "name": "Harris Interactive",
+            "search_url": "https://www.google.com/search?q=site:harris-interactive.fr+sondage+municipales+paris",
+        },
+        {
+            "name": "OpinionWay",
+            "search_url": "https://www.google.com/search?q=site:opinion-way.com+sondage+municipales+paris",
+        },
+    ]
+
+    # Note: Le scraping automatique des instituts est complexe car chaque site
+    # a une structure différente. On utilise plutôt une recherche Google News
+    # pour détecter les nouveaux sondages.
+
+    try:
+        # Recherche via Google News RSS
+        search_query = "sondage municipales Paris 2026 IFOP OR Elabe OR Harris OR OpinionWay"
+        rss_url = f"https://news.google.com/rss/search?q={quote_plus(search_query)}&hl=fr&gl=FR&ceid=FR:fr"
+
+        response = requests.get(rss_url, timeout=15)
+        if response.status_code == 200:
+            root = ET.fromstring(response.content)
+
+            for item in root.findall(".//item"):
+                title = item.findtext("title", "").lower()
+                link = item.findtext("link", "")
+                pub_date = item.findtext("pubDate", "")
+
+                # Filtrer les articles qui parlent de sondages Paris
+                if "sondage" in title and "paris" in title:
+                    # Détecter l'institut
+                    institut = None
+                    if "ifop" in title:
+                        institut = "IFOP"
+                    elif "elabe" in title:
+                        institut = "Elabe"
+                    elif "harris" in title:
+                        institut = "Harris Interactive"
+                    elif "opinionway" in title:
+                        institut = "OpinionWay"
+                    elif "ipsos" in title:
+                        institut = "Ipsos"
+
+                    if institut:
+                        # Parser la date
+                        try:
+                            from email.utils import parsedate_to_datetime
+                            dt = parsedate_to_datetime(pub_date)
+                            date_str = dt.strftime("%Y-%m-%d")
+                        except:
+                            date_str = datetime.now().strftime("%Y-%m-%d")
+
+                        new_sondages.append({
+                            "detected": True,
+                            "date": date_str,
+                            "institut": institut,
+                            "title": item.findtext("title", ""),
+                            "url": link,
+                            "source": "Google News"
+                        })
+
+    except Exception as e:
+        st.warning(f"Erreur recherche sondages: {e}")
+
+    return new_sondages
+
+
+# Variable globale pour les sondages (chargée au démarrage)
+SONDAGES = load_sondages()
+
 
 def get_latest_sondage():
     """Retourne le sondage le plus récent"""
@@ -229,6 +420,83 @@ def is_cloud_configured() -> bool:
 
 HISTORY_FILE = "visibility_history.json"
 YOUTUBE_CACHE_FILE = "youtube_cache.json"
+TRENDS_CACHE_FILE = "trends_cache.json"
+
+# =============================================================================
+# THÈMES STRATÉGIQUES POUR COMPARAISON
+# =============================================================================
+
+THEMES_STRATEGIQUES = {
+    "logement": ["logement", "loyer", "HLM", "immobilier", "expulsion"],
+    "sécurité": ["sécurité", "police", "délinquance", "insécurité", "criminalité"],
+    "transport": ["transport", "métro", "vélo", "voiture", "circulation"],
+    "propreté": ["propreté", "poubelle", "rat", "déchet", "saleté"],
+    "immigration": ["immigration", "migrant", "étranger", "clandestin"],
+    "économie": ["économie", "emploi", "entreprise", "commerce", "chômage"],
+    "écologie": ["écologie", "environnement", "pollution", "vert", "climat"],
+    "culture": ["culture", "musée", "spectacle", "art", "patrimoine"],
+}
+
+# =============================================================================
+# LEMMATISATION BASIQUE FRANÇAIS
+# =============================================================================
+
+LEMMA_DICT = {
+    # Logement
+    "logements": "logement", "loger": "logement", "logé": "logement", "logée": "logement",
+    "loyers": "loyer", "locataire": "loyer", "locataires": "loyer",
+    "immobilière": "immobilier", "immobiliers": "immobilier",
+    # Sécurité
+    "sécuritaire": "sécurité", "sécuritaires": "sécurité",
+    "policier": "police", "policiers": "police", "policière": "police",
+    "délinquant": "délinquance", "délinquants": "délinquance",
+    # Transport
+    "transports": "transport", "transporteur": "transport",
+    "vélos": "vélo", "cycliste": "vélo", "cyclistes": "vélo", "cyclable": "vélo",
+    "voitures": "voiture", "automobiliste": "voiture", "automobilistes": "voiture",
+    # Propreté
+    "propre": "propreté", "propres": "propreté",
+    "poubelles": "poubelle", "ordure": "poubelle", "ordures": "poubelle",
+    "rats": "rat",
+    "déchets": "déchet",
+    # Immigration
+    "immigré": "immigration", "immigrés": "immigration", "immigrée": "immigration",
+    "migrants": "migrant", "migrante": "migrant", "migrantes": "migrant",
+    "étrangers": "étranger", "étrangère": "étranger", "étrangères": "étranger",
+    "clandestins": "clandestin", "clandestine": "clandestin",
+    # Économie
+    "économique": "économie", "économiques": "économie",
+    "emplois": "emploi", "employé": "emploi", "employés": "emploi",
+    "entreprises": "entreprise", "entrepreneur": "entreprise",
+    "commerces": "commerce", "commerçant": "commerce", "commerçants": "commerce",
+    # Écologie
+    "écologique": "écologie", "écologiques": "écologie", "écologiste": "écologie",
+    "environnemental": "environnement", "environnementaux": "environnement",
+    "pollué": "pollution", "polluée": "pollution", "polluant": "pollution",
+    "verts": "vert", "verte": "vert", "vertes": "vert",
+    "climatique": "climat", "climatiques": "climat",
+    # Culture
+    "culturel": "culture", "culturelle": "culture", "culturels": "culture",
+    "musées": "musée",
+    "spectacles": "spectacle",
+    "arts": "art", "artistique": "art", "artistiques": "art",
+    # Politique générale
+    "électorale": "électoral", "électoraux": "électoral",
+    "programmes": "programme",
+    "projets": "projet",
+    "propositions": "proposition",
+    # Pluriels courants
+    "parisiens": "parisien", "parisiennes": "parisien",
+    "habitants": "habitant", "habitante": "habitant",
+    "citoyens": "citoyen", "citoyenne": "citoyen",
+}
+
+
+def lemmatize_word(word: str) -> str:
+    """Applique une lemmatisation basique au mot"""
+    word_lower = word.lower()
+    return LEMMA_DICT.get(word_lower, word_lower)
+
 
 # =============================================================================
 # CACHE YOUTUBE PERSISTANT + QUOTA MANAGEMENT
@@ -374,6 +642,201 @@ def set_cached_youtube_data(candidate_name: str, data: Dict, start_date: date, e
         "payload": data
     }
     save_youtube_cache(cache)
+
+
+# =============================================================================
+# CACHE GOOGLE TRENDS RELATED QUERIES
+# =============================================================================
+
+TRENDS_CACHE_DURATION_HOURS = 6  # Les related queries changent moins vite
+
+
+def load_trends_cache() -> Dict:
+    """Charge le cache des related queries Google Trends"""
+    try:
+        with open(TRENDS_CACHE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {"last_refresh": None, "data": {}}
+
+
+def save_trends_cache(cache: Dict) -> bool:
+    """Sauvegarde le cache Trends"""
+    try:
+        with open(TRENDS_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(cache, f, indent=2, ensure_ascii=False)
+        return True
+    except:
+        return False
+
+
+def get_trends_cache_age_hours() -> float:
+    """Retourne l'âge du cache Trends en heures"""
+    cache = load_trends_cache()
+    last_refresh = cache.get("last_refresh")
+    if not last_refresh:
+        return float('inf')
+    try:
+        last_dt = datetime.fromisoformat(last_refresh)
+        return (datetime.now() - last_dt).total_seconds() / 3600
+    except:
+        return float('inf')
+
+
+def get_cached_trends_queries(candidate_name: str) -> Optional[Dict]:
+    """Récupère les related queries en cache pour un candidat"""
+    cache = load_trends_cache()
+    cache_age = get_trends_cache_age_hours()
+
+    # Cache expiré
+    if cache_age > TRENDS_CACHE_DURATION_HOURS:
+        return None
+
+    return cache.get("data", {}).get(candidate_name)
+
+
+def set_cached_trends_queries(candidate_name: str, data: Dict):
+    """Stocke les related queries en cache"""
+    cache = load_trends_cache()
+    if "data" not in cache:
+        cache["data"] = {}
+    cache["data"][candidate_name] = data
+    cache["last_refresh"] = datetime.now().isoformat()
+    save_trends_cache(cache)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_trends_related_queries(candidate_name: str, timeframe: str = "today 1-m") -> Dict:
+    """
+    Récupère les sujets et requêtes associés à un candidat via Google Trends.
+
+    Retourne:
+    - top_queries: Les requêtes les plus fréquentes associées au candidat
+    - rising_topics: Les SUJETS en forte croissance (entités, pas requêtes brutes)
+
+    Args:
+        candidate_name: Nom du candidat
+        timeframe: Période (ex: "today 1-m" = dernier mois, "today 3-m" = 3 mois)
+    """
+    import time
+    import random
+
+    # Vérifier le cache d'abord
+    cached = get_cached_trends_queries(candidate_name)
+    if cached:
+        cached["from_cache"] = True
+        return cached
+
+    result = {
+        "success": False,
+        "top_queries": [],
+        "rising_topics": [],  # Changé: topics au lieu de queries
+        "error": None,
+        "from_cache": False
+    }
+
+    try:
+        from pytrends.request import TrendReq
+
+        # Délai pour éviter le rate limiting
+        time.sleep(2 + random.uniform(0, 2))
+
+        pytrends = TrendReq(hl="fr-FR", tz=60)
+        pytrends.build_payload([candidate_name], timeframe=timeframe, geo="FR")
+
+        time.sleep(1 + random.uniform(0, 1))
+
+        # Top queries (requêtes les plus fréquentes)
+        related_queries = pytrends.related_queries()
+        if related_queries and candidate_name in related_queries:
+            candidate_data = related_queries[candidate_name]
+            top_df = candidate_data.get("top")
+            if top_df is not None and not top_df.empty:
+                for _, row in top_df.head(10).iterrows():
+                    query = row.get("query", "")
+                    value = row.get("value", 0)
+                    if query.lower() != candidate_name.lower():
+                        result["top_queries"].append({
+                            "query": query,
+                            "value": int(value) if isinstance(value, (int, float)) else 0
+                        })
+
+        # Note: related_topics() désactivé car trop lent et cause des blocages
+        # On garde uniquement les top_queries pour l'instant
+
+        result["success"] = len(result["top_queries"]) > 0
+
+        # Sauvegarder en cache si succès
+        if result["success"]:
+            set_cached_trends_queries(candidate_name, result)
+
+    except Exception as e:
+        error_str = str(e)
+        if "429" in error_str:
+            result["error"] = "Limite Google Trends atteinte (429)"
+        else:
+            result["error"] = error_str[:100]
+
+    return result
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_thematic_comparison(candidates: List[str], theme_keywords: List[str], timeframe: str = "today 1-m") -> Dict:
+    """
+    Compare l'intérêt de recherche pour un thème associé à chaque candidat.
+
+    Ex: Compare "Rachida Dati logement" vs "Sarah Knafo logement" vs ...
+    """
+    import time
+    import random
+
+    result = {
+        "success": False,
+        "scores": {},
+        "error": None
+    }
+
+    if not candidates or not theme_keywords:
+        return result
+
+    try:
+        from pytrends.request import TrendReq
+
+        # Construire les requêtes: "Candidat + thème"
+        # On prend le premier mot-clé du thème pour simplifier
+        theme_word = theme_keywords[0]
+        queries = [f"{name} {theme_word}" for name in candidates[:5]]  # Max 5 pour Trends
+
+        time.sleep(2 + random.uniform(0, 2))
+
+        pytrends = TrendReq(hl="fr-FR", tz=60)
+        pytrends.build_payload(queries, timeframe=timeframe, geo="FR")
+
+        time.sleep(1 + random.uniform(0, 1))
+
+        df = pytrends.interest_over_time()
+
+        if df is not None and not df.empty:
+            if "isPartial" in df.columns:
+                df = df.drop(columns=["isPartial"])
+
+            for query in queries:
+                if query in df.columns:
+                    # Extraire le nom du candidat de la requête
+                    candidate_name = query.replace(f" {theme_word}", "")
+                    result["scores"][candidate_name] = round(float(df[query].mean()), 1)
+
+            result["success"] = any(v > 0 for v in result["scores"].values())
+
+    except Exception as e:
+        error_str = str(e)
+        if "429" in error_str:
+            result["error"] = "Limite Google Trends atteinte"
+        else:
+            result["error"] = error_str[:100]
+
+    return result
+
 
 def load_history() -> List[Dict]:
     """Charge l'historique (cloud prioritaire, sinon local)"""
@@ -575,31 +1038,48 @@ STOP_WORDS = {
 
 
 def extract_keywords_from_articles(articles: List[Dict], candidate_name: str, top_n: int = 10) -> List[tuple]:
-    """Extrait les mots-cl?s les plus fr?quents des titres d'articles pour un candidat"""
+    """
+    Extrait les mots-clés les plus fréquents des titres d'articles pour un candidat.
+    Gère les apostrophes françaises et applique une lemmatisation basique.
+    """
     if not articles:
         return []
 
-    # Nom du candidat ? exclure
-    name_parts = set(candidate_name.lower().split())
+    # Nom du candidat à exclure (lemmatisé aussi)
+    name_parts = set(lemmatize_word(p) for p in candidate_name.lower().split())
 
     word_counts = Counter()
-    word_articles = {}  # Stocke les articles par mot-cl?
+    word_articles = {}  # Stocke les articles par mot-clé (lemme)
 
     for article in articles:
         title = article.get("title", "")
-        # Nettoyer et tokeniser
-        words = re.findall(r'\b[a-zA-Z????????????????????????????]{3,}\b', title.lower())
 
+        # Étape 1: Gérer les apostrophes françaises
+        # Remplacer l', d', qu', n', s', j', m', t', c' par un espace
+        title_clean = re.sub(r"\b[lLdDqQnNsSmMtTcCjJ]['']\s*", "", title)
+
+        # Étape 2: Extraire les mots (min 3 caractères)
+        words = re.findall(r'\b[a-zA-ZàâäéèêëïîôùûüçœæÀÂÄÉÈÊËÏÎÔÙÛÜÇŒÆ]{3,}\b', title_clean.lower())
+
+        # Étape 3: Lemmatiser et filtrer
+        seen_in_article = set()  # Éviter de compter plusieurs fois le même lemme dans un article
         for word in words:
-            # Ignorer stop words et nom du candidat
-            if word not in STOP_WORDS and word not in name_parts:
-                word_counts[word] += 1
-                if word not in word_articles:
-                    word_articles[word] = []
-                if article not in word_articles[word]:
-                    word_articles[word].append(article)
+            lemma = lemmatize_word(word)
 
-    # Retourner les top mots-cl?s avec leurs articles associ?s
+            # Ignorer stop words et nom du candidat
+            if lemma in STOP_WORDS or lemma in name_parts:
+                continue
+
+            # Compter une seule fois par article
+            if lemma not in seen_in_article:
+                seen_in_article.add(lemma)
+                word_counts[lemma] += 1
+
+                if lemma not in word_articles:
+                    word_articles[lemma] = []
+                word_articles[lemma].append(article)
+
+    # Retourner les top mots-clés avec leurs articles associés
     top_keywords = word_counts.most_common(top_n)
     return [(word, count, word_articles.get(word, [])) for word, count in top_keywords]
 
@@ -1135,16 +1615,28 @@ def get_tv_radio_mentions(candidate_name: str, start_date: date, end_date: date)
 # =============================================================================
 
 def calculate_score(wiki_views: int, press_count: int, press_domains: int,
-                    trends_score: float, youtube_views: int, youtube_available: bool) -> Dict:
+                    trends_score: float, youtube_views: int, youtube_available: bool,
+                    period_days: int = 7, all_candidates_press: List[int] = None) -> Dict:
     """Calcule le score de visibilité
     Pondération: Presse 40%, Trends 35%, Wikipedia 15%, YouTube 10%
+
+    Le score presse est relatif aux autres candidats pour garantir une différenciation.
     """
 
     wiki_score = min((math.log10(wiki_views) / 4.7) * 100, 100) if wiki_views > 0 else 0
 
-    press_base = min((press_count / 50) * 80, 80)
-    diversity_bonus = min((press_domains / 20) * 20, 20)
-    press_score = min(press_base + diversity_bonus, 100)
+    # Score presse RELATIF : basé sur le max des candidats de cette analyse
+    if all_candidates_press and max(all_candidates_press) > 0:
+        max_press = max(all_candidates_press)
+        # Score de base relatif (0-80)
+        press_base = (press_count / max_press) * 80
+        # Bonus diversité relatif (0-20) - on garde un seuil adapté à la période
+        diversity_threshold = max(5, period_days * 2)  # 5 pour 24h, 14 pour 7j, 60 pour 30j
+        diversity_bonus = min((press_domains / diversity_threshold) * 20, 20)
+        press_score = min(press_base + diversity_bonus, 100)
+    else:
+        # Fallback si pas de données comparatives
+        press_score = 0
 
     trends_norm = min(max(trends_score, 0), 100)
 
@@ -1173,13 +1665,13 @@ def calculate_score(wiki_views: int, press_count: int, press_domains: int,
 # =============================================================================
 
 def collect_data(candidate_ids: List[str], start_date: date, end_date: date, youtube_key: Optional[str], force_youtube_refresh: bool = False) -> Dict:
-    """Collecte toutes les donn?es pour les candidats s?lectionn?s"""
+    """Collecte toutes les données pour les candidats sélectionnés"""
     results = {}
 
     progress = st.progress(0)
     status = st.empty()
 
-    status.text("Chargement des donn?es Google Trends...")
+    status.text("Chargement des données Google Trends...")
     names = [CANDIDATES[cid]["name"] for cid in candidate_ids]
     trends = get_google_trends(names, start_date, end_date)
 
@@ -1200,12 +1692,22 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         youtube_mode = "api" if youtube_refresh_allowed else "cache"
     else:
         youtube_refresh_allowed = False
-        youtube_refresh_reason = "Cl? API YouTube manquante"
+        youtube_refresh_reason = "Clé API YouTube manquante"
         youtube_mode = "disabled"
 
     youtube_api_called = False
 
+    # Déterminer le timeframe pour les related queries selon la période
+    period_days = (end_date - start_date).days + 1
+    if period_days <= 7:
+        trends_timeframe = "now 7-d"
+    elif period_days <= 30:
+        trends_timeframe = "today 1-m"
+    else:
+        trends_timeframe = "today 3-m"
+
     total = len(candidate_ids)
+    trends_queries_errors = []
 
     for i, cid in enumerate(candidate_ids):
         c = CANDIDATES[cid]
@@ -1235,19 +1737,18 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         else:
             youtube = {"available": False, "total_views": 0, "videos": [], "disabled": True}
 
+        # Récupérer les Related Queries Google Trends
+        status.text(f"Analyse des recherches associées pour {name}...")
+        related_queries = get_trends_related_queries(name, timeframe=trends_timeframe)
+        if related_queries.get("error"):
+            trends_queries_errors.append(f"{name}: {related_queries['error']}")
+
         trends_score = trends.get("scores", {}).get(name, 0)
 
-        score = calculate_score(
-            wiki_views=wiki["views"],
-            press_count=press["count"],
-            press_domains=press["domains"],
-            trends_score=trends_score,
-            youtube_views=youtube.get("total_views", 0),
-            youtube_available=youtube.get("available", False)
-        )
-
+        # Mots-clés extraits des articles (fallback si related queries échoue)
         keywords = extract_keywords_from_articles(press["articles"], name, top_n=5)
 
+        # Stocker les données brutes (score calculé après pour comparaison relative)
         results[cid] = {
             "info": c,
             "wikipedia": wiki,
@@ -1257,14 +1758,37 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             "trends_score": trends_score,
             "trends_success": trends.get("success", True),
             "trends_error": trends.get("error") or trends.get("errors"),
-            "score": score,
+            "related_queries": related_queries,
             "keywords": keywords
         }
 
         progress.progress((i + 1) / total)
 
+    # === CALCUL DES SCORES (après collecte de tous les candidats) ===
+    # Collecter tous les comptages presse pour calcul relatif
+    all_press_counts = [results[cid]["press"]["count"] for cid in candidate_ids]
+    period_days = (end_date - start_date).days + 1
+
+    for cid in candidate_ids:
+        d = results[cid]
+        score = calculate_score(
+            wiki_views=d["wikipedia"]["views"],
+            press_count=d["press"]["count"],
+            press_domains=d["press"]["domains"],
+            trends_score=d["trends_score"],
+            youtube_views=d["youtube"].get("total_views", 0),
+            youtube_available=d["youtube"].get("available", False),
+            period_days=period_days,
+            all_candidates_press=all_press_counts
+        )
+        results[cid]["score"] = score
+
     if youtube_api_called and expected_youtube_cost > 0:
         increment_youtube_quota(cost=expected_youtube_cost)
+
+    # Afficher les erreurs des related queries si présentes
+    if trends_queries_errors:
+        st.warning(f"Certaines requêtes Trends ont échoué : {'; '.join(trends_queries_errors[:3])}")
 
     progress.empty()
     status.empty()
@@ -1277,6 +1801,10 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             "quota_remaining": get_youtube_quota_remaining(),
             "refresh_reason": youtube_refresh_reason if youtube_mode == "cache" else None,
             "cost": expected_youtube_cost
+        },
+        "trends_queries": {
+            "cache_age_hours": get_trends_cache_age_hours(),
+            "errors": trends_queries_errors if trends_queries_errors else None
         }
     }
 
@@ -1423,15 +1951,24 @@ def main():
 
     rows = []
     for rank, (cid, d) in enumerate(sorted_data, 1):
-        top_keywords = d.get('keywords', [])[:3]
-        themes_str = ' ? '.join([word for word, count, arts in top_keywords]) if top_keywords else '-'
+        # Priorité aux Related Queries Google Trends, fallback sur mots-clés articles
+        related = d.get('related_queries', {})
+        top_queries = related.get('top_queries', [])
+
+        if top_queries:
+            # Utiliser les top queries Google Trends
+            themes_str = ' · '.join([q['query'] for q in top_queries[:3]])
+        else:
+            # Fallback: mots-clés extraits des articles
+            top_keywords = d.get('keywords', [])[:3]
+            themes_str = ' · '.join([word for word, count, arts in top_keywords]) if top_keywords else '-'
 
         row = {
             'Rang': rank,
             'Candidat': d['info']['name'],
             'Parti': d['info']['party'],
             'Score': d['score']['total'],
-            'Themes': themes_str,
+            'Recherches': themes_str,
             'Articles': d['press']['count'],
             'Trends': d['trends_score'],
         }
@@ -1444,7 +1981,7 @@ def main():
     col_config = {
         'Rang': st.column_config.NumberColumn('Rang', format='%d'),
         'Score': st.column_config.ProgressColumn('Score / 100', min_value=0, max_value=100, format='%.1f'),
-        'Themes': st.column_config.TextColumn('Themes dominants'),
+        'Recherches': st.column_config.TextColumn('Top recherches Google', help='Requetes les plus frequentes associees au candidat sur Google'),
         'Articles': st.column_config.NumberColumn('Articles', format='%d'),
         'Trends': st.column_config.NumberColumn('Trends', format='%.0f'),
     }
@@ -1536,15 +2073,51 @@ def main():
 
     # TAB 2: THEMES / ANALYSE QUALITATIVE
     with tab2:
-        st.markdown('### Analyse thematique par candidat')
-        st.markdown('*Mots-cles extraits des titres d\'articles de presse*')
+        st.markdown('### Ce que les gens recherchent sur Google')
+        st.markdown('*Requetes associees a chaque candidat sur Google Trends (France)*')
+
+        # Afficher le statut du cache Trends
+        trends_cache_age = result.get("trends_queries", {}).get("cache_age_hours", float('inf'))
+        if trends_cache_age != float('inf') and trends_cache_age < TRENDS_CACHE_DURATION_HOURS:
+            st.caption(f"Donnees en cache (age: {trends_cache_age:.1f}h)")
 
         for rank, (cid, d) in enumerate(sorted_data, 1):
-            keywords = d.get('keywords', [])
+            related = d.get('related_queries', {})
+            keywords = d.get('keywords', [])  # Fallback
             name = d['info']['name']
 
-            with st.expander(f'{rank}. {name} - {len(keywords)} themes identifies', expanded=(rank <= 3)):
-                if keywords:
+            top_queries = related.get('top_queries', [])
+            has_trends_data = len(top_queries) > 0
+
+            # Titre avec indicateur de source
+            if has_trends_data:
+                title = f'{rank}. {name} - Recherches Google'
+            else:
+                title = f'{rank}. {name} - Themes presse (fallback)'
+
+            with st.expander(title, expanded=(rank <= 3)):
+                if has_trends_data:
+                    st.markdown('**Top recherches Google**')
+                    st.caption('Ce que les gens recherchent en association avec ce candidat')
+                    if top_queries:
+                        for q in top_queries[:7]:
+                            query_text = q.get('query', '')
+                            value = q.get('value', 0)
+                            st.markdown(f"**{query_text}**")
+                            st.progress(min(value / 100, 1.0))
+                    else:
+                        st.info('Aucune donnee')
+
+                    # Afficher aussi les themes presse en complement
+                    if keywords:
+                        st.markdown('---')
+                        st.markdown('**Complement: Themes dans la presse**')
+                        themes_str = ' · '.join([f"{word} ({count})" for word, count, _ in keywords[:5]])
+                        st.caption(themes_str)
+
+                elif keywords:
+                    # Fallback: afficher les mots-cles des articles
+                    st.warning('Google Trends indisponible, affichage des themes presse')
                     for word, count, articles in keywords:
                         with st.expander(f'**{word}** ({count} mentions)', expanded=False):
                             if articles:
@@ -1553,114 +2126,250 @@ def main():
                                     st.caption(f"   {art.get('date', '')} - {art.get('domain', '')}")
                                 if len(articles) > 10:
                                     st.caption(f"... et {len(articles) - 10} autres articles")
-                            else:
-                                st.info('Aucun article trouve')
                 else:
-                    st.info('Pas assez d\'articles pour extraire des themes')
+                    st.info('Aucune donnee disponible')
 
+                # Erreur Trends si presente
+                if related.get('error'):
+                    st.error(f"Erreur Trends: {related['error']}")
+
+        # === COMPARAISON THEMATIQUE ===
         st.markdown('---')
-        st.markdown('### Comparaison des themes')
+        st.markdown('### Qui domine quel sujet ?')
+        st.markdown('*Comparaison de l\'interet de recherche par theme strategique*')
 
-        comparison_data = []
+        # Sélecteur de thème
+        theme_selected = st.selectbox(
+            'Choisir un theme',
+            list(THEMES_STRATEGIQUES.keys()),
+            format_func=lambda x: x.capitalize()
+        )
+
+        if theme_selected:
+            theme_keywords = THEMES_STRATEGIQUES[theme_selected]
+            candidate_names = [d['info']['name'] for _, d in sorted_data]
+
+            with st.spinner(f'Analyse du theme "{theme_selected}"...'):
+                comparison = get_thematic_comparison(candidate_names, theme_keywords)
+
+            if comparison.get('success') and comparison.get('scores'):
+                scores = comparison['scores']
+
+                # Trier par score decroissant
+                sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+
+                # Graphique
+                fig = px.bar(
+                    x=[s[0] for s in sorted_scores],
+                    y=[s[1] for s in sorted_scores],
+                    color=[s[0] for s in sorted_scores],
+                    color_discrete_sequence=[
+                        next((c['color'] for c in CANDIDATES.values() if c['name'] == s[0]), '#888')
+                        for s in sorted_scores
+                    ],
+                    title=f'Interet de recherche: "{theme_selected}"'
+                )
+                fig.update_layout(
+                    showlegend=False,
+                    yaxis_title='Score relatif',
+                    xaxis_title='',
+                    yaxis_range=[0, max(s[1] for s in sorted_scores) * 1.2] if sorted_scores else [0, 100]
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+                # Leader du theme
+                if sorted_scores:
+                    leader = sorted_scores[0]
+                    st.success(f'**{leader[0]}** domine le sujet "{theme_selected}" avec un score de {leader[1]:.0f}')
+
+            elif comparison.get('error'):
+                st.error(f"Erreur: {comparison['error']}")
+            else:
+                st.info('Pas assez de donnees pour cette comparaison')
+
+        # === TABLEAU RECAPITULATIF TOP QUERIES ===
+        st.markdown('---')
+        st.markdown('### Tableau recapitulatif')
+
+        recap_data = []
         for _, d in sorted_data:
-            keywords = d.get('keywords', [])[:5]
-            comparison_data.append({
+            related = d.get('related_queries', {})
+            top_queries = related.get('top_queries', [])
+            # Extraire les 3 premieres requetes
+            top_3 = [q['query'] for q in top_queries[:3]]
+
+            recap_data.append({
                 'Candidat': d['info']['name'],
-                'Theme 1': keywords[0][0] if len(keywords) > 0 else '-',
-                'Theme 2': keywords[1][0] if len(keywords) > 1 else '-',
-                'Theme 3': keywords[2][0] if len(keywords) > 2 else '-',
-                'Theme 4': keywords[3][0] if len(keywords) > 3 else '-',
-                'Theme 5': keywords[4][0] if len(keywords) > 4 else '-',
+                'Recherche 1': top_3[0] if len(top_3) > 0 else '-',
+                'Recherche 2': top_3[1] if len(top_3) > 1 else '-',
+                'Recherche 3': top_3[2] if len(top_3) > 2 else '-',
             })
 
-        st.dataframe(pd.DataFrame(comparison_data), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(recap_data), use_container_width=True, hide_index=True)
     # TAB 3: SONDAGES
     with tab3:
         st.markdown("### Sondages d'intentions de vote")
 
-        if SONDAGES:
-            for sondage in sorted(SONDAGES, key=lambda x: x["date"], reverse=True):
-                with st.expander(f"{sondage['institut']} - {sondage['date']}", expanded=(sondage == get_latest_sondage())):
-                    st.markdown(f"**Commanditaire :** {sondage['commanditaire']}")
-                    st.markdown(f"**Échantillon :** {sondage['echantillon']} personnes")
-                    st.markdown(f"**Méthode :** {sondage['methode']}")
-                    st.markdown(f"**Hypothèse :** {sondage['hypothese']}")
-                    if sondage.get("source_url"):
-                        st.markdown(f"[Voir le sondage IFOP]({sondage['source_url']})")
+        # Recharger les sondages
+        sondages_actuels = load_sondages()
 
-                    sondage_rows = []
-                    for name, score in sorted(sondage["scores"].items(), key=lambda x: x[1], reverse=True):
-                        party = next((c["party"] for c in CANDIDATES.values() if c["name"] == name), "-")
-                        sondage_rows.append({
-                            "Candidat": name,
-                            "Parti": party,
-                            "Intentions": f"{score} %"
-                        })
+        if sondages_actuels:
+            # === GRAPHIQUE SYNTHESE TOUS SONDAGES ===
+            st.markdown("#### Synthese de tous les sondages")
 
-                    st.dataframe(pd.DataFrame(sondage_rows), use_container_width=True, hide_index=True)
+            # Calculer la moyenne par candidat sur tous les sondages
+            all_scores = {}
+            for sondage in sondages_actuels:
+                for candidat, score in sondage["scores"].items():
+                    if candidat not in all_scores:
+                        all_scores[candidat] = []
+                    all_scores[candidat].append(score)
 
-                    sondage_colors = [
-                        next((c["color"] for c in CANDIDATES.values() if c["name"] == r["Candidat"]), "#888")
-                        for r in sondage_rows
-                    ]
+            # Moyenne et dernier score
+            synthesis_data = []
+            for candidat, scores in all_scores.items():
+                synthesis_data.append({
+                    "Candidat": candidat,
+                    "Moyenne": round(sum(scores) / len(scores), 1),
+                    "Dernier": scores[-1] if scores else 0,
+                    "Min": min(scores),
+                    "Max": max(scores),
+                    "Nb sondages": len(scores)
+                })
 
-                    fig = px.bar(
-                        x=[r["Candidat"] for r in sondage_rows],
-                        y=[int(r["Intentions"].replace(" %", "")) for r in sondage_rows],
-                        color=[r["Candidat"] for r in sondage_rows],
-                        color_discrete_sequence=sondage_colors,
-                        title=f"Intentions de vote - {sondage['institut']}"
-                    )
-                    fig.update_layout(
-                        showlegend=False,
-                        yaxis_title="Pourcentage (%)",
-                        yaxis_range=[0, 40],
-                        xaxis_title=""
-                    )
-                    fig.update_traces(
-                        hovertemplate='<b>%{x}</b><br>%{y} %<extra></extra>'
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
+            synthesis_data.sort(key=lambda x: x["Moyenne"], reverse=True)
+            color_map = {c["name"]: c["color"] for c in CANDIDATES.values()}
 
-            # Graphique d'évolution temporelle
-            if len(SONDAGES) > 1:
-                st.markdown("---")
-                st.markdown("### Évolution des intentions de vote")
+            # Graphique avec barres d'erreur (min-max)
+            fig_synthesis = go.Figure()
+            for item in synthesis_data:
+                candidat = item["Candidat"]
+                color = color_map.get(candidat, "#888")
+                fig_synthesis.add_trace(go.Bar(
+                    name=candidat,
+                    x=[candidat],
+                    y=[item["Moyenne"]],
+                    marker_color=color,
+                    error_y=dict(
+                        type='data',
+                        symmetric=False,
+                        array=[item["Max"] - item["Moyenne"]],
+                        arrayminus=[item["Moyenne"] - item["Min"]],
+                        color='rgba(0,0,0,0.3)'
+                    ),
+                    hovertemplate=f'<b>{candidat}</b><br>Moyenne: {item["Moyenne"]}%<br>Min: {item["Min"]}% - Max: {item["Max"]}%<extra></extra>'
+                ))
 
-                evolution_data = []
-                for sondage in SONDAGES:
-                    for candidat, score in sondage["scores"].items():
-                        evolution_data.append({
-                            "Date": sondage["date"],
-                            "Candidat": candidat,
-                            "Score": score
-                        })
+            fig_synthesis.update_layout(
+                title="Moyenne des intentions de vote (tous sondages confondus)",
+                showlegend=False,
+                yaxis_title="Intentions de vote (%)",
+                yaxis_range=[0, 45],
+                xaxis_title=""
+            )
+            st.plotly_chart(fig_synthesis, use_container_width=True)
 
-                df_evolution = pd.DataFrame(evolution_data)
-                df_evolution = df_evolution.sort_values('Date')  # Trier par date croissante
-                color_map = {c["name"]: c["color"] for c in CANDIDATES.values()}
+            # Tableau synthese
+            st.dataframe(
+                pd.DataFrame(synthesis_data)[["Candidat", "Moyenne", "Min", "Max", "Nb sondages"]],
+                use_container_width=True,
+                hide_index=True
+            )
 
-                fig_evolution = px.line(
-                    df_evolution,
-                    x="Date",
-                    y="Score",
-                    color="Candidat",
-                    markers=True,
-                    color_discrete_map=color_map,
-                    title="Évolution des intentions de vote dans le temps"
-                )
-                fig_evolution.update_layout(
-                    yaxis_range=[0, 40],
-                    yaxis_title="Intentions de vote (%)",
-                    xaxis_title="",
-                    legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
-                    height=500,
-                    margin=dict(b=100)
-                )
-                fig_evolution.update_traces(
-                    hovertemplate='<b>%{fullData.name}</b><br>%{x}<br>%{y} %<extra></extra>'
-                )
-                st.plotly_chart(fig_evolution, use_container_width=True)
+            st.markdown("---")
+
+            # === EVOLUTION TEMPORELLE ===
+            st.markdown("#### Evolution dans le temps")
+
+            # Regrouper par date unique (prendre la moyenne si plusieurs hypotheses meme jour)
+            date_scores = {}
+            for sondage in sondages_actuels:
+                date_key = sondage["date"]
+                if date_key not in date_scores:
+                    date_scores[date_key] = {}
+                for candidat, score in sondage["scores"].items():
+                    if candidat not in date_scores[date_key]:
+                        date_scores[date_key][candidat] = []
+                    date_scores[date_key][candidat].append(score)
+
+            evolution_data = []
+            for date_key, candidats in sorted(date_scores.items()):
+                for candidat, scores in candidats.items():
+                    evolution_data.append({
+                        "Date": date_key,
+                        "Candidat": candidat,
+                        "Score": round(sum(scores) / len(scores), 1)
+                    })
+
+            df_evolution = pd.DataFrame(evolution_data)
+
+            fig_evolution = px.line(
+                df_evolution,
+                x="Date",
+                y="Score",
+                color="Candidat",
+                markers=True,
+                color_discrete_map=color_map,
+                title="Evolution des intentions de vote"
+            )
+            fig_evolution.update_layout(
+                yaxis_range=[0, 45],
+                yaxis_title="Intentions de vote (%)",
+                xaxis_title="",
+                legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
+                height=500,
+                margin=dict(b=100)
+            )
+            fig_evolution.update_traces(
+                hovertemplate='<b>%{fullData.name}</b><br>%{x}<br>%{y}%<extra></extra>'
+            )
+            st.plotly_chart(fig_evolution, use_container_width=True)
+
+            st.markdown("---")
+
+            # === DETAIL PAR SONDAGE ===
+            st.markdown("#### Detail par sondage")
+
+            for sondage in sorted(sondages_actuels, key=lambda x: x["date"], reverse=True):
+                with st.expander(f"{sondage['institut']} - {sondage['date']} - {sondage['hypothese'][:50]}...", expanded=(sondage == get_latest_sondage())):
+                    col_info, col_chart = st.columns([1, 2])
+
+                    with col_info:
+                        st.markdown(f"**Commanditaire:** {sondage['commanditaire']}")
+                        st.markdown(f"**Echantillon:** {sondage['echantillon']} personnes")
+                        st.markdown(f"**Methode:** {sondage['methode']}")
+                        st.markdown(f"**Hypothese:** {sondage['hypothese']}")
+                        if sondage.get("source_url"):
+                            st.markdown(f"[Voir le sondage]({sondage['source_url']})")
+
+                    with col_chart:
+                        sondage_rows = []
+                        for name, score in sorted(sondage["scores"].items(), key=lambda x: x[1], reverse=True):
+                            party = next((c["party"] for c in CANDIDATES.values() if c["name"] == name), "-")
+                            sondage_rows.append({
+                                "Candidat": name,
+                                "Parti": party,
+                                "Intentions": f"{score}%"
+                            })
+
+                        sondage_colors = [color_map.get(r["Candidat"], "#888") for r in sondage_rows]
+
+                        fig = px.bar(
+                            x=[r["Candidat"] for r in sondage_rows],
+                            y=[int(r["Intentions"].replace("%", "")) for r in sondage_rows],
+                            color=[r["Candidat"] for r in sondage_rows],
+                            color_discrete_sequence=sondage_colors
+                        )
+                        fig.update_layout(
+                            showlegend=False,
+                            yaxis_title="%",
+                            yaxis_range=[0, 40],
+                            xaxis_title="",
+                            height=300,
+                            margin=dict(t=10)
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+
         else:
             st.info("Aucun sondage disponible")
 
@@ -1814,34 +2523,70 @@ def main():
                 else:
                     st.success(f"Historique : {unique_dates} semaines enregistrées")
 
-                # Graphique d'évolution avec styles professionnels
+                # Graphique d'évolution avec Knafo mise en avant
                 fig = go.Figure()
 
-                # Styles de lignes et symboles pour chaque candidat
-                line_styles = ['solid', 'dash', 'dot', 'dashdot', 'longdash', 'longdashdot']
-                marker_symbols = ['circle', 'square', 'diamond', 'cross', 'x', 'triangle-up', 'star']
+                # Couleur vive pour Knafo
+                KNAFO_COLOR = "#E63946"  # Rouge vif intense
 
-                for idx, (candidate_name, candidate_color) in enumerate(color_map.items()):
+                # Couleurs pâles distinctes pour les concurrents
+                PALE_COLORS = {
+                    "Rachida Dati": "#B8D4E3",       # Bleu pâle
+                    "Emmanuel Grégoire": "#F5CEC7",  # Rose saumon pâle
+                    "David Belliard": "#C7E9C0",     # Vert pâle
+                    "Pierre-Yves Bournazel": "#E2D4F0",  # Violet pâle
+                    "Sophia Chikirou": "#FFE5B4",    # Pêche pâle
+                    "Thierry Mariani": "#D4E5F7",    # Bleu ciel pâle
+                    "Ian Brossat": "#FADADD",        # Rose pâle
+                }
+
+                # D'abord ajouter tous les concurrents (en arrière-plan, couleurs pâles)
+                for candidate_name in color_map.keys():
+                    if candidate_name == "Sarah Knafo":
+                        continue  # On l'ajoute après pour qu'elle soit au premier plan
+
                     candidate_data = df_hist[df_hist["Candidat"] == candidate_name]
                     if not candidate_data.empty:
+                        pale_color = PALE_COLORS.get(candidate_name, "#D3D3D3")
                         fig.add_trace(go.Scatter(
                             x=candidate_data["Date"],
                             y=candidate_data["Score"],
                             name=candidate_name,
                             mode='lines+markers',
                             line=dict(
-                                color=candidate_color,
-                                width=2.5,
-                                dash=line_styles[idx % len(line_styles)]
+                                color=pale_color,
+                                width=2
                             ),
                             marker=dict(
-                                symbol=marker_symbols[idx % len(marker_symbols)],
-                                size=10,
-                                color=candidate_color,
+                                symbol='circle',
+                                size=7,
+                                color=pale_color,
                                 line=dict(color='white', width=1)
                             ),
+                            opacity=0.7,
                             hovertemplate='<b>%{fullData.name}</b><br>Score: %{y:.1f}<extra></extra>'
                         ))
+
+                # Ensuite ajouter Knafo au premier plan avec style qui claque
+                knafo_data = df_hist[df_hist["Candidat"] == "Sarah Knafo"]
+                if not knafo_data.empty:
+                    fig.add_trace(go.Scatter(
+                        x=knafo_data["Date"],
+                        y=knafo_data["Score"],
+                        name="Sarah Knafo",
+                        mode='lines+markers',
+                        line=dict(
+                            color=KNAFO_COLOR,
+                            width=4
+                        ),
+                        marker=dict(
+                            symbol='diamond',
+                            size=12,
+                            color=KNAFO_COLOR,
+                            line=dict(color='white', width=2)
+                        ),
+                        hovertemplate='<b>Sarah Knafo</b><br>Score: %{y:.1f}<extra></extra>'
+                    ))
 
                 fig.update_layout(
                     title="Évolution temporelle",

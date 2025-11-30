@@ -1,32 +1,172 @@
 {
-  "last_refresh": "2025-11-30T18:23:55.592698",
+  "last_refresh": "2025-11-30T19:55:52.706211",
   "quota_date": "2025-11-30",
-  "quota_used": 808,
+  "quota_used": 1616,
   "data": {
     "Rachida Dati": {
-      "start": "2025-11-30",
+      "start": "2025-11-01",
       "end": "2025-11-30",
       "payload": {
         "available": true,
         "videos": [
+          {
+            "id": "LcHfrKAVGEk",
+            "title": "Dati accuse les Musulmans, la réponse la détruit par les faits",
+            "channel": "Censored Free Minds ",
+            "published": "2025-11-01",
+            "url": "https://www.youtube.com/watch?v=LcHfrKAVGEk",
+            "views": 286233,
+            "duration": "PT1M27S",
+            "is_short": false
+          },
+          {
+            "id": "zVdYzWs8NF8",
+            "title": "RACHIDA DATI RÉPOND À TOUS LES SECRETS ET LES RUMEURS SUR SA CARRIÈRE (Sarkozy, sa fille, ses clash)",
+            "channel": "LEGEND",
+            "published": "2025-11-26",
+            "url": "https://www.youtube.com/watch?v=zVdYzWs8NF8",
+            "views": 240832,
+            "duration": "PT1H35M38S",
+            "is_short": false
+          },
           {
             "id": "tNbHYic3tpU",
             "title": "Rachida Dati ramasse les poubelles - La semaine de Naïm",
             "channel": "NAÏM",
             "published": "2025-11-30",
             "url": "https://www.youtube.com/watch?v=tNbHYic3tpU",
-            "views": 108015,
+            "views": 139917,
             "duration": "PT1M3S",
             "is_short": false
           },
           {
-            "id": "iOEZ3CS1Xhc",
-            "title": "Rachida Dati Reine de la Com à Paris 👑spectacle places billet reduc 🎟️ #paris #humour",
-            "channel": "Malik Fares",
-            "published": "2025-11-30",
-            "url": "https://www.youtube.com/watch?v=iOEZ3CS1Xhc",
-            "views": 3245,
-            "duration": "PT1M3S",
+            "id": "H8j9OxRjSZk",
+            "title": "Rachida Dati trahie par Gabriel Attal ? &quot;Je m&#39;en fous, rien ne m&#39;arrête&quot;",
+            "channel": "RTL  ",
+            "published": "2025-11-03",
+            "url": "https://www.youtube.com/watch?v=H8j9OxRjSZk",
+            "views": 90991,
+            "duration": "PT54S",
+            "is_short": true
+          },
+          {
+            "id": "-qU-eMfFwkI",
+            "title": "RACHIDA DATI : ON A TENTÉ DE KIDNAPPER SA FILLE À LA CRÈCHE !",
+            "channel": "LEGEND",
+            "published": "2025-11-26",
+            "url": "https://www.youtube.com/watch?v=-qU-eMfFwkI",
+            "views": 82600,
+            "duration": "PT1M1S",
+            "is_short": false
+          },
+          {
+            "id": "1hC6agkvbNE",
+            "title": "RACHIDA DATI : LETTRES D’AMOUR, DE MENACES, LES COURRIERS LES PLUS FOUS DE SES FANS",
+            "channel": "LEGEND",
+            "published": "2025-11-26",
+            "url": "https://www.youtube.com/watch?v=1hC6agkvbNE",
+            "views": 74606,
+            "duration": "PT1M1S",
+            "is_short": false
+          },
+          {
+            "id": "oz-vEXUquPY",
+            "title": "RACHIDA DATI VS ANNE HIDALGO : ELLES SE DÉTESTENT VRAIMENT ?",
+            "channel": "LEGEND",
+            "published": "2025-11-26",
+            "url": "https://www.youtube.com/watch?v=oz-vEXUquPY",
+            "views": 66324,
+            "duration": "PT1M47S",
+            "is_short": false
+          },
+          {
+            "id": "bvMv6Cn5K-w",
+            "title": "Rachida Dati APPARAÎT dans une VIDÉO HONTEUSE et MISE EN SCÈNE !",
+            "channel": "MédiaMaské",
+            "published": "2025-11-22",
+            "url": "https://www.youtube.com/watch?v=bvMv6Cn5K-w",
+            "views": 49243,
+            "duration": "PT10M14S",
+            "is_short": false
+          },
+          {
+            "id": "2f_6-owT9Iw",
+            "title": "&quot;D&#39;un point de vue moral, ça fait longtemps&quot; que Rachida Dati &quot;aurait dû abandonner son mandat&quot;",
+            "channel": "RTL  ",
+            "published": "2025-11-14",
+            "url": "https://www.youtube.com/watch?v=2f_6-owT9Iw",
+            "views": 40345,
+            "duration": "PT53S",
+            "is_short": true
+          },
+          {
+            "id": "w_fl05QycOE",
+            "title": "RACHIDA DATI : UN FAN LUI ENVOIE UN ALBUM PHOTOS... DE SES PIEDS !",
+            "channel": "LEGEND",
+            "published": "2025-11-26",
+            "url": "https://www.youtube.com/watch?v=w_fl05QycOE",
+            "views": 39851,
+            "duration": "PT1M10S",
+            "is_short": false
+          },
+          {
+            "id": "8ZhHWx9jAP0",
+            "title": "CNews/Audiovisuel public: Rachida Dati prend position",
+            "channel": "Charlotte d'Ornellas",
+            "published": "2025-11-20",
+            "url": "https://www.youtube.com/watch?v=8ZhHWx9jAP0",
+            "views": 36606,
+            "duration": "PT12M17S",
+            "is_short": false
+          },
+          {
+            "id": "Q4xYUP38KiI",
+            "title": "Rachida Dati trahie par Gabriel Attal ? &quot;Je m’en fous, rien ne m’arrête&quot;",
+            "channel": "RTL  ",
+            "published": "2025-11-03",
+            "url": "https://www.youtube.com/watch?v=Q4xYUP38KiI",
+            "views": 30570,
+            "duration": "PT7M7S",
+            "is_short": false
+          },
+          {
+            "id": "3yHOBSsAU_E",
+            "title": "Rachida DATI PULVÉRISE Patrick COHEN en DIRECT !",
+            "channel": "DE ROSCOMONT MOTORSPORT ®\n\n",
+            "published": "2025-11-25",
+            "url": "https://www.youtube.com/watch?v=3yHOBSsAU_E",
+            "views": 23502,
+            "duration": "PT38S",
+            "is_short": true
+          },
+          {
+            "id": "7L9qDNMAXqQ",
+            "title": "Rachida Dati se filme avec les éboueurs, des élus de gauche dénonce de la &quot;démagogie&quot;",
+            "channel": "BFMTV",
+            "published": "2025-11-24",
+            "url": "https://www.youtube.com/watch?v=7L9qDNMAXqQ",
+            "views": 22898,
+            "duration": "PT1M37S",
+            "is_short": false
+          },
+          {
+            "id": "MqjXhd7giQ8",
+            "title": "Dati, camion d’ordures et campagne électorale !",
+            "channel": "Censored Free Minds ",
+            "published": "2025-11-22",
+            "url": "https://www.youtube.com/watch?v=MqjXhd7giQ8",
+            "views": 15441,
+            "duration": "PT1M7S",
+            "is_short": false
+          },
+          {
+            "id": "XRnCftN6tjU",
+            "title": "Rachida Dati face aux auditeurs d&#39;RTL I Intégrale",
+            "channel": "RTL  ",
+            "published": "2025-11-03",
+            "url": "https://www.youtube.com/watch?v=XRnCftN6tjU",
+            "views": 10355,
+            "duration": "PT46M59S",
             "is_short": false
           },
           {
@@ -35,49 +175,215 @@
             "channel": "BLAST, Le souffle de l'info",
             "published": "2025-11-30",
             "url": "https://www.youtube.com/watch?v=NF0o9HZSeQU",
-            "views": 2109,
+            "views": 8826,
             "duration": "PT16M35S",
             "is_short": false
           },
           {
-            "id": "CSM9WtvHxl4",
-            "title": "RACHIDA DATI SE MET EN SCENE AVEC LES EBOUEURS",
-            "channel": "MURIEL",
+            "id": "0WLAlVAXSNs",
+            "title": "Album RTL de l&#39;année 2025 : les coups de cœur de Rachida Dati",
+            "channel": "RTL  ",
+            "published": "2025-11-03",
+            "url": "https://www.youtube.com/watch?v=0WLAlVAXSNs",
+            "views": 6303,
+            "duration": "PT20S",
+            "is_short": true
+          },
+          {
+            "id": "98oqSwmtn38",
+            "title": "Notre entretien CHOC avec Rachida Dati",
+            "channel": "URBANIA FR",
+            "published": "2025-11-12",
+            "url": "https://www.youtube.com/watch?v=98oqSwmtn38",
+            "views": 5334,
+            "duration": "PT3M7S",
+            "is_short": false
+          },
+          {
+            "id": "igdCTNo0n24",
+            "title": "[POUR TOUT DIRE]Pour Jérôme Lavrilleux, Rachida Dati a raison de communiquer via les réseaux sociaux",
+            "channel": "T18 officiel",
+            "published": "2025-11-25",
+            "url": "https://www.youtube.com/watch?v=igdCTNo0n24",
+            "views": 3688,
+            "duration": "PT1M18S",
+            "is_short": false
+          },
+          {
+            "id": "iOEZ3CS1Xhc",
+            "title": "Rachida Dati Reine de la Com à Paris 👑spectacle places billet reduc 🎟️ #paris #humour",
+            "channel": "Malik Fares",
             "published": "2025-11-30",
-            "url": "https://www.youtube.com/watch?v=CSM9WtvHxl4",
-            "views": 0,
-            "duration": "PT46S",
+            "url": "https://www.youtube.com/watch?v=iOEZ3CS1Xhc",
+            "views": 3294,
+            "duration": "PT1M3S",
+            "is_short": false
+          },
+          {
+            "id": "9e4XOWvmpjo",
+            "title": "Plainte de l&#39;audiovisuel public : Rachida Dati regrette de ne pas avoir été informée",
+            "channel": "Europe 1",
+            "published": "2025-11-19",
+            "url": "https://www.youtube.com/watch?v=9e4XOWvmpjo",
+            "views": 2736,
+            "duration": "PT1M27S",
+            "is_short": false
+          },
+          {
+            "id": "S-UThgFNgRg",
+            "title": "RACHIDA DATI SUPER-ÉBOUEUSE #poème #municipales2026 #paris",
+            "channel": "DAVIS TV",
+            "published": "2025-11-24",
+            "url": "https://www.youtube.com/watch?v=S-UThgFNgRg",
+            "views": 1265,
+            "duration": "PT29S",
             "is_short": true
           }
         ],
-        "total_views": 113369,
-        "count": 4,
-        "shorts_count": 1,
-        "long_count": 3
+        "total_views": 1281760,
+        "count": 23,
+        "shorts_count": 5,
+        "long_count": 18
       }
     },
     "Emmanuel Grégoire": {
-      "start": "2025-11-30",
+      "start": "2025-11-01",
       "end": "2025-11-30",
       "payload": {
-        "available": false,
-        "videos": [],
-        "total_views": 0,
-        "error": "Aucune vidéo pertinente"
+        "available": true,
+        "videos": [
+          {
+            "id": "_tP3_mgOVck",
+            "title": "Sarah Knafo accuse Emmanuel Grégoire de &quot;vouloir faire de Paris un centre de migrants à ciel ouvert&quot;",
+            "channel": "Europe 1",
+            "published": "2025-11-01",
+            "url": "https://www.youtube.com/watch?v=_tP3_mgOVck",
+            "views": 90144,
+            "duration": "PT19M58S",
+            "is_short": false
+          },
+          {
+            "id": "ieYWdn8oL6g",
+            "title": "Emmanuel Grégoire : &quot;Je porte cette cicatrice comme beaucoup de personnes qui ont gardé le silence&quot;",
+            "channel": "France Inter",
+            "published": "2025-11-24",
+            "url": "https://www.youtube.com/watch?v=ieYWdn8oL6g",
+            "views": 9227,
+            "duration": "PT1M22S",
+            "is_short": false
+          },
+          {
+            "id": "HgJrKe6AM-8",
+            "title": "Emmanuel Grégoire : &quot;Je porte cette cicatrice comme beaucoup de personnes qui ont gardé le silence&quot;",
+            "channel": "France Inter",
+            "published": "2025-11-24",
+            "url": "https://www.youtube.com/watch?v=HgJrKe6AM-8",
+            "views": 2474,
+            "duration": "PT9M52S",
+            "is_short": false
+          },
+          {
+            "id": "QZtVgAcSX7g",
+            "title": "Shein : &quot;La dignité des Français n&#39;est pas négociable&quot; - Emmanuel Grégoire",
+            "channel": "PS - Parti socialiste",
+            "published": "2025-11-04",
+            "url": "https://www.youtube.com/watch?v=QZtVgAcSX7g",
+            "views": 1035,
+            "duration": "PT2M46S",
+            "is_short": false
+          },
+          {
+            "id": "WjcgnHxWhjU",
+            "title": "Parlons Paris dans le 14e avec Emmanuel Grégoire !",
+            "channel": "Emmanuel Grégoire",
+            "published": "2025-11-12",
+            "url": "https://www.youtube.com/watch?v=WjcgnHxWhjU",
+            "views": 1014,
+            "duration": "PT1M27S",
+            "is_short": false
+          },
+          {
+            "id": "Z3obWt6GYQM",
+            "title": "Emmanuel Grégoire🦋2026☀️municipales…..Voyance # Tarot ",
+            "channel": "Le prince des voyants ",
+            "published": "2025-11-23",
+            "url": "https://www.youtube.com/watch?v=Z3obWt6GYQM",
+            "views": 128,
+            "duration": "PT5M50S",
+            "is_short": false
+          },
+          {
+            "id": "4Step6UTt4o",
+            "title": "Emmanuel Grégoire candidat à la Mairie de Paris présent au Bataclan @ 10 ans après. 13 novembre 2025",
+            "channel": "Paris Videostars",
+            "published": "2025-11-13",
+            "url": "https://www.youtube.com/watch?v=4Step6UTt4o",
+            "views": 27,
+            "duration": "PT30S",
+            "is_short": true
+          },
+          {
+            "id": "z1B3K6ahTGQ",
+            "title": "Emmanuel Grégoire témoigne avoir été victime de violences sexuelles en CM1#news",
+            "channel": "Dealul Vanturilor",
+            "published": "2025-11-24",
+            "url": "https://www.youtube.com/watch?v=z1B3K6ahTGQ",
+            "views": 2,
+            "duration": "PT2M36S",
+            "is_short": false
+          }
+        ],
+        "total_views": 104051,
+        "count": 8,
+        "shorts_count": 1,
+        "long_count": 7
       }
     },
     "Pierre-Yves Bournazel": {
-      "start": "2025-11-30",
+      "start": "2025-11-01",
       "end": "2025-11-30",
       "payload": {
-        "available": false,
-        "videos": [],
-        "total_views": 0,
-        "error": "Aucune vidéo pertinente"
+        "available": true,
+        "videos": [
+          {
+            "id": "MFg7RydaoV8",
+            "title": "Pierre-Yves Bournazel : &quot;Mon idée c’est de remettre Paris en ordre de marche !&quot;",
+            "channel": "Beur FM",
+            "published": "2025-11-22",
+            "url": "https://www.youtube.com/watch?v=MFg7RydaoV8",
+            "views": 444,
+            "duration": "PT13M30S",
+            "is_short": false
+          },
+          {
+            "id": "ckmBs1dGJUM",
+            "title": "Le Grand JT de l&#39;Éducation (07/11/2025) - L&#39;école selon Pierre-Yves Bournazel",
+            "channel": "SQOOL TV",
+            "published": "2025-11-10",
+            "url": "https://www.youtube.com/watch?v=ckmBs1dGJUM",
+            "views": 47,
+            "duration": "PT58M21S",
+            "is_short": false
+          },
+          {
+            "id": "JP3DAfJVvVI",
+            "title": "Municipales 2026 à Paris  Gabriel Attal affiche son soutien à Pierre-Yves Bournazel#news",
+            "channel": "Dealul Vanturilor",
+            "published": "2025-11-08",
+            "url": "https://www.youtube.com/watch?v=JP3DAfJVvVI",
+            "views": 7,
+            "duration": "PT1M20S",
+            "is_short": false
+          }
+        ],
+        "total_views": 498,
+        "count": 3,
+        "shorts_count": 0,
+        "long_count": 3
       }
     },
     "Ian Brossat": {
-      "start": "2025-11-30",
+      "start": "2025-11-01",
       "end": "2025-11-30",
       "payload": {
         "available": true,
@@ -88,75 +394,881 @@
             "channel": "Le Média",
             "published": "2025-11-30",
             "url": "https://www.youtube.com/watch?v=lyUS7Gfx0bI",
-            "views": 28544,
+            "views": 33486,
             "duration": "PT37M44S",
+            "is_short": false
+          },
+          {
+            "id": "m7_GQ0Xz8Ks",
+            "title": "Ian Brossat : &quot;La droite, ex républicaine, paillasson du RN&quot;",
+            "channel": "Censored Free Minds ",
+            "published": "2025-11-02",
+            "url": "https://www.youtube.com/watch?v=m7_GQ0Xz8Ks",
+            "views": 14914,
+            "duration": "PT56S",
+            "is_short": true
+          },
+          {
+            "id": "gOpQ_s8qJMA",
+            "title": "Ian Brossat démonte Valeurs Actuelles en direct",
+            "channel": "L'arène politique",
+            "published": "2025-11-02",
+            "url": "https://www.youtube.com/watch?v=gOpQ_s8qJMA",
+            "views": 9754,
+            "duration": "PT1M17S",
+            "is_short": false
+          },
+          {
+            "id": "UIhkzErpLxM",
+            "title": "Ian Brossat DÉTRUIT les provocations anti algériennes !",
+            "channel": "Censored Free Minds ",
+            "published": "2025-11-02",
+            "url": "https://www.youtube.com/watch?v=UIhkzErpLxM",
+            "views": 7194,
+            "duration": "PT8M4S",
+            "is_short": false
+          },
+          {
+            "id": "OWFjdjgCXx4",
+            "title": "“‘Cynisme dégoûtant !’ —  Ian Brossat détruit Rachida Dati sur les logements sociaux ",
+            "channel": "MICRO POLITIQUE",
+            "published": "2025-11-19",
+            "url": "https://www.youtube.com/watch?v=OWFjdjgCXx4",
+            "views": 4503,
+            "duration": "PT4M31S",
+            "is_short": false
+          },
+          {
+            "id": "1e01X8_e2Mw",
+            "title": "« The Ring » à Paris : Thevenot et Brossat s&#39;affrontent sur la crise politique française",
+            "channel": "euronews (en français)",
+            "published": "2025-11-19",
+            "url": "https://www.youtube.com/watch?v=1e01X8_e2Mw",
+            "views": 4081,
+            "duration": "PT27M38S",
+            "is_short": false
+          },
+          {
+            "id": "UT7D0tAwFJM",
+            "title": "Ian Brossat, porte-parole du PCF est l&#39;invité politique de la matinale.",
+            "channel": "franceinfo",
+            "published": "2025-11-19",
+            "url": "https://www.youtube.com/watch?v=UT7D0tAwFJM",
+            "views": 3834,
+            "duration": "PT8M15S",
+            "is_short": false
+          },
+          {
+            "id": "Fz_ZCCozJ7A",
+            "title": "Ian Brossat : « Je suis déterminé à affronter Dati à Paris et rassembler la gauche »",
+            "channel": "Regards",
+            "published": "2025-11-28",
+            "url": "https://www.youtube.com/watch?v=Fz_ZCCozJ7A",
+            "views": 3674,
+            "duration": "PT28M17S",
+            "is_short": false
+          },
+          {
+            "id": "MyPl7wMNMdc",
+            "title": "CKR E139 – Five Guys Halal, Ian Brossat, Zohran le Maire de NYC – [Replay du 05/11/25]",
+            "channel": "CKReplay ! La chaîne officielle des replays CKR",
+            "published": "2025-11-05",
+            "url": "https://www.youtube.com/watch?v=MyPl7wMNMdc",
+            "views": 1419,
+            "duration": "PT2H2M59S",
+            "is_short": false
+          },
+          {
+            "id": "l1jc6F5EUrg",
+            "title": "Fiscalité :  Brossat dénonce un &quot;massacre à la tronçonneuse&quot;",
+            "channel": "Censored Free Minds ",
+            "published": "2025-11-23",
+            "url": "https://www.youtube.com/watch?v=l1jc6F5EUrg",
+            "views": 914,
+            "duration": "PT8M53S",
+            "is_short": false
+          },
+          {
+            "id": "kreK0gtRYuw",
+            "title": "Ian Brossat pour une Planète Propre",
+            "channel": "ludovicf_off",
+            "published": "2025-11-10",
+            "url": "https://www.youtube.com/watch?v=kreK0gtRYuw",
+            "views": 165,
+            "duration": "PT23M30S",
+            "is_short": false
+          },
+          {
+            "id": "lGngTkQEAWU",
+            "title": "Geoffroy Didier, Ian Brossat, Philippe Goujon présents au Bataclan 10 ans après... 13 novembre 2025",
+            "channel": "Paris Videostars",
+            "published": "2025-11-13",
+            "url": "https://www.youtube.com/watch?v=lGngTkQEAWU",
+            "views": 54,
+            "duration": "PT36S",
+            "is_short": true
+          },
+          {
+            "id": "drqsfb-xAeU",
+            "title": "Orientations budgétaires de la Ville de Paris - Ian BROSSAT - Novembre 2025",
+            "channel": "Groupe Communiste et Citoyen",
+            "published": "2025-11-25",
+            "url": "https://www.youtube.com/watch?v=drqsfb-xAeU",
+            "views": 49,
+            "duration": "PT5M13S",
+            "is_short": false
+          },
+          {
+            "id": "dlRfSP7kdro",
+            "title": "Rénovation du parc de logements sociaux - Ian Brossat - Novembre 2025",
+            "channel": "Groupe Communiste et Citoyen",
+            "published": "2025-11-20",
+            "url": "https://www.youtube.com/watch?v=dlRfSP7kdro",
+            "views": 10,
+            "duration": "PT5M5S",
+            "is_short": false
+          },
+          {
+            "id": "EPf5PJHrGAc",
+            "title": "Interdiction d’intervenir sur les demandes de logements sociaux d’un proche - Ian BROSSAT - Nov 25",
+            "channel": "Groupe Communiste et Citoyen",
+            "published": "2025-11-19",
+            "url": "https://www.youtube.com/watch?v=EPf5PJHrGAc",
+            "views": 7,
+            "duration": "PT4M24S",
             "is_short": false
           }
         ],
-        "total_views": 28544,
-        "count": 1,
-        "shorts_count": 0,
-        "long_count": 1
+        "total_views": 84058,
+        "count": 15,
+        "shorts_count": 2,
+        "long_count": 13
       }
     },
     "David Belliard": {
-      "start": "2025-11-30",
-      "end": "2025-11-30",
-      "payload": {
-        "available": false,
-        "videos": [],
-        "total_views": 0,
-        "error": "Aucune vidéo pertinente"
-      }
-    },
-    "Sophia Chikirou": {
-      "start": "2025-11-30",
+      "start": "2025-11-01",
       "end": "2025-11-30",
       "payload": {
         "available": true,
         "videos": [
+          {
+            "id": "z2nyayBTCqQ",
+            "title": "David Belliard face à Consigny sur BFM le 27 novembre",
+            "channel": "David Belliard",
+            "published": "2025-11-29",
+            "url": "https://www.youtube.com/watch?v=z2nyayBTCqQ",
+            "views": 3181,
+            "duration": "PT14M23S",
+            "is_short": false
+          },
+          {
+            "id": "Z2HedGbsSBc",
+            "title": "Vous avez fait votre choix ?? Merci à David Belliard ! #politique #sciencespo #lesverts #nfp",
+            "channel": "Oliviapolitique",
+            "published": "2025-11-10",
+            "url": "https://www.youtube.com/watch?v=Z2HedGbsSBc",
+            "views": 1306,
+            "duration": "PT15S",
+            "is_short": true
+          },
+          {
+            "id": "Xj2W-sAx1hs",
+            "title": "David Belliard veut ouvrir des salles de shoot",
+            "channel": "Sud Radio",
+            "published": "2025-11-12",
+            "url": "https://www.youtube.com/watch?v=Xj2W-sAx1hs",
+            "views": 88,
+            "duration": "PT1M43S",
+            "is_short": false
+          },
+          {
+            "id": "YvIoo23gGD8",
+            "title": "David Belliard",
+            "channel": "Sciences Po TV",
+            "published": "2025-11-26",
+            "url": "https://www.youtube.com/watch?v=YvIoo23gGD8",
+            "views": 62,
+            "duration": "PT1H41M40S",
+            "is_short": false
+          }
+        ],
+        "total_views": 4637,
+        "count": 4,
+        "shorts_count": 1,
+        "long_count": 3
+      }
+    },
+    "Sophia Chikirou": {
+      "start": "2025-11-01",
+      "end": "2025-11-30",
+      "payload": {
+        "available": true,
+        "videos": [
+          {
+            "id": "aqlCNQSN77w",
+            "title": "La France Insoumise va GOUVERNER Paris ? (Sophia Chikirou se présente)",
+            "channel": "Zawa Prod",
+            "published": "2025-11-18",
+            "url": "https://www.youtube.com/watch?v=aqlCNQSN77w",
+            "views": 32464,
+            "duration": "PT30M23S",
+            "is_short": false
+          },
+          {
+            "id": "o4MLHbBRE04",
+            "title": "Candidature Chikirou, Eric Coquerel pris au piégé par un journaliste de LCI",
+            "channel": "lavatare78",
+            "published": "2025-11-16",
+            "url": "https://www.youtube.com/watch?v=o4MLHbBRE04",
+            "views": 16443,
+            "duration": "PT2M37S",
+            "is_short": false
+          },
+          {
+            "id": "CxyIqOr51lU",
+            "title": "Chikirou Dérape : Elle veut renommer la Langue Française… On Rêve ?! 🤡",
+            "channel": "Revolt News France",
+            "published": "2025-11-28",
+            "url": "https://www.youtube.com/watch?v=CxyIqOr51lU",
+            "views": 7206,
+            "duration": "PT3M40S",
+            "is_short": false
+          },
+          {
+            "id": "IuBfpfaq52M",
+            "title": "L&#39;extrême droite bloque une loi féministe ! - Sophia Chikirou",
+            "channel": "La France insoumise à l'Assemblée nationale",
+            "published": "2025-11-27",
+            "url": "https://www.youtube.com/watch?v=IuBfpfaq52M",
+            "views": 5789,
+            "duration": "PT9M37S",
+            "is_short": false
+          },
+          {
+            "id": "4iXXu9EZm2o",
+            "title": "L&#39;Insoumise Sophia Chikirou se lance dans la course à la mairie de Paris | AFP Extrait",
+            "channel": "AFP",
+            "published": "2025-11-14",
+            "url": "https://www.youtube.com/watch?v=4iXXu9EZm2o",
+            "views": 5126,
+            "duration": "PT1M7S",
+            "is_short": false
+          },
+          {
+            "id": "LE7sjLUR2Tk",
+            "title": "Sophia Chikirou choque la France ! provocatrice ou stratège ?",
+            "channel": "Le Réveil Français",
+            "published": "2025-11-09",
+            "url": "https://www.youtube.com/watch?v=LE7sjLUR2Tk",
+            "views": 2748,
+            "duration": "PT3M11S",
+            "is_short": false
+          },
+          {
+            "id": "aoDHOaTb9xo",
+            "title": "Le programme de Sophia Chikirou pour la mairie de Paris en 2 min. #paris #municipales #2026",
+            "channel": "Maobigschlong ",
+            "published": "2025-11-14",
+            "url": "https://www.youtube.com/watch?v=aoDHOaTb9xo",
+            "views": 1963,
+            "duration": "PT2M",
+            "is_short": false
+          },
+          {
+            "id": "hkjY5-5SvXE",
+            "title": "Le COUP de GUEULE de SOPHIA CHIKIROU CONTRE le RN (visant spécialement J-P TANGUY)",
+            "channel": "Michelle Tirone",
+            "published": "2025-11-28",
+            "url": "https://www.youtube.com/watch?v=hkjY5-5SvXE",
+            "views": 1921,
+            "duration": "PT9M57S",
+            "is_short": false
+          },
+          {
+            "id": "_0dMT1LOXUk",
+            "title": "React&#39; #68 – JLM – A. Dufour – Maron – P. Vannier – S.Chikirou – A. Saintoul",
+            "channel": "LFI-Monde",
+            "published": "2025-11-23",
+            "url": "https://www.youtube.com/watch?v=_0dMT1LOXUk",
+            "views": 1263,
+            "duration": "PT2H48M56S",
+            "is_short": false
+          },
+          {
+            "id": "b-mB4MMpje4",
+            "title": "🔴 ÉDITION SPÉCIALE ! LES MÈRES ISOLÉES, AVEC SOPHIA CHIKIROU, SARAH LEBAILLY, JULIE SOUMAN",
+            "channel": "PRUNE BOURBON",
+            "published": "2025-11-26",
+            "url": "https://www.youtube.com/watch?v=b-mB4MMpje4",
+            "views": 1119,
+            "duration": "PT1H45M32S",
+            "is_short": false
+          },
           {
             "id": "YBg5ZIogVXE",
             "title": "React&#39; #69 – S.Chikirou – F.Gay – JLM - R.Gluskman",
             "channel": "LFI-Monde",
             "published": "2025-11-30",
             "url": "https://www.youtube.com/watch?v=YBg5ZIogVXE",
-            "views": 584,
+            "views": 680,
             "duration": "PT2H38M40S",
+            "is_short": false
+          },
+          {
+            "id": "nCBSeng4Ork",
+            "title": "Sophia Chikirou et les rumeurs de couple avec Jean Luc Mélenchon",
+            "channel": "dongoc anh",
+            "published": "2025-11-15",
+            "url": "https://www.youtube.com/watch?v=nCBSeng4Ork",
+            "views": 494,
+            "duration": "PT2M6S",
+            "is_short": false
+          },
+          {
+            "id": "xGjV7xo3JWI",
+            "title": "Sophia Chikirou🦋2026☀️municipales…..Voyance # Tarot ",
+            "channel": "Le prince des voyants ",
+            "published": "2025-11-22",
+            "url": "https://www.youtube.com/watch?v=xGjV7xo3JWI",
+            "views": 184,
+            "duration": "PT13M43S",
+            "is_short": false
+          },
+          {
+            "id": "YTUWMdaMmi4",
+            "title": "chikirou, la sorcière et le magot #divertissement #humournoir #ironie #france🇫🇷 #RN",
+            "channel": "Le Templier",
+            "published": "2025-11-17",
+            "url": "https://www.youtube.com/watch?v=YTUWMdaMmi4",
+            "views": 95,
+            "duration": "PT1M",
+            "is_short": false
+          },
+          {
+            "id": "y_q5Uc_EBgM",
+            "title": "Municipales 2026 : Sophia Chikirou officialisée par LFI pour Paris",
+            "channel": "Dealul Vanturilor",
+            "published": "2025-11-14",
+            "url": "https://www.youtube.com/watch?v=y_q5Uc_EBgM",
+            "views": 78,
+            "duration": "PT3M3S",
+            "is_short": false
+          },
+          {
+            "id": "xICgznWPuTE",
+            "title": "Une honte cette Sophia Chikirou",
+            "channel": "Eurydice ndong ",
+            "published": "2025-11-27",
+            "url": "https://www.youtube.com/watch?v=xICgznWPuTE",
+            "views": 68,
+            "duration": "PT59S",
+            "is_short": true
+          },
+          {
+            "id": "maR8uS28HzE",
+            "title": "Municipales 2026  Paris  Sophia Chikirou peine en campagne, étrille  bilan socialistes ulcérés#news",
+            "channel": "Dealul Vanturilor",
+            "published": "2025-11-22",
+            "url": "https://www.youtube.com/watch?v=maR8uS28HzE",
+            "views": 8,
+            "duration": "PT2M36S",
             "is_short": false
           }
         ],
-        "total_views": 584,
-        "count": 1,
-        "shorts_count": 0,
-        "long_count": 1
+        "total_views": 77649,
+        "count": 17,
+        "shorts_count": 1,
+        "long_count": 16
       }
     },
     "Thierry Mariani": {
-      "start": "2025-11-30",
-      "end": "2025-11-30",
-      "payload": {
-        "available": false,
-        "videos": [],
-        "total_views": 0,
-        "error": "Aucune vidéo pertinente"
-      }
-    },
-    "Sarah Knafo": {
-      "start": "2025-11-30",
+      "start": "2025-11-01",
       "end": "2025-11-30",
       "payload": {
         "available": true,
         "videos": [
           {
-            "id": "3cxjLRWBKzw",
-            "title": "La différence entre L&#39;Iran et l&#39;Israël | Sarah Knafo",
-            "channel": "Idéocratie TV",
-            "published": "2025-11-30",
-            "url": "https://www.youtube.com/watch?v=3cxjLRWBKzw",
-            "views": 1343,
+            "id": "BfljW4n7mh8",
+            "title": "🟡n°280 • Mariani : La France d’abord🇫🇷🤩 ! 🟡",
+            "channel": "MONSIEUR G.",
+            "published": "2025-11-29",
+            "url": "https://www.youtube.com/watch?v=BfljW4n7mh8",
+            "views": 267291,
+            "duration": "PT31S",
+            "is_short": true
+          },
+          {
+            "id": "yzGIx9DOqMw",
+            "title": "Thierry Mariani : « L&#39;Ukraine fonctionne grâce à l&#39;Union Européenne. On paye tout »",
+            "channel": "pT actualités",
+            "published": "2025-11-13",
+            "url": "https://www.youtube.com/watch?v=yzGIx9DOqMw",
+            "views": 78822,
+            "duration": "PT1M57S",
+            "is_short": false
+          },
+          {
+            "id": "ntnV8ymtGqs",
+            "title": "&quot;Depuis 2022, on a donné 169 milliards à l&#39;Ukraine !&quot; - Thierry Mariani",
+            "channel": "Ligne Droite • La matinale de Radio Courtoisie",
+            "published": "2025-11-17",
+            "url": "https://www.youtube.com/watch?v=ntnV8ymtGqs",
+            "views": 34875,
+            "duration": "PT2M25S",
+            "is_short": false
+          },
+          {
+            "id": "cxaSjgTfDgA",
+            "title": "&quot;L’arrivée de l’Ukraine plombera l’Union européenne pour un moment !&quot; - Thierry Mariani",
+            "channel": "Ligne Droite • La matinale de Radio Courtoisie",
+            "published": "2025-11-24",
+            "url": "https://www.youtube.com/watch?v=cxaSjgTfDgA",
+            "views": 16673,
+            "duration": "PT1M59S",
+            "is_short": false
+          },
+          {
+            "id": "mxK0eves4AI",
+            "title": "Bruxelles vole l’avenir des Français pour sauver l’Ukraine ! - Thierry Mariani",
+            "channel": "Ligne Droite • La matinale de Radio Courtoisie",
+            "published": "2025-11-17",
+            "url": "https://www.youtube.com/watch?v=mxK0eves4AI",
+            "views": 9364,
+            "duration": "PT10M",
+            "is_short": false
+          },
+          {
+            "id": "VWfWTgZXWTU",
+            "title": "UE : 140 milliards pour l’Ukraine… et les Français paieront ! - Thierry Mariani",
+            "channel": "Ligne Droite • La matinale de Radio Courtoisie",
+            "published": "2025-11-24",
+            "url": "https://www.youtube.com/watch?v=VWfWTgZXWTU",
+            "views": 9142,
+            "duration": "PT10M38S",
+            "is_short": false
+          },
+          {
+            "id": "RHELRR3cNwY",
+            "title": "“L’actuelle ambiance anti-russe l’insupporte.” l&#39;interview de Thierry Mariani",
+            "channel": "100% DOCS - Reportages & Documentaires",
+            "published": "2025-11-25",
+            "url": "https://www.youtube.com/watch?v=RHELRR3cNwY",
+            "views": 8007,
+            "duration": "PT1M5S",
+            "is_short": false
+          },
+          {
+            "id": "N1_N68Mn2zg",
+            "title": "L&#39;Union Européenne a abandonné les agriculteurs en pleine tempête ! Thierry Mariani",
+            "channel": "Divergence Politique",
+            "published": "2025-11-13",
+            "url": "https://www.youtube.com/watch?v=N1_N68Mn2zg",
+            "views": 6283,
+            "duration": "PT19S",
+            "is_short": true
+          },
+          {
+            "id": "Sy59bkLqo44",
+            "title": "100 RAFALE | MAKE FRANCE (MORE) POOR AGAIN ! | AVEC THIERRY MARIANI | MARIANI 360 #7",
+            "channel": "Divergence Politique",
+            "published": "2025-11-18",
+            "url": "https://www.youtube.com/watch?v=Sy59bkLqo44",
+            "views": 4411,
+            "duration": "PT23M41S",
+            "is_short": false
+          },
+          {
+            "id": "K4IYd3kXRNQ",
+            "title": "SANCTIONS SUR LE TOURISME RUSSE, INTÉGRATION DE L&#39;UKRAINE DANS L&#39;UE &amp; MERCOSUR | THIERRY MARIANI #6",
+            "channel": "Divergence Politique",
+            "published": "2025-11-11",
+            "url": "https://www.youtube.com/watch?v=K4IYd3kXRNQ",
+            "views": 2291,
+            "duration": "PT36M35S",
+            "is_short": false
+          },
+          {
+            "id": "p74uGGSV-NM",
+            "title": "140 MILLIARDS D&#39;AIDE À L&#39;UKRAINE : LA NOUVELLE FOLIE DE L&#39;UE ! | AVEC THIERRY MARIANI",
+            "channel": "Divergence Politique",
+            "published": "2025-11-25",
+            "url": "https://www.youtube.com/watch?v=p74uGGSV-NM",
+            "views": 1872,
+            "duration": "PT32M57S",
+            "is_short": false
+          },
+          {
+            "id": "bKEKMQLSCWU",
+            "title": "Thierry mariani dénonce :signe une lettre d&#39;intention pour 100 avions rafales,",
+            "channel": "malimedia+223",
+            "published": "2025-11-18",
+            "url": "https://www.youtube.com/watch?v=bKEKMQLSCWU",
+            "views": 1494,
+            "duration": "PT1M53S",
+            "is_short": false
+          },
+          {
+            "id": "AHtWX2BCwjA",
+            "title": "Thierry MARIANI : Nouvelle folie de l’UE  pour l’Ukraine ! #rassemblementnational",
+            "channel": "Francophile",
+            "published": "2025-11-22",
+            "url": "https://www.youtube.com/watch?v=AHtWX2BCwjA",
+            "views": 75,
+            "duration": "PT2M15S",
+            "is_short": false
+          },
+          {
+            "id": "ZFdNVc-Hd9M",
+            "title": "🇨🇵🔥 Thierry Mariani : On à plus d&#39;argent pour nos services publics, mais on va financer l&#39;Ukraine",
+            "channel": "Les Actualités dans le Monde ",
+            "published": "2025-11-21",
+            "url": "https://www.youtube.com/watch?v=ZFdNVc-Hd9M",
+            "views": 33,
+            "duration": "PT2M16S",
+            "is_short": false
+          },
+          {
+            "id": "T0z8jD3nlvk",
+            "title": "Thierry Mariani réagit à l&#39;occupation illégale de la place Gambetta par des migrants #paris2026",
+            "channel": "Rassemblement National Paris",
+            "published": "2025-11-19",
+            "url": "https://www.youtube.com/watch?v=T0z8jD3nlvk",
+            "views": 12,
+            "duration": "PT50S",
+            "is_short": true
+          },
+          {
+            "id": "OGtQaW1JhYs",
+            "title": "Thierry Mariani s&#39;associe à l&#39;hommage du 13-Novembre place de la Répubique #13november",
+            "channel": "Rassemblement National Paris",
+            "published": "2025-11-19",
+            "url": "https://www.youtube.com/watch?v=OGtQaW1JhYs",
+            "views": 11,
+            "duration": "PT20S",
+            "is_short": true
+          },
+          {
+            "id": "yT2yVjFAy4E",
+            "title": "Thierry Mariani alerte sur le vote de logements sociaux dans un monument Historique place des Vosges",
+            "channel": "Rassemblement National Paris",
+            "published": "2025-11-19",
+            "url": "https://www.youtube.com/watch?v=yT2yVjFAy4E",
+            "views": 11,
+            "duration": "PT1M5S",
+            "is_short": false
+          }
+        ],
+        "total_views": 440667,
+        "count": 17,
+        "shorts_count": 4,
+        "long_count": 13
+      }
+    },
+    "Sarah Knafo": {
+      "start": "2025-11-01",
+      "end": "2025-11-30",
+      "payload": {
+        "available": true,
+        "videos": [
+          {
+            "id": "VHxlEOUkaSM",
+            "title": "“Sarah Knafo humilie Macron en direct : sa phrase choque toute la France !” #actualité #decl #Shorts",
+            "channel": "Actupress🔴",
+            "published": "2025-11-13",
+            "url": "https://www.youtube.com/watch?v=VHxlEOUkaSM",
+            "views": 481544,
+            "duration": "PT1M21S",
+            "is_short": false
+          },
+          {
+            "id": "po97vsJMme8",
+            "title": "Rencontre au sommet Sarah Knafo X Michel Onfray",
+            "channel": "Frontières ",
+            "published": "2025-11-25",
+            "url": "https://www.youtube.com/watch?v=po97vsJMme8",
+            "views": 279193,
+            "duration": "PT12S",
+            "is_short": true
+          },
+          {
+            "id": "61xyD8i6724",
+            "title": "SARAH KNAFO DÉTRUIT LA PRESIDENTE DE FRANCE TV 🥵",
+            "channel": "Sans Filtres",
+            "published": "2025-11-15",
+            "url": "https://www.youtube.com/watch?v=61xyD8i6724",
+            "views": 239868,
+            "duration": "PT44S",
+            "is_short": true
+          },
+          {
+            "id": "kzSAI1b6uiE",
+            "title": "Sarah Knafo face à Alain Duhamel : Ma génération paie les erreurs de la votre !",
+            "channel": "Sarah Knafo",
+            "published": "2025-11-28",
+            "url": "https://www.youtube.com/watch?v=kzSAI1b6uiE",
+            "views": 215078,
+            "duration": "PT25M28S",
+            "is_short": false
+          },
+          {
+            "id": "KR74ptmQ3NQ",
+            "title": "Éric Zemmour Sarah Knafo Philippe de Villiers",
+            "channel": "France Eternel",
+            "published": "2025-11-26",
+            "url": "https://www.youtube.com/watch?v=KR74ptmQ3NQ",
+            "views": 163527,
+            "duration": "PT11S",
+            "is_short": true
+          },
+          {
+            "id": "3Bt6Auvrj74",
+            "title": "Sarah Knafo face à Eric Naulleau : Tout n&#39;est pas foutu !",
+            "channel": "Sarah Knafo",
+            "published": "2025-11-26",
+            "url": "https://www.youtube.com/watch?v=3Bt6Auvrj74",
+            "views": 143783,
+            "duration": "PT18M30S",
+            "is_short": false
+          },
+          {
+            "id": "Voy1_pbc4Sk",
+            "title": "Sarah Knafo face aux journalistes !",
+            "channel": "Sarah Knafo",
+            "published": "2025-11-13",
+            "url": "https://www.youtube.com/watch?v=Voy1_pbc4Sk",
+            "views": 121836,
+            "duration": "PT13M1S",
+            "is_short": false
+          },
+          {
+            "id": "4mumG0YpeYE",
+            "title": "KNAFO VS NAULLEAU LORS DE LA SOIRÉE DU JDD",
+            "channel": "Frontières ",
+            "published": "2025-11-25",
+            "url": "https://www.youtube.com/watch?v=4mumG0YpeYE",
+            "views": 88181,
+            "duration": "PT10S",
+            "is_short": true
+          },
+          {
+            "id": "IM1uQDRZYrE",
+            "title": "Sarah Knafo recadre sèchement Jean Philippe Tanguy et le RN",
+            "channel": "Tabou Cash",
+            "published": "2025-11-18",
+            "url": "https://www.youtube.com/watch?v=IM1uQDRZYrE",
+            "views": 85114,
+            "duration": "PT2M35S",
+            "is_short": false
+          },
+          {
+            "id": "vgaJg9juZ9o",
+            "title": "Arrivée de Sarah Knafo à la grande soirée du JDD",
+            "channel": "Frontières ",
+            "published": "2025-11-25",
+            "url": "https://www.youtube.com/watch?v=vgaJg9juZ9o",
+            "views": 76473,
             "duration": "PT23S",
             "is_short": true
+          },
+          {
+            "id": "SnqiwIDFcq8",
+            "title": "📲 Coulisse avec Sarah Knafo pour la grande soirée du JDD.",
+            "channel": "Frontières ",
+            "published": "2025-11-25",
+            "url": "https://www.youtube.com/watch?v=SnqiwIDFcq8",
+            "views": 70574,
+            "duration": "PT10S",
+            "is_short": true
+          },
+          {
+            "id": "CSeiKVfB8Ks",
+            "title": "Sarah Knafo clou le bec à un journaliste de Quotidien !",
+            "channel": "TRED",
+            "published": "2025-11-27",
+            "url": "https://www.youtube.com/watch?v=CSeiKVfB8Ks",
+            "views": 51498,
+            "duration": "PT1M40S",
+            "is_short": false
+          },
+          {
+            "id": "l0Mwv1tqA3U",
+            "title": "Sarah Knafo Recadre un macroniste sur l&#39;immigration en plein direct",
+            "channel": "Niche Source",
+            "published": "2025-11-22",
+            "url": "https://www.youtube.com/watch?v=l0Mwv1tqA3U",
+            "views": 33173,
+            "duration": "PT5M56S",
+            "is_short": false
+          },
+          {
+            "id": "Q43oxR0u6Tk",
+            "title": "DROITS DE SUCCESSION  Sarah Knafo parle d’IMPÔT sur la MORT",
+            "channel": "Tabou Cash",
+            "published": "2025-11-24",
+            "url": "https://www.youtube.com/watch?v=Q43oxR0u6Tk",
+            "views": 29496,
+            "duration": "PT59S",
+            "is_short": true
+          },
+          {
+            "id": "13iNsBmEFUg",
+            "title": "HORS D&#39;ELLE, Sarah Knafo coupe le SOUFFLE de ces politiciens !",
+            "channel": "Les Zélus",
+            "published": "2025-11-06",
+            "url": "https://www.youtube.com/watch?v=13iNsBmEFUg",
+            "views": 23626,
+            "duration": "PT2M27S",
+            "is_short": false
+          },
+          {
+            "id": "gdEt7RULYzs",
+            "title": "Sarah Knafo : &quot;Plus aucune hausse d&#39;impôts n&#39;est acceptable&quot;",
+            "channel": "Moments Politiques",
+            "published": "2025-11-24",
+            "url": "https://www.youtube.com/watch?v=gdEt7RULYzs",
+            "views": 15807,
+            "duration": "PT1M13S",
+            "is_short": false
+          },
+          {
+            "id": "4uNwG_fpAZg",
+            "title": "SARAH KNAFO HUMILIE MANON AUBRY ENCORE UNE FOIS",
+            "channel": "Génération SANKARA ",
+            "published": "2025-11-11",
+            "url": "https://www.youtube.com/watch?v=4uNwG_fpAZg",
+            "views": 13951,
+            "duration": "PT12M35S",
+            "is_short": false
+          },
+          {
+            "id": "FkdC_qzWwY0",
+            "title": "Débat entre Sarah Knafo et Nathalie Loiseau : comment réconcilier les peuples avec l&#39;Europe ?",
+            "channel": "L'Express",
+            "published": "2025-11-28",
+            "url": "https://www.youtube.com/watch?v=FkdC_qzWwY0",
+            "views": 11972,
+            "duration": "PT3M",
+            "is_short": false
+          },
+          {
+            "id": "vIE-EQOxNnc",
+            "title": "Contre le narcotrafic : Sarah Knafo veut sanctionner tout le monde",
+            "channel": "RTL  ",
+            "published": "2025-11-23",
+            "url": "https://www.youtube.com/watch?v=vIE-EQOxNnc",
+            "views": 10818,
+            "duration": "PT1M35S",
+            "is_short": false
+          },
+          {
+            "id": "RrA5I5D_2eE",
+            "title": "SARAH KNAFO RELANCE LE DÉBAT AVEC ANTOINE LÉAUMENT... VA-T-IL CONTINUER DE FAIRE PROUT ?",
+            "channel": "Le Sanctionnateur",
+            "published": "2025-11-28",
+            "url": "https://www.youtube.com/watch?v=RrA5I5D_2eE",
+            "views": 9946,
+            "duration": "PT12M34S",
+            "is_short": false
+          },
+          {
+            "id": "Tl4IHq2TmUg",
+            "title": "Éric Zemmour Stupéfait : Sarah Knafo bientôt candidate à la présidentielle 2027 !",
+            "channel": "Le Coin FR",
+            "published": "2025-11-03",
+            "url": "https://www.youtube.com/watch?v=Tl4IHq2TmUg",
+            "views": 9038,
+            "duration": "PT2M14S",
+            "is_short": false
+          },
+          {
+            "id": "2kSmH3WdWeo",
+            "title": "Sarah Knafo en a PLEIN LE C** du SERVICE PUBLIC",
+            "channel": "C'est un Signe !",
+            "published": "2025-11-23",
+            "url": "https://www.youtube.com/watch?v=2kSmH3WdWeo",
+            "views": 8048,
+            "duration": "PT12M12S",
+            "is_short": false
+          },
+          {
+            "id": "UMPuzPmEPhE",
+            "title": "À 32 ans, Sarah Knafo ENFIN avoué son amour et son mariage",
+            "channel": "Vérité et Secret",
+            "published": "2025-11-23",
+            "url": "https://www.youtube.com/watch?v=UMPuzPmEPhE",
+            "views": 3711,
+            "duration": "PT22M3S",
+            "is_short": false
+          },
+          {
+            "id": "0EdJDGag5B8",
+            "title": "Sarah Knafo atomise le sinistre Barrot 😂😂",
+            "channel": "Revolt News France",
+            "published": "2025-11-12",
+            "url": "https://www.youtube.com/watch?v=0EdJDGag5B8",
+            "views": 3031,
+            "duration": "PT3M9S",
+            "is_short": false
+          },
+          {
+            "id": "8gXWssBME-w",
+            "title": "Sarah Knafo surprend tout le monde avec ce sondage !",
+            "channel": "PRAGMA ACTU ",
+            "published": "2025-11-05",
+            "url": "https://www.youtube.com/watch?v=8gXWssBME-w",
+            "views": 2662,
+            "duration": "PT14M44S",
+            "is_short": false
+          },
+          {
+            "id": "ulpU5bJq4gI",
+            "title": "Sarah Knafo utilise une &quot;arme personnelle&quot; contre Eric Zemmour et Benjamin Duhamel",
+            "channel": "le point debat",
+            "published": "2025-11-19",
+            "url": "https://www.youtube.com/watch?v=ulpU5bJq4gI",
+            "views": 2493,
+            "duration": "PT1M46S",
+            "is_short": false
+          },
+          {
+            "id": "HRjOxJrjt4Y",
+            "title": "STOP ! Voici comment arrêter *vraiment* l&#39;immigration légale selon Sarah Knafo.",
+            "channel": "ContreCourant 🦍",
+            "published": "2025-11-28",
+            "url": "https://www.youtube.com/watch?v=HRjOxJrjt4Y",
+            "views": 2077,
+            "duration": "PT29S",
+            "is_short": true
+          },
+          {
+            "id": "JjHm5KWQ0iw",
+            "title": "Sarah Knafo critique fortement l’audiovisuel public et l’accuse de détournement d&#39;argent public",
+            "channel": "TDN",
+            "published": "2025-11-27",
+            "url": "https://www.youtube.com/watch?v=JjHm5KWQ0iw",
+            "views": 2054,
+            "duration": "PT1M19S",
+            "is_short": false
+          },
+          {
+            "id": "ca1GbW3-BVQ",
+            "title": "&quot;Non, tout n&#39;est PAS foutu !&quot; L&#39;appel vibrant de Sarah Knafo face au pessimisme ambiant.",
+            "channel": "ContreCourant 🦍",
+            "published": "2025-11-29",
+            "url": "https://www.youtube.com/watch?v=ca1GbW3-BVQ",
+            "views": 1974,
+            "duration": "PT1M1S",
+            "is_short": false
+          },
+          {
+            "id": "9XGBcBsnJcA",
+            "title": "Sarah Knafo a essayé de me clasher ??",
+            "channel": "Alexandre Ouizille",
+            "published": "2025-11-25",
+            "url": "https://www.youtube.com/watch?v=9XGBcBsnJcA",
+            "views": 1921,
+            "duration": "PT2M32S",
+            "is_short": false
           },
           {
             "id": "HzDByQWUinU",
@@ -164,29 +1276,39 @@
             "channel": "Idéocratie TV",
             "published": "2025-11-30",
             "url": "https://www.youtube.com/watch?v=HzDByQWUinU",
-            "views": 1287,
+            "views": 1682,
             "duration": "PT27S",
             "is_short": true
           },
           {
-            "id": "Di9Q448RotM",
-            "title": "😡🔥 SARAH KNAFO 🚨DÉTRUIT ÉRIC NAULLEAU🤯 SUR L’IMMIGRATION ⚠️🇫🇷✝️",
-            "channel": "Croix & Patrie Officiel ",
-            "published": "2025-11-30",
-            "url": "https://www.youtube.com/watch?v=Di9Q448RotM",
-            "views": 444,
-            "duration": "PT49S",
-            "is_short": true
+            "id": "Da38nMCkgLs",
+            "title": "CNews : clash explosif entre Sarah Knafo et Sonia Mabrouk ",
+            "channel": "TopinfoMonde",
+            "published": "2025-11-19",
+            "url": "https://www.youtube.com/watch?v=Da38nMCkgLs",
+            "views": 1590,
+            "duration": "PT2M8S",
+            "is_short": false
           },
           {
-            "id": "iGh2qQPbRHI",
-            "title": "L’effet Knafo : Elle retourne son adversaire et le rallie à sa cause !",
-            "channel": "Les Zélus",
-            "published": "2025-11-30",
-            "url": "https://www.youtube.com/watch?v=iGh2qQPbRHI",
-            "views": 356,
-            "duration": "PT3M7S",
+            "id": "ZkxqOIzeKRA",
+            "title": "Sarah Knafo Detruit les Kmer Vert et l&#39;escrologie!",
+            "channel": "PRAGMA ACTU ",
+            "published": "2025-11-16",
+            "url": "https://www.youtube.com/watch?v=ZkxqOIzeKRA",
+            "views": 1378,
+            "duration": "PT19M51S",
             "is_short": false
+          },
+          {
+            "id": "X2qGEs5zwCw",
+            "title": "Le droit à la nationalité français existe pas | Sarah knafo",
+            "channel": "Idéocratie TV",
+            "published": "2025-11-29",
+            "url": "https://www.youtube.com/watch?v=X2qGEs5zwCw",
+            "views": 1189,
+            "duration": "PT37S",
+            "is_short": true
           },
           {
             "id": "8ICL7CnCrmQ",
@@ -194,15 +1316,105 @@
             "channel": "Idéocratie TV",
             "published": "2025-11-30",
             "url": "https://www.youtube.com/watch?v=8ICL7CnCrmQ",
-            "views": 20,
+            "views": 854,
             "duration": "PT27S",
             "is_short": true
+          },
+          {
+            "id": "kq-S5sIiMZU",
+            "title": "Eric Zemmour se voit président en 2027 et parle de sa compagne Sarah Knafo qui va l’épauler",
+            "channel": "infoceleb 101",
+            "published": "2025-11-03",
+            "url": "https://www.youtube.com/watch?v=kq-S5sIiMZU",
+            "views": 661,
+            "duration": "PT2M44S",
+            "is_short": false
+          },
+          {
+            "id": "Di9Q448RotM",
+            "title": "😡🔥 SARAH KNAFO 🚨DÉTRUIT ÉRIC NAULLEAU🤯 SUR L’IMMIGRATION ⚠️🇫🇷✝️",
+            "channel": "Croix & Patrie Officiel ",
+            "published": "2025-11-30",
+            "url": "https://www.youtube.com/watch?v=Di9Q448RotM",
+            "views": 643,
+            "duration": "PT49S",
+            "is_short": true
+          },
+          {
+            "id": "NMUpI6Hbx2w",
+            "title": "Budget 2026 : Sarah Knafo ALERTE sur les AUGMENTATIONS d&#39;impôts",
+            "channel": "Toutactu - Actus du jour",
+            "published": "2025-11-11",
+            "url": "https://www.youtube.com/watch?v=NMUpI6Hbx2w",
+            "views": 590,
+            "duration": "PT12M1S",
+            "is_short": false
+          },
+          {
+            "id": "jdXJMQpSsGE",
+            "title": "Sarah Knafo chez Christine Kelly : Madame Ernotte, vous détournez l&#39;argent des Français !",
+            "channel": "Tribune N*1",
+            "published": "2025-11-29",
+            "url": "https://www.youtube.com/watch?v=jdXJMQpSsGE",
+            "views": 335,
+            "duration": "PT3M35S",
+            "is_short": false
+          },
+          {
+            "id": "NdGkLre6urQ",
+            "title": "#shorts #sarahknafo combien nous coûte sarah Knafo??",
+            "channel": "Samizdat ",
+            "published": "2025-11-28",
+            "url": "https://www.youtube.com/watch?v=NdGkLre6urQ",
+            "views": 325,
+            "duration": "PT3M1S",
+            "is_short": false
+          },
+          {
+            "id": "MA2vN4wKiJQ",
+            "title": "Sarah Knafo  Violent clash avec Laurent Joffrin en direct sur BFMTV",
+            "channel": "France Eternel",
+            "published": "2025-11-16",
+            "url": "https://www.youtube.com/watch?v=MA2vN4wKiJQ",
+            "views": 226,
+            "duration": "PT1M38S",
+            "is_short": false
+          },
+          {
+            "id": "oT9UZFRdVyc",
+            "title": "Sarah Knafo dit tout haut ce que personne n’ose dire sur l’héritage",
+            "channel": "Thomas | Libéral & Investisseur",
+            "published": "2025-11-20",
+            "url": "https://www.youtube.com/watch?v=oT9UZFRdVyc",
+            "views": 218,
+            "duration": "PT10M48S",
+            "is_short": false
+          },
+          {
+            "id": "1nGWJ1oCSIc",
+            "title": "Tanguy accuse Sarah Knafo de lui voler ses idées",
+            "channel": "Toutactu - Actus du jour",
+            "published": "2025-11-17",
+            "url": "https://www.youtube.com/watch?v=1nGWJ1oCSIc",
+            "views": 158,
+            "duration": "PT1M41S",
+            "is_short": false
+          },
+          {
+            "id": "8fwtvryROYY",
+            "title": "LE CAS SARAH KNAFO : DISQUALIFÉE",
+            "channel": "Thierry Stefhen +",
+            "published": "2025-11-17",
+            "url": "https://www.youtube.com/watch?v=8fwtvryROYY",
+            "views": 25,
+            "duration": "PT21M21S",
+            "is_short": false
           }
         ],
-        "total_views": 3450,
-        "count": 5,
-        "shorts_count": 4,
-        "long_count": 1
+        "total_views": 2212341,
+        "count": 44,
+        "shorts_count": 12,
+        "long_count": 32
       }
     }
   }
