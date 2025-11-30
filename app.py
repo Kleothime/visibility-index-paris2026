@@ -1906,10 +1906,10 @@ header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visi
             'Candidat': d['info']['name'],
             'Parti': d['info']['party'],
             'Score': d['score']['total'],
-            'Wikipedia': format_number(d['wikipedia']['views']),
             'Recherches': themes_str,
             'Articles': d['press']['count'],
             'Trends': d['trends_score'],
+            'Wikipedia': format_number(d['wikipedia']['views']),
         }
         if youtube_enabled:
             row['Vues YT'] = format_number(d['youtube'].get('total_views', 0))
@@ -1920,10 +1920,10 @@ header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visi
     col_config = {
         'Rang': st.column_config.NumberColumn('Rang', format='%d'),
         'Score': st.column_config.ProgressColumn('Score / 100', min_value=0, max_value=100, format='%.1f'),
-        'Wikipedia': st.column_config.TextColumn('Wikipedia'),
         'Recherches': st.column_config.TextColumn('Top recherches Google', help='Requetes les plus frequentes associees au candidat sur Google'),
         'Articles': st.column_config.NumberColumn('Articles', format='%d'),
         'Trends': st.column_config.NumberColumn('Trends', format='%.0f'),
+        'Wikipedia': st.column_config.TextColumn('Wikipedia'),
     }
     if youtube_enabled:
         col_config['Vues YT'] = st.column_config.TextColumn('Vues YT sorties sur periode', help='Vues cumulees des videos YouTube mentionnant le candidat, publiees sur la periode selectionnee')
