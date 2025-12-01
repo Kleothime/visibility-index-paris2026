@@ -732,9 +732,22 @@ def save_trends_cache(cache: Dict) -> bool:
         return False
 
 
-def get_trends_cache_age_hours() -> float:
-    """Retourne l'âge du cache Trends en heures"""
+def get_trends_cache_age_hours(cache_key: str = None) -> float:
+    """Retourne l'âge du cache Trends en heures (global ou par clé)"""
     cache = load_trends_cache()
+
+    # Si une clé spécifique est demandée, vérifier son timestamp
+    if cache_key:
+        entry = cache.get("data", {}).get(cache_key)
+        if entry and entry.get("timestamp"):
+            try:
+                entry_dt = datetime.fromisoformat(entry["timestamp"])
+                return (datetime.now() - entry_dt).total_seconds() / 3600
+            except:
+                pass
+        return float('inf')
+
+    # Sinon, retourner l'âge global (pour compatibilité)
     last_refresh = cache.get("last_refresh")
     if not last_refresh:
         return float('inf')
@@ -1325,8 +1338,8 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
     cache = load_trends_cache()
     cached_data = cache.get("data", {}).get(cache_key)
 
-    # Vérifier si le cache est encore frais
-    cache_age = get_trends_cache_age_hours()
+    # Vérifier si le cache de CETTE PERIODE est encore frais
+    cache_age = get_trends_cache_age_hours(cache_key)
     if cached_data and cache_age < TRENDS_CACHE_DURATION_HOURS:
         return {
             "success": True,
