@@ -434,7 +434,8 @@ def can_refresh_youtube(force: bool = False, expected_cost: int = YOUTUBE_COST_P
     # Vérifier le quota
     remaining_quota = get_youtube_quota_remaining()
     if remaining_quota < expected_cost:
-        return False, f"Quota insuffisant ({remaining_quota} < {expected_cost} nécessaires)"
+        wait_time = get_time_until_midnight()
+        return False, f"Quota épuisé - réessayez dans {wait_time}"
 
     return True, "OK"
 
@@ -540,6 +541,18 @@ def increment_trends_quota() -> bool:
     return save_trends_quota(quota)
 
 
+def get_time_until_midnight() -> str:
+    """Retourne le temps restant jusqu'à minuit (reset des quotas)"""
+    now = datetime.now()
+    midnight = datetime(now.year, now.month, now.day) + timedelta(days=1)
+    delta = midnight - now
+    hours = int(delta.total_seconds() // 3600)
+    minutes = int((delta.total_seconds() % 3600) // 60)
+    if hours > 0:
+        return f"{hours}h{minutes:02d}"
+    return f"{minutes} min"
+
+
 def can_make_trends_request() -> tuple[bool, str]:
     """
     Vérifie si on peut faire une requête Google Trends.
@@ -549,7 +562,8 @@ def can_make_trends_request() -> tuple[bool, str]:
 
     # Vérifier le quota journalier uniquement (pas de cooldown pour permettre l'exploration rapide)
     if quota.get("requests", 0) >= TRENDS_MAX_REQUESTS_PER_DAY:
-        return False, f"Quota journalier atteint ({TRENDS_MAX_REQUESTS_PER_DAY} requêtes max/jour)"
+        wait_time = get_time_until_midnight()
+        return False, f"Quota épuisé - réessayez dans {wait_time}"
 
     return True, "OK"
 
