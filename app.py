@@ -1869,57 +1869,40 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
 
 def main():
     # Viewport meta pour iPhone + CSS responsive
-    mobile_css = """<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><style>
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visible; padding: 4px 0; background: transparent;}
-[data-testid="collapsedControl"] {width: 60px !important; height: 60px !important;}
-[data-testid="collapsedControl"] svg {width: 30px !important; height: 30px !important;}
-
-/* IMPORTANT: Empêcher les graphiques Plotly de capturer le scroll tactile */
-.js-plotly-plot, .plotly, [data-testid="stPlotlyChart"] {
-    touch-action: pan-y !important;
-    -webkit-user-select: none !important;
-    user-select: none !important;
-}
-.js-plotly-plot .draglayer, .js-plotly-plot .dragcover {
-    pointer-events: none !important;
-}
-/* Désactiver le zoom au double-tap sur les graphiques */
-.js-plotly-plot {
-    touch-action: manipulation !important;
-}
-
-@media screen and (max-width: 768px) {
-    h1 {font-size: 1.5rem !important; line-height: 1.2 !important;}
-    h2 {font-size: 1.2rem !important;}
-    h3 {font-size: 1rem !important;}
-    .main .block-container {padding: 1rem 0.5rem !important;}
-    [data-testid="column"] {width: 100% !important; flex: 100% !important; min-width: 100% !important;}
-    [data-testid="stMetric"] {padding: 0.5rem !important;}
-    [data-testid="stMetricValue"] {font-size: 1.2rem !important;}
-    [data-testid="stMetricLabel"] {font-size: 0.7rem !important;}
-    [data-testid="stDataFrame"] th:nth-child(3), [data-testid="stDataFrame"] td:nth-child(3),
-    [data-testid="stDataFrame"] th:nth-child(5), [data-testid="stDataFrame"] td:nth-child(5),
-    [data-testid="stDataFrame"] th:nth-child(6), [data-testid="stDataFrame"] td:nth-child(6),
-    [data-testid="stDataFrame"] th:nth-child(7), [data-testid="stDataFrame"] td:nth-child(7),
-    [data-testid="stDataFrame"] th:nth-child(8), [data-testid="stDataFrame"] td:nth-child(8) {display: none !important;}
-    [data-testid="stDataFrame"] {font-size: 0.8rem !important;}
-    .stTabs [data-baseweb="tab-list"] {gap: 0 !important; flex-wrap: nowrap !important; overflow-x: auto !important;}
-    .stTabs [data-baseweb="tab"] {padding: 0.3rem 0.5rem !important; font-size: 0.75rem !important; white-space: nowrap !important;}
-    [data-testid="stExpander"] {margin-bottom: 0.5rem !important;}
-    [data-testid="stPlotlyChart"] {width: 100% !important; touch-action: pan-y !important;}
-    [data-testid="stSidebar"] {min-width: 280px !important; width: 280px !important;}
-    .stButton > button {min-height: 48px !important; font-size: 0.9rem !important;}
-    [data-testid="stMultiSelect"], [data-testid="stSelectbox"] {min-height: 48px !important;}
-    /* Tableaux scrollables horizontalement */
-    [data-testid="stDataFrame"] > div {overflow-x: auto !important; -webkit-overflow-scrolling: touch !important;}
-}
-@media screen and (max-width: 380px) {
-    h1 {font-size: 1.2rem !important;}
-    .stTabs [data-baseweb="tab"] {padding: 0.2rem 0.3rem !important; font-size: 0.65rem !important;}
-}
-</style>"""
+    mobile_css = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visible; padding: 4px 0; background: transparent;}
+    [data-testid="collapsedControl"] {width: 60px !important; height: 60px !important;}
+    [data-testid="collapsedControl"] svg {width: 30px !important; height: 30px !important;}
+    .js-plotly-plot, .plotly, [data-testid="stPlotlyChart"] {touch-action: pan-y !important; -webkit-user-select: none !important; user-select: none !important;}
+    .js-plotly-plot .draglayer, .js-plotly-plot .dragcover {pointer-events: none !important;}
+    @media screen and (max-width: 768px) {
+        h1 {font-size: 1.5rem !important; line-height: 1.2 !important;}
+        h2 {font-size: 1.2rem !important;}
+        h3 {font-size: 1rem !important;}
+        .main .block-container {padding: 1rem 0.5rem !important;}
+        [data-testid="column"] {width: 100% !important; flex: 100% !important; min-width: 100% !important;}
+        [data-testid="stMetric"] {padding: 0.5rem !important;}
+        [data-testid="stMetricValue"] {font-size: 1.2rem !important;}
+        [data-testid="stMetricLabel"] {font-size: 0.7rem !important;}
+        [data-testid="stDataFrame"] {font-size: 0.8rem !important;}
+        .stTabs [data-baseweb="tab-list"] {gap: 0 !important; flex-wrap: nowrap !important; overflow-x: auto !important;}
+        .stTabs [data-baseweb="tab"] {padding: 0.3rem 0.5rem !important; font-size: 0.75rem !important; white-space: nowrap !important;}
+        [data-testid="stExpander"] {margin-bottom: 0.5rem !important;}
+        [data-testid="stPlotlyChart"] {width: 100% !important; touch-action: pan-y !important;}
+        [data-testid="stSidebar"] {min-width: 280px !important; width: 280px !important;}
+        .stButton > button {min-height: 48px !important; font-size: 0.9rem !important;}
+        [data-testid="stMultiSelect"], [data-testid="stSelectbox"] {min-height: 48px !important;}
+        [data-testid="stDataFrame"] > div {overflow-x: auto !important; -webkit-overflow-scrolling: touch !important;}
+    }
+    @media screen and (max-width: 380px) {
+        h1 {font-size: 1.2rem !important;}
+        .stTabs [data-baseweb="tab"] {padding: 0.2rem 0.3rem !important; font-size: 0.65rem !important;}
+    }
+    </style>
+    """
     st.markdown(mobile_css, unsafe_allow_html=True)
 
     st.markdown("# Baromètre de visibilité médiatique")
