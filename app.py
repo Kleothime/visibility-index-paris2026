@@ -490,6 +490,7 @@ def lemmatize_word(word: str) -> str:
 YOUTUBE_QUOTA_DAILY_LIMIT = 10000
 YOUTUBE_COST_PER_CANDIDATE = 101  # 100 (search) + 1 (videos)
 YOUTUBE_COOLDOWN_HOURS = 2
+YOUTUBE_CACHE_DURATION_HOURS = 12  # Cache YouTube pendant 12h
 
 # Noms de médias à exclure des mots-clés extraits
 MEDIA_NAMES = {
@@ -563,7 +564,21 @@ def can_refresh_youtube(force: bool = False, expected_cost: int = YOUTUBE_COST_P
     Vérifie si un refresh YouTube est autorisé.
     Retourne (autorisé, raison)
     """
-    # Toujours autoriser le refresh
+    # Vérifier si le cache est encore frais
+    cache_age = get_youtube_cache_age_hours()
+    if cache_age < YOUTUBE_CACHE_DURATION_HOURS and not force:
+        return False, f"Cache frais ({cache_age:.1f}h < {YOUTUBE_CACHE_DURATION_HOURS}h)"
+
+    # Vérifier le cooldown
+    if cache_age < YOUTUBE_COOLDOWN_HOURS and not force:
+        remaining = int((YOUTUBE_COOLDOWN_HOURS - cache_age) * 60)
+        return False, f"Cooldown actif ({remaining} min restantes)"
+
+    # Vérifier le quota
+    remaining_quota = get_youtube_quota_remaining()
+    if remaining_quota < expected_cost:
+        return False, f"Quota insuffisant ({remaining_quota} < {expected_cost} nécessaires)"
+
     return True, "OK"
 
 
@@ -599,20 +614,36 @@ def get_cached_youtube_data(candidate_name: str) -> Optional[Dict]:
     return payload
 
 
-def get_cached_youtube_data_for_period(candidate_name: str, start_date: date, end_date: date) -> Optional[Dict]:
-    """Récupère le cache seulement si la période correspond exactement"""
+def get_cached_youtube_data_for_period(candidate_name: str, start_date: date, end_date: date, allow_fallback: bool = False) -> Optional[Dict]:
+    """
+    Récupère le cache YouTube.
+    - Si allow_fallback=False: seulement si la période correspond exactement
+    - Si allow_fallback=True: retourne n'importe quel cache disponible (avec flag)
+    """
     cache = load_youtube_cache()
     entry = cache.get("data", {}).get(candidate_name)
     if not entry:
         return None
 
-    if entry.get("start") != start_date.isoformat() or entry.get("end") != end_date.isoformat():
+    payload = entry.get("payload")
+    if not isinstance(payload, dict):
         return None
 
-    payload = entry.get("payload")
-    if isinstance(payload, dict):
-        return dict(payload)
-    return payload
+    # Vérifier si la période correspond
+    exact_match = (entry.get("start") == start_date.isoformat() and entry.get("end") == end_date.isoformat())
+
+    if exact_match:
+        result = dict(payload)
+        result["cache_exact_match"] = True
+        return result
+    elif allow_fallback:
+        # Retourner le cache même si période différente (mieux que 0)
+        result = dict(payload)
+        result["cache_exact_match"] = False
+        result["cache_period"] = f"{entry.get('start')} → {entry.get('end')}"
+        return result
+
+    return None
 
 
 def set_cached_youtube_data(candidate_name: str, data: Dict, start_date: date, end_date: date):
@@ -1673,10 +1704,15 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
     expected_youtube_cost = len(candidate_ids) * YOUTUBE_COST_PER_CANDIDATE if youtube_key else 0
 
     if youtube_key:
-        # Toujours utiliser l'API si la clé existe
-        youtube_refresh_allowed = True
-        youtube_refresh_reason = "OK"
-        youtube_mode = "api"
+        # Vérifier si on peut rafraîchir YouTube
+        youtube_refresh_allowed, youtube_refresh_reason = can_refresh_youtube(
+            force=force_youtube_refresh,
+            expected_cost=expected_youtube_cost
+        )
+        if youtube_refresh_allowed:
+            youtube_mode = "api"
+        else:
+            youtube_mode = "cache"  # Utiliser le cache si refresh non autorisé
     else:
         youtube_refresh_allowed = False
         youtube_refresh_reason = "Clé API YouTube manquante"
@@ -1705,10 +1741,12 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             set_cached_youtube_data(name, youtube, yt_start, yt_end)
             youtube_api_called = True
         elif youtube_mode == "cache":
-            cached = get_cached_youtube_data_for_period(name, yt_start, yt_end)
+            # Essayer le cache exact d'abord, sinon fallback sur n'importe quel cache
+            cached = get_cached_youtube_data_for_period(name, yt_start, yt_end, allow_fallback=True)
             if cached:
                 youtube = dict(cached)
                 youtube["from_cache"] = True
+                youtube["available"] = cached.get("available", True)
             else:
                 youtube = {"available": False, "total_views": 0, "videos": [], "from_cache": True, "no_cache": True}
         else:
