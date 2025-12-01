@@ -1892,7 +1892,7 @@ def main():
         .stTabs [data-baseweb="tab"] {padding: 0.3rem 0.5rem !important; font-size: 0.75rem !important; white-space: nowrap !important;}
         [data-testid="stExpander"] {margin-bottom: 0.5rem !important;}
         [data-testid="stPlotlyChart"] {width: 100% !important; touch-action: pan-y !important;}
-        [data-testid="stSidebar"] {min-width: 280px !important; width: 280px !important;}
+        [data-testid="stSidebar"] {min-width: 220px !important; width: 220px !important;}
         .stButton > button {min-height: 48px !important; font-size: 0.9rem !important;}
         [data-testid="stMultiSelect"], [data-testid="stSelectbox"] {min-height: 48px !important;}
         [data-testid="stDataFrame"] > div {overflow-x: auto !important; -webkit-overflow-scrolling: touch !important;}
