@@ -491,6 +491,20 @@ YOUTUBE_QUOTA_DAILY_LIMIT = 10000
 YOUTUBE_COST_PER_CANDIDATE = 101  # 100 (search) + 1 (videos)
 YOUTUBE_COOLDOWN_HOURS = 2
 
+# Noms de médias à exclure des mots-clés extraits
+MEDIA_NAMES = {
+    "gala", "figaro", "monde", "parisien", "liberation", "libération", "humanite", "humanité",
+    "express", "point", "obs", "nouvelobs", "marianne", "valeurs", "actuelles", "cnews",
+    "bfmtv", "bfm", "lci", "tf1", "france", "info", "infos", "rfi", "rmc", "europe",
+    "rtl", "radio", "télé", "tele", "20minutes", "minutes", "huffpost", "huffington",
+    "mediapart", "lexpress", "lepoint", "lemonde", "lefigaro", "leparisien", "ouest",
+    "sudouest", "voici", "closer", "public", "purepeople", "people", "madame", "elle",
+    "paris", "match", "parismatch", "afp", "reuters", "actu", "news", "info", "presse",
+    "journal", "quotidien", "hebdo", "magazine", "média", "media", "article", "source",
+    "interview", "vidéo", "video", "photo", "image", "exclusif", "breaking", "alerte",
+    "direct", "live", "replay", "podcast", "émission", "emission"
+}
+
 
 def load_youtube_cache() -> Dict:
     """Charge le cache YouTube persistant"""
@@ -881,8 +895,8 @@ def extract_keywords_from_articles(articles: List[Dict], candidate_name: str, to
         for word in words:
             lemma = lemmatize_word(word)
 
-            # Ignorer stop words et nom du candidat
-            if lemma in STOP_WORDS or lemma in name_parts:
+            # Ignorer stop words, nom du candidat et noms de médias
+            if lemma in STOP_WORDS or lemma in name_parts or lemma in MEDIA_NAMES:
                 continue
 
             # Compter une seule fois par article
@@ -1093,12 +1107,19 @@ def get_all_press_coverage(candidate_name: str, search_terms: List[str], start_d
     unique.sort(key=lambda x: x.get("date", ""), reverse=True)
     domains = set(art["domain"] for art in unique if art["domain"])
 
+    # Compter les articles par domaine pour trouver le top média
+    domain_counts = Counter(art["domain"] for art in unique if art["domain"])
+    top_media = domain_counts.most_common(1)[0] if domain_counts else (None, 0)
+
     return {
         "articles": unique,
         "count": len(unique),
         "domains": len(domains),
         "raw_count": len(all_articles),
-        "date_filtered_count": len(date_filtered)
+        "date_filtered_count": len(date_filtered),
+        "top_media": top_media[0],
+        "top_media_count": top_media[1],
+        "media_breakdown": domain_counts.most_common(5)
     }
 
 
@@ -1758,12 +1779,18 @@ header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visi
         top_keywords = d.get('keywords', [])[:3]
         themes_str = ' · '.join([word for word, count, arts in top_keywords]) if top_keywords else '-'
 
+        # Top média
+        top_media = d['press'].get('top_media', '-')
+        top_media_count = d['press'].get('top_media_count', 0)
+        top_media_str = f"{top_media} ({top_media_count})" if top_media else '-'
+
         row = {
             'Rang': rank,
             'Candidat': d['info']['name'],
             'Parti': d['info']['party'],
             'Score': d['score']['total'],
-            'Recherches': themes_str,
+            'Thèmes': themes_str,
+            'Top Média': top_media_str,
             'Articles': d['press']['count'],
             'Trends': d['trends_score'],
             'Wikipedia': format_number(d['wikipedia']['views']),
@@ -1776,7 +1803,8 @@ header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visi
     col_config = {
         'Rang': st.column_config.NumberColumn('Rang', format='%d'),
         'Score': st.column_config.ProgressColumn('Score / 100', min_value=0, max_value=100, format='%.1f'),
-        'Recherches': st.column_config.TextColumn('Top recherches Google', help='Requetes les plus frequentes associees au candidat sur Google'),
+        'Thèmes': st.column_config.TextColumn('Thèmes presse', help='Mots-clés extraits des articles de presse'),
+        'Top Média': st.column_config.TextColumn('Top Média', help='Média qui parle le plus du candidat'),
         'Articles': st.column_config.NumberColumn('Articles', format='%d'),
         'Trends': st.column_config.NumberColumn('Trends', format='%.0f'),
         'Wikipedia': st.column_config.TextColumn('Wikipedia'),
