@@ -974,7 +974,7 @@ def format_number_short(n: int) -> str:
 
 # Mots vides français à ignorer dans l'analyse
 STOP_WORDS = {
-    # Mots grammaticaux
+    # Mots grammaticaux de base
     "le", "la", "les", "de", "du", "des", "un", "une", "et", "en", "à", "au", "aux",
     "pour", "par", "sur", "avec", "dans", "qui", "que", "son", "sa", "ses", "ce",
     "cette", "ces", "est", "sont", "a", "été", "être", "avoir", "fait", "faire",
@@ -988,45 +988,98 @@ STOP_WORDS = {
     "premier", "première", "nouveau", "nouvelle", "nouveaux", "nouvelles",
     "via", "the", "of", "and", "to", "in", "for", "is", "on", "that", "by", "this",
     "video", "vidéo", "photo", "photos", "images", "image", "article", "articles",
+    "mon", "ma", "mes", "ton", "ta", "tes", "notre", "nos", "votre", "vos",
+    "quel", "quelle", "quels", "quelles", "lequel", "laquelle", "lesquels", "lesquelles",
+    "chaque", "quelque", "quelques", "certain", "certaine", "certains", "certaines",
+    "aucun", "aucune", "tel", "telle", "tels", "telles", "tant", "peu", "beaucoup",
+    "trop", "assez", "autant", "combien", "comment", "pourquoi", "parce",
 
     # Lieux génériques
     "paris", "parisien", "parisiens", "parisienne", "parisiennes", "capitale",
-    "france", "français", "française", "françaises", "français",
+    "france", "français", "française", "françaises", "ile", "île",
+    "ville", "villes", "arrondissement", "arrondissements", "quartier", "quartiers",
+    "rue", "avenue", "boulevard", "place", "métro", "metro",
 
     # Élections / politique générique
-    "municipales", "municipal", "municipale", "élection", "élections",
+    "municipales", "municipal", "municipale", "élection", "élections", "vote", "votes", "voter",
     "candidat", "candidate", "candidats", "candidates", "candidature", "candidatures",
-    "mairie", "maire", "maires", "campagne", "campagnes",
+    "mairie", "maire", "maires", "campagne", "campagnes", "électeur", "électeurs", "électoral",
     "ministre", "ministère", "député", "députée", "députés", "sénateur", "sénatrice",
-    "politique", "politiques", "gouvernement",
+    "politique", "politiques", "gouvernement", "parti", "partis", "droite", "gauche",
+    "opposition", "majorité", "assemblée", "sénat", "élysée", "matignon",
 
-    # Médias
-    "bfm", "bfmtv", "rtl", "cnews", "rmc", "lci", "tf1", "france",
-    "agence", "presse", "afp", "reuters", "média", "médias",
+    # Médias et journalisme
+    "bfm", "bfmtv", "rtl", "cnews", "rmc", "lci", "tf1", "france", "radio",
+    "agence", "presse", "afp", "reuters", "média", "médias", "journal", "journaux",
     "figaro", "monde", "libération", "liberation", "parisien", "ouest", "sud",
     "actu", "actualités", "actualites", "news", "info", "infos", "minutes",
+    "interview", "interviews", "émission", "plateau", "direct", "live",
+    "exclusif", "exclusivité", "révélation", "scoop", "breaking",
 
-    # Verbes d'action journalistiques
+    # Verbes journalistiques et génériques
     "lance", "annonce", "révèle", "affirme", "confie", "déclare", "explique",
     "raconte", "officialise", "présente", "veut", "souhaite", "demande",
     "faut", "falloir", "doit", "peut", "pourrait", "devrait", "soit", "être",
-    "mettre", "créer", "faire", "aller", "allant", "avoir", "venir",
+    "mettre", "créer", "faire", "aller", "allant", "avoir", "venir", "prendre",
+    "pris", "prise", "dit", "dire", "parle", "parler", "parlé", "montre", "montrer",
+    "trouve", "trouver", "sait", "savoir", "croit", "croire", "pense", "penser",
+    "reste", "rester", "devient", "devenir", "tient", "tenir", "donne", "donner",
+    "met", "mis", "mise", "prend", "rendu", "rendue", "laisse", "laisser",
+    "sort", "sortir", "sorti", "sortie", "entre", "entrer", "entré", "entrée",
+    "répond", "répondre", "répondu", "pose", "poser", "posé", "posée",
+    "attend", "attendre", "attendu", "propose", "proposer", "proposé",
+    "revient", "revenir", "revenu", "revenue", "appelle", "appeler", "appelé",
+
+    # Mots de temps
+    "ans", "année", "années", "jour", "jours", "mois", "semaine", "semaines",
+    "heure", "heures", "minute", "minutes", "seconde", "secondes", "moment", "moments",
+    "temps", "fois", "date", "dates", "hier", "aujourd", "demain", "soir", "matin",
+    "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche",
+    "janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août",
+    "septembre", "octobre", "novembre", "décembre", "2024", "2025", "2026",
 
     # Mots génériques divers
-    "ans", "année", "années", "jour", "jours", "mois", "semaine", "semaines",
-    "tête", "idée", "idées", "fin", "début", "face", "côté", "suis",
+    "tête", "idée", "idées", "fin", "début", "face", "côté", "suis", "sera", "serait",
     "ceux", "celle", "celles", "celui", "autres", "autre", "même", "mêmes",
     "public", "publique", "publics", "publiques", "plutôt", "encore",
-    "cours", "course", "investie", "investi", "officiellement",
+    "cours", "course", "investie", "investi", "officiellement", "officiel", "officielle",
+    "chose", "choses", "cas", "façon", "manière", "genre", "type", "sorte",
+    "part", "parts", "partie", "parties", "place", "places", "point", "points",
+    "sens", "mot", "mots", "nom", "noms", "titre", "titres", "sujet", "sujets",
+    "question", "questions", "réponse", "réponses", "problème", "problèmes",
+    "raison", "raisons", "cause", "causes", "effet", "effets", "résultat", "résultats",
+    "fond", "forme", "formes", "niveau", "niveaux", "ligne", "lignes",
+    "homme", "hommes", "femme", "femmes", "personne", "personnes", "gens",
+    "monde", "vie", "vies", "mort", "pays", "état", "états",
+    "grand", "grande", "grands", "grandes", "petit", "petite", "petits", "petites",
+    "bon", "bonne", "bons", "bonnes", "mauvais", "mauvaise", "meilleur", "meilleure",
+    "vrai", "vraie", "vrais", "vraies", "faux", "fausse", "possible", "impossible",
+    "seul", "seule", "seuls", "seules", "dernier", "dernière", "derniers", "dernières",
+    "prochain", "prochaine", "prochains", "prochaines", "ancien", "ancienne", "anciens",
+    "haut", "haute", "hauts", "hautes", "bas", "basse", "long", "longue",
+    "plein", "pleine", "pleins", "pleines", "entier", "entière", "total", "totale",
 
-    # Prénoms communs (pour éviter les parties de noms d'autres personnes)
+    # Prénoms et noms communs
     "anne", "éric", "eric", "yves", "pierre", "jean", "marie", "michel", "jacques",
     "nicolas", "françois", "bruno", "gérald", "gerald", "olivier", "laurent",
-    "rachida", "hidalgo", "darmanin", "attal", "zohra", "dati",
+    "rachida", "hidalgo", "darmanin", "attal", "zohra", "dati", "sarah", "knafo",
+    "emmanuel", "grégoire", "ian", "brossat", "david", "belliard", "sophia", "chikirou",
+    "thierry", "mariani", "bournazel", "macron", "mélenchon", "bardella", "lepen",
+    "zemmour", "ciotti", "wauquiez", "retailleau", "philippe", "hollande", "sarkozy",
 
-    # Faits divers / bruit
+    # Faits divers / bruit / hors sujet
     "fille", "fils", "enfant", "enfants", "enlèvement", "tentative", "bayonne",
-    "psg", "football", "match"
+    "psg", "football", "match", "sport", "sports", "équipe", "joueur", "joueurs",
+    "euro", "euros", "million", "millions", "milliard", "milliards", "nombre", "chiffre",
+    "prix", "coût", "budget", "argent", "somme", "montant",
+
+    # Mots de liaison et expressions
+    "alors", "donc", "ainsi", "cependant", "toutefois", "néanmoins", "pourtant",
+    "ailleurs", "davantage", "désormais", "dorénavant", "notamment", "surtout",
+    "vraiment", "simplement", "seulement", "justement", "exactement", "absolument",
+    "totalement", "complètement", "entièrement", "parfaitement", "clairement",
+    "aujourd", "hui", "maintenant", "actuellement", "récemment", "bientôt",
+    "toujours", "jamais", "souvent", "parfois", "rarement", "longtemps"
 }
 
 
