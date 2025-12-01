@@ -2422,11 +2422,11 @@ def main():
 
                 fig.update_layout(
                     title="Évolution temporelle",
-                    yaxis_range=[0, 100],
-                    yaxis_title="Score",
-                    xaxis_title="",
+                    yaxis=dict(range=[0, 100], title="Score", fixedrange=True),
+                    xaxis=dict(title="", fixedrange=True),
+                    dragmode=False,
                     legend=dict(
-                        orientation="v",  # Vertical pour mobile
+                        orientation="v",
                         yanchor="top",
                         y=1,
                         xanchor="left",
@@ -2435,7 +2435,7 @@ def main():
                         itemsizing="constant"
                     ),
                     height=400,
-                    margin=dict(l=40, r=120, t=40, b=40)  # Marge droite pour légende
+                    margin=dict(l=40, r=120, t=40, b=40)
                 )
                 st.plotly_chart(fig, use_container_width=True, config=plotly_config)
 
