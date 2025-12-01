@@ -1867,11 +1867,11 @@ def main():
             'Rang': rank,
             'Candidat': d['info']['name'],
             'Parti': d['info']['party'],
-            'Score': d['score']['total'],
+            'Score': round(d['score']['total'], 1),
             'Thèmes': themes_str,
             'Top Média': top_media_str,
             'Articles': d['press']['count'],
-            'Trends': d['trends_score'],
+            'Trends': round(d['trends_score'], 1),
             'Wikipedia': format_number(d['wikipedia']['views']),
             'Vues YT': format_number(d['youtube'].get('total_views', 0)),
         }
@@ -1879,13 +1879,16 @@ def main():
 
     df = pd.DataFrame(rows)
 
-    # Styler pour mettre Sarah Knafo en gras
+    # Styler pour mettre Sarah Knafo en gras + formatage des nombres
     def highlight_knafo(row):
         if row['Candidat'] == 'Sarah Knafo':
             return ['font-weight: bold; background-color: rgba(30, 58, 95, 0.15)'] * len(row)
         return [''] * len(row)
 
-    styled_df = df.style.apply(highlight_knafo, axis=1)
+    styled_df = df.style.apply(highlight_knafo, axis=1).format({
+        'Score': '{:.1f}',
+        'Trends': '{:.1f}'
+    })
 
     st.dataframe(styled_df, hide_index=True, use_container_width=True)
 
