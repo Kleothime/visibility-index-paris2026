@@ -1900,7 +1900,7 @@ def main():
     with col1:
         st.metric('Leader', leader['info']['name'])
     with col2:
-        st.metric('Score', f"{leader['score']['total']:.1f} / 100")
+        st.metric('Score du leader', f"{leader['score']['total']:.1f} / 100")
     with col3:
         total_articles = sum(d['press']['count'] for _, d in sorted_data)
         st.metric('Total articles (tous candidats)', format_number(total_articles))
