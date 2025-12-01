@@ -1844,28 +1844,6 @@ header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visi
             st.cache_data.clear()
             st.rerun()
 
-        # Afficher le statut des quotas Google Trends
-        quota_status = get_trends_quota_status()
-        with st.expander("📊 Quotas Trends", expanded=False):
-            remaining = quota_status["remaining"]
-            max_req = quota_status["max_requests"]
-            pct = (remaining / max_req) * 100 if max_req > 0 else 0
-
-            if remaining > 5:
-                st.success(f"✅ {remaining}/{max_req} requêtes restantes")
-            elif remaining > 0:
-                st.warning(f"⚠️ {remaining}/{max_req} requêtes restantes")
-            else:
-                st.error(f"❌ Quota épuisé (0/{max_req})")
-
-            if quota_status["cache_fresh"]:
-                st.info(f"💾 Cache: {quota_status['cache_age_hours']}h")
-            elif quota_status["cache_age_hours"]:
-                st.caption(f"💾 Cache ancien: {quota_status['cache_age_hours']}h")
-
-            if not quota_status["can_request"]:
-                st.caption(f"ℹ️ {quota_status['message']}")
-
         st.markdown("---")
         st.markdown("### Pondération du score")
         st.caption("Presse 40% · Trends 35% · Wikipedia 15% · YouTube 10%")
