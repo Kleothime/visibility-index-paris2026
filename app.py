@@ -416,18 +416,18 @@ def get_youtube_quota_remaining() -> int:
     return max(0, YOUTUBE_QUOTA_DAILY_LIMIT - cache.get("quota_used", 0))
 
 
-def can_refresh_youtube(force: bool = False, expected_cost: int = YOUTUBE_COST_PER_CANDIDATE) -> tuple[bool, str]:
+def can_refresh_youtube(expected_cost: int = YOUTUBE_COST_PER_CANDIDATE) -> tuple[bool, str]:
     """
     Vérifie si un refresh YouTube est autorisé.
     Retourne (autorisé, raison)
     """
     # Vérifier si le cache est encore frais
     cache_age = get_youtube_cache_age_hours()
-    if cache_age < YOUTUBE_CACHE_DURATION_HOURS and not force:
+    if cache_age < YOUTUBE_CACHE_DURATION_HOURS:
         return False, f"Cache frais ({cache_age:.1f}h < {YOUTUBE_CACHE_DURATION_HOURS}h)"
 
     # Vérifier le cooldown
-    if cache_age < YOUTUBE_COOLDOWN_HOURS and not force:
+    if cache_age < YOUTUBE_COOLDOWN_HOURS:
         remaining = int((YOUTUBE_COOLDOWN_HOURS - cache_age) * 60)
         return False, f"Cooldown actif ({remaining} min restantes)"
 
@@ -1568,7 +1568,7 @@ def calculate_score(wiki_views: int, press_count: int, press_domains: int,
 # COLLECTE PRINCIPALE
 # =============================================================================
 
-def collect_data(candidate_ids: List[str], start_date: date, end_date: date, youtube_key: Optional[str], force_youtube_refresh: bool = False) -> Dict:
+def collect_data(candidate_ids: List[str], start_date: date, end_date: date, youtube_key: Optional[str]) -> Dict:
     """Collecte toutes les données pour les candidats sélectionnés"""
     results = {}
 
@@ -1594,7 +1594,6 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
     if youtube_key:
         # Vérifier si on peut rafraîchir YouTube
         youtube_refresh_allowed, youtube_refresh_reason = can_refresh_youtube(
-            force=force_youtube_refresh,
             expected_cost=expected_youtube_cost
         )
         if youtube_refresh_allowed:
@@ -1811,58 +1810,9 @@ def main():
         st.warning("Veuillez sélectionner au moins un candidat")
         return
 
-    # Gestion du refresh YouTube forcé
-    force_yt_refresh = st.session_state.get("force_youtube_refresh", False)
-    if force_yt_refresh:
-        st.session_state["force_youtube_refresh"] = False  # Reset
-
-    result = collect_data(selected, start_date, end_date, YOUTUBE_API_KEY, force_youtube_refresh=force_yt_refresh)
+    result = collect_data(selected, start_date, end_date, YOUTUBE_API_KEY)
     data = result["candidates"]
     sorted_data = sorted(data.items(), key=lambda x: x[1]["score"]["total"], reverse=True)
-
-    # === STATUS YOUTUBE ===
-    yt_status = result["youtube"]
-    yt_cache_age = yt_status["cache_age_hours"]
-    yt_quota = yt_status["quota_remaining"]
-    yt_mode = yt_status["mode"]
-
-    # Affichage status YouTube
-    with st.expander("Status YouTube API", expanded=False):
-        col_yt1, col_yt2, col_yt3 = st.columns(3)
-
-        with col_yt1:
-            if yt_cache_age == float('inf'):
-                st.metric("Âge des données", "Jamais chargé")
-            elif yt_cache_age < 1:
-                st.metric("Âge des données", f"{int(yt_cache_age * 60)} min")
-            else:
-                st.metric("Âge des données", f"{yt_cache_age:.1f}h")
-
-        with col_yt2:
-            quota_pct = (yt_quota / YOUTUBE_QUOTA_DAILY_LIMIT) * 100
-            st.metric("Quota restant", f"{yt_quota:,} / {YOUTUBE_QUOTA_DAILY_LIMIT:,}", f"{quota_pct:.0f}%")
-
-        with col_yt3:
-            if yt_mode == "disabled":
-                st.info("API YouTube non configurée")
-            elif yt_mode == "cache":
-                st.info(f"Depuis cache ({yt_status.get('refresh_reason')})")
-            else:
-                st.success("Données fraîches")
-
-        # Bouton refresh manuel avec gardes-fous
-        if yt_mode == "disabled":
-            st.warning("Refresh impossible : clé API YouTube absente")
-        else:
-            expected_cost = len(selected) * YOUTUBE_COST_PER_CANDIDATE
-            can_refresh, refresh_reason = can_refresh_youtube(force=True, expected_cost=expected_cost)
-            if can_refresh:
-                help_text = f"Rafraîchir les données YouTube (coût estimé {expected_cost} unités)"
-                if st.button("Forcer refresh YouTube", help=help_text):
-                    st.session_state["force_youtube_refresh"] = True
-                    st.rerun()
-            else:
-                st.warning(f"Refresh bloqué : {refresh_reason}")
 
     # === CLASSEMENT ===
     st.markdown("---")
