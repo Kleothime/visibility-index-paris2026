@@ -1974,7 +1974,7 @@ def main():
             keywords = d.get('keywords', [])
             name = d['info']['name']
             # Sarah Knafo en gras dans le titre
-            expander_title = f'{rank}. **{name}** ⭐' if name == "Sarah Knafo" else f'{rank}. {name}'
+            expander_title = f'{rank}. **{name}**' if name == "Sarah Knafo" else f'{rank}. {name}'
             is_knafo = name == "Sarah Knafo"
 
             with st.expander(expander_title, expanded=(rank <= 3 or is_knafo)):
@@ -2222,7 +2222,7 @@ def main():
 
             if mentions:
                 # Sarah Knafo en gras dans le titre de l'expander
-                expander_title = f"**{name}** ⭐ - {len(mentions)} mention(s)" if name == "Sarah Knafo" else f"{name} - {len(mentions)} mention(s)"
+                expander_title = f"**{name}** - {len(mentions)} mention(s)" if name == "Sarah Knafo" else f"{name} - {len(mentions)} mention(s)"
                 with st.expander(expander_title):
                     # Clé unique pour chaque candidat
                     show_all_mentions_key = f"show_all_mentions_{cid}"
@@ -2533,7 +2533,7 @@ def main():
     for rank, (cid, d) in enumerate(sorted_data, 1):
         arts = d["press"]["articles"]
         name = d['info']['name']
-        expander_title = f"{rank}. **{name}** ⭐ — {len(arts)} article(s)" if name == "Sarah Knafo" else f"{rank}. {name} — {len(arts)} article(s)"
+        expander_title = f"{rank}. **{name}** — {len(arts)} article(s)" if name == "Sarah Knafo" else f"{rank}. {name} — {len(arts)} article(s)"
         with st.expander(expander_title):
             if arts:
                 # Clé unique pour chaque candidat
@@ -2572,7 +2572,7 @@ def main():
             yt = d["youtube"]
             name = d['info']['name']
             if yt.get("available") and yt.get("videos"):
-                expander_title = f"{rank}. **{name}** ⭐ — {format_number(yt['total_views'])} vues" if name == "Sarah Knafo" else f"{rank}. {name} — {format_number(yt['total_views'])} vues"
+                expander_title = f"{rank}. **{name}** — {format_number(yt['total_views'])} vues" if name == "Sarah Knafo" else f"{rank}. {name} — {format_number(yt['total_views'])} vues"
                 with st.expander(expander_title):
                     # Clé unique pour chaque candidat
                     show_all_videos_key = f"show_all_videos_{cid}"
