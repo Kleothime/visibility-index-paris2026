@@ -1863,6 +1863,9 @@ def main():
         top_media_count = d['press'].get('top_media_count', 0)
         top_media_str = f"{top_media} ({top_media_count})" if top_media else '-'
 
+        trends_val = d['trends_score']
+        yt_views = d['youtube'].get('total_views', 0)
+
         row = {
             'Rang': rank,
             'Candidat': d['info']['name'],
@@ -1871,23 +1874,22 @@ def main():
             'Thèmes': themes_str,
             'Top Média': top_media_str,
             'Articles': d['press']['count'],
-            'Trends': round(d['trends_score'], 1),
+            'Trends': f"{trends_val:.1f}" if trends_val > 0 else "-",
             'Wikipedia': format_number(d['wikipedia']['views']),
-            'Vues YT': format_number(d['youtube'].get('total_views', 0)),
+            'Vues YT': format_number(yt_views) if yt_views > 0 else "-",
         }
         rows.append(row)
 
     df = pd.DataFrame(rows)
 
-    # Styler pour mettre Sarah Knafo en gras + formatage des nombres
+    # Styler pour mettre Sarah Knafo en gras
     def highlight_knafo(row):
         if row['Candidat'] == 'Sarah Knafo':
             return ['font-weight: bold; background-color: rgba(30, 58, 95, 0.15)'] * len(row)
         return [''] * len(row)
 
     styled_df = df.style.apply(highlight_knafo, axis=1).format({
-        'Score': '{:.1f}',
-        'Trends': '{:.1f}'
+        'Score': '{:.1f}'
     })
 
     st.dataframe(styled_df, hide_index=True, use_container_width=True)
