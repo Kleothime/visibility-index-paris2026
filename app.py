@@ -1875,6 +1875,21 @@ footer {visibility: hidden;}
 header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visible; padding: 4px 0; background: transparent;}
 [data-testid="collapsedControl"] {width: 60px !important; height: 60px !important;}
 [data-testid="collapsedControl"] svg {width: 30px !important; height: 30px !important;}
+
+/* IMPORTANT: Empêcher les graphiques Plotly de capturer le scroll tactile */
+.js-plotly-plot, .plotly, [data-testid="stPlotlyChart"] {
+    touch-action: pan-y !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+}
+.js-plotly-plot .draglayer, .js-plotly-plot .dragcover {
+    pointer-events: none !important;
+}
+/* Désactiver le zoom au double-tap sur les graphiques */
+.js-plotly-plot {
+    touch-action: manipulation !important;
+}
+
 @media screen and (max-width: 768px) {
     h1 {font-size: 1.5rem !important; line-height: 1.2 !important;}
     h2 {font-size: 1.2rem !important;}
@@ -1890,13 +1905,15 @@ header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visi
     [data-testid="stDataFrame"] th:nth-child(7), [data-testid="stDataFrame"] td:nth-child(7),
     [data-testid="stDataFrame"] th:nth-child(8), [data-testid="stDataFrame"] td:nth-child(8) {display: none !important;}
     [data-testid="stDataFrame"] {font-size: 0.8rem !important;}
-    .stTabs [data-baseweb="tab-list"] {gap: 0 !important;}
-    .stTabs [data-baseweb="tab"] {padding: 0.3rem 0.5rem !important; font-size: 0.75rem !important;}
+    .stTabs [data-baseweb="tab-list"] {gap: 0 !important; flex-wrap: nowrap !important; overflow-x: auto !important;}
+    .stTabs [data-baseweb="tab"] {padding: 0.3rem 0.5rem !important; font-size: 0.75rem !important; white-space: nowrap !important;}
     [data-testid="stExpander"] {margin-bottom: 0.5rem !important;}
-    [data-testid="stPlotlyChart"] {width: 100% !important;}
-    [data-testid="stSidebar"] {min-width: 250px !important; width: 250px !important;}
-    .stButton > button {min-height: 44px !important; font-size: 0.9rem !important;}
-    [data-testid="stMultiSelect"], [data-testid="stSelectbox"] {min-height: 44px !important;}
+    [data-testid="stPlotlyChart"] {width: 100% !important; touch-action: pan-y !important;}
+    [data-testid="stSidebar"] {min-width: 280px !important; width: 280px !important;}
+    .stButton > button {min-height: 48px !important; font-size: 0.9rem !important;}
+    [data-testid="stMultiSelect"], [data-testid="stSelectbox"] {min-height: 48px !important;}
+    /* Tableaux scrollables horizontalement */
+    [data-testid="stDataFrame"] > div {overflow-x: auto !important; -webkit-overflow-scrolling: touch !important;}
 }
 @media screen and (max-width: 380px) {
     h1 {font-size: 1.2rem !important;}
@@ -2086,12 +2103,13 @@ header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visi
     names = [d['info']['name'] for _, d in sorted_data]
     colors = [d['info']['color'] for _, d in sorted_data]
 
-    # Config Plotly pour mobile (désactive zoom/pan au touch)
+    # Config Plotly pour mobile (graphiques statiques = pas de capture du scroll)
     plotly_config = {
         'displayModeBar': False,  # Cache la barre d'outils
-        'staticPlot': False,
+        'staticPlot': True,       # Graphiques statiques (pas d'interactivité = pas de problème de scroll)
         'scrollZoom': False,
         'doubleClick': False,
+        'responsive': True,
     }
 
     # TAB 1: SCORES
