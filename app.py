@@ -2091,67 +2091,56 @@ header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visi
         sondages_actuels = load_sondages()
 
         if sondages_actuels:
-            # === GRAPHIQUE SYNTHESE TOUS SONDAGES ===
-            st.markdown("#### Synthese de tous les sondages")
+            # === DERNIER SONDAGE (le plus recent) ===
+            latest_sondage = sondages_actuels[0]  # Deja trie par date decroissante
 
-            # Calculer la moyenne par candidat sur tous les sondages
-            all_scores = {}
-            for sondage in sondages_actuels:
-                for candidat, score in sondage["scores"].items():
-                    if candidat not in all_scores:
-                        all_scores[candidat] = []
-                    all_scores[candidat].append(score)
+            st.markdown(f"#### Dernier sondage : {latest_sondage['institut']} ({latest_sondage['date']})")
+            st.caption(f"Commanditaire: {latest_sondage.get('commanditaire', 'N/A')} · Echantillon: {latest_sondage.get('echantillon', 'N/A')} personnes")
 
-            # Moyenne et dernier score
-            synthesis_data = []
-            for candidat, scores in all_scores.items():
-                synthesis_data.append({
+            # Preparer les donnees du dernier sondage
+            latest_data = []
+            for candidat, score in latest_sondage["scores"].items():
+                latest_data.append({
                     "Candidat": candidat,
-                    "Moyenne": round(sum(scores) / len(scores), 1),
-                    "Dernier": scores[-1] if scores else 0,
-                    "Min": min(scores),
-                    "Max": max(scores),
-                    "Nb sondages": len(scores)
+                    "Intentions": score
                 })
 
-            synthesis_data.sort(key=lambda x: x["Moyenne"], reverse=True)
+            latest_data.sort(key=lambda x: x["Intentions"], reverse=True)
             color_map = {c["name"]: c["color"] for c in CANDIDATES.values()}
 
-            # Graphique avec barres d'erreur (min-max)
-            fig_synthesis = go.Figure()
-            for item in synthesis_data:
+            # Graphique du dernier sondage
+            fig_latest = go.Figure()
+            for item in latest_data:
                 candidat = item["Candidat"]
                 color = color_map.get(candidat, "#888")
-                fig_synthesis.add_trace(go.Bar(
+                fig_latest.add_trace(go.Bar(
                     name=candidat,
                     x=[candidat],
-                    y=[item["Moyenne"]],
+                    y=[item["Intentions"]],
                     marker_color=color,
-                    error_y=dict(
-                        type='data',
-                        symmetric=False,
-                        array=[item["Max"] - item["Moyenne"]],
-                        arrayminus=[item["Moyenne"] - item["Min"]],
-                        color='rgba(0,0,0,0.3)'
-                    ),
-                    hovertemplate=f'<b>{candidat}</b><br>Moyenne: {item["Moyenne"]}%<br>Min: {item["Min"]}% - Max: {item["Max"]}%<extra></extra>'
+                    text=[f"{item['Intentions']}%"],
+                    textposition='outside',
+                    hovertemplate=f'<b>{candidat}</b><br>{item["Intentions"]}%<extra></extra>'
                 ))
 
-            fig_synthesis.update_layout(
-                title="Moyenne des intentions de vote (tous sondages confondus)",
+            fig_latest.update_layout(
+                title=f"Intentions de vote - {latest_sondage['institut']} ({latest_sondage['date']})",
                 showlegend=False,
                 yaxis_title="Intentions de vote (%)",
-                yaxis_range=[0, 45],
+                yaxis_range=[0, max(item["Intentions"] for item in latest_data) + 10],
                 xaxis_title=""
             )
-            st.plotly_chart(fig_synthesis, use_container_width=True, config=plotly_config)
+            st.plotly_chart(fig_latest, use_container_width=True, config=plotly_config)
 
-            # Tableau synthese
+            # Tableau du dernier sondage
             st.dataframe(
-                pd.DataFrame(synthesis_data)[["Candidat", "Moyenne", "Min", "Max", "Nb sondages"]],
+                pd.DataFrame(latest_data),
                 use_container_width=True,
                 hide_index=True
             )
+
+            if latest_sondage.get("source_url"):
+                st.markdown(f"[Source: {latest_sondage['institut']}]({latest_sondage['source_url']})")
 
             st.markdown("---")
 
