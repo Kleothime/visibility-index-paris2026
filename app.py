@@ -632,7 +632,85 @@ def set_cached_youtube_data(candidate_name: str, data: Dict, start_date: date, e
 # CACHE GOOGLE TRENDS RELATED QUERIES
 # =============================================================================
 
-TRENDS_CACHE_DURATION_HOURS = 6  # Les related queries changent moins vite
+TRENDS_CACHE_DURATION_HOURS = 12  # Cache Trends pendant 12h
+TRENDS_COOLDOWN_HOURS = 1  # Minimum 1h entre les requêtes Trends
+TRENDS_MAX_REQUESTS_PER_DAY = 10  # Maximum 10 requêtes par jour
+TRENDS_QUOTA_FILE = "trends_quota.json"
+
+
+def load_trends_quota() -> Dict:
+    """Charge le fichier de suivi des quotas Trends"""
+    try:
+        with open(TRENDS_QUOTA_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            # Reset si on est un nouveau jour
+            today = datetime.now().strftime("%Y-%m-%d")
+            if data.get("date") != today:
+                return {"date": today, "requests": 0, "last_request": None}
+            return data
+    except:
+        return {"date": datetime.now().strftime("%Y-%m-%d"), "requests": 0, "last_request": None}
+
+
+def save_trends_quota(quota: Dict) -> bool:
+    """Sauvegarde le fichier de suivi des quotas Trends"""
+    try:
+        with open(TRENDS_QUOTA_FILE, "w", encoding="utf-8") as f:
+            json.dump(quota, f, indent=2)
+        return True
+    except:
+        return False
+
+
+def increment_trends_quota() -> bool:
+    """Incrémente le compteur de requêtes Trends"""
+    quota = load_trends_quota()
+    quota["requests"] = quota.get("requests", 0) + 1
+    quota["last_request"] = datetime.now().isoformat()
+    return save_trends_quota(quota)
+
+
+def can_make_trends_request() -> tuple[bool, str]:
+    """
+    Vérifie si on peut faire une requête Google Trends.
+    Retourne (autorisé, message)
+    """
+    quota = load_trends_quota()
+
+    # Vérifier le quota journalier
+    if quota.get("requests", 0) >= TRENDS_MAX_REQUESTS_PER_DAY:
+        return False, f"Quota journalier atteint ({TRENDS_MAX_REQUESTS_PER_DAY} requêtes max/jour)"
+
+    # Vérifier le cooldown
+    last_request = quota.get("last_request")
+    if last_request:
+        try:
+            last_dt = datetime.fromisoformat(last_request)
+            hours_since = (datetime.now() - last_dt).total_seconds() / 3600
+            if hours_since < TRENDS_COOLDOWN_HOURS:
+                remaining = int((TRENDS_COOLDOWN_HOURS - hours_since) * 60)
+                return False, f"Cooldown actif ({remaining} min restantes)"
+        except:
+            pass
+
+    return True, "OK"
+
+
+def get_trends_quota_status() -> Dict:
+    """Retourne le statut actuel des quotas Trends"""
+    quota = load_trends_quota()
+    can_request, message = can_make_trends_request()
+    cache_age = get_trends_cache_age_hours()
+
+    return {
+        "requests_today": quota.get("requests", 0),
+        "max_requests": TRENDS_MAX_REQUESTS_PER_DAY,
+        "remaining": max(0, TRENDS_MAX_REQUESTS_PER_DAY - quota.get("requests", 0)),
+        "can_request": can_request,
+        "message": message,
+        "cache_age_hours": round(cache_age, 1) if cache_age != float('inf') else None,
+        "cache_fresh": cache_age < TRENDS_CACHE_DURATION_HOURS
+    }
 
 
 def load_trends_cache() -> Dict:
@@ -1123,29 +1201,69 @@ def get_all_press_coverage(candidate_name: str, search_terms: List[str], start_d
     }
 
 
-@st.cache_data(ttl=7200, show_spinner=False)
-def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> Dict:
-    """Récupère les données Google Trends avec support de plus de 5 candidats via pivot"""
-    try:
-        from pytrends.request import TrendReq
-        import time
-        import random
+def _fetch_google_trends_api(keywords: List[str], timeframe: str) -> Dict:
+    """Appelle l'API Google Trends (fonction interne)"""
+    from pytrends.request import TrendReq
+    import time
+    import random
 
-        if not keywords:
-            return {"success": False, "scores": {}, "errors": ["Aucun mot-clé fourni"]}
+    scores = {}
+    errors = []
+    max_retries = 3
 
-        timeframe = f"{start_date.strftime('%Y-%m-%d')} {end_date.strftime('%Y-%m-%d')}"
-        scores = {}
-        errors = []
-        max_retries = 3
+    # Si 5 candidats ou moins, une seule requête suffit
+    if len(keywords) <= 5:
+        for attempt in range(max_retries):
+            try:
+                time.sleep(2 + random.uniform(0, 2))
+                pytrends = TrendReq(hl="fr-FR", tz=60)
+                pytrends.build_payload(keywords, timeframe=timeframe, geo="FR")
+                time.sleep(1 + random.uniform(0, 1))
+                df = pytrends.interest_over_time()
 
-        # Si 5 candidats ou moins, une seule requête suffit
-        if len(keywords) <= 5:
+                if df is not None and not df.empty:
+                    if "isPartial" in df.columns:
+                        df = df.drop(columns=["isPartial"])
+
+                    for kw in keywords:
+                        if kw in df.columns:
+                            scores[kw] = round(float(df[kw].mean()), 1)
+                        else:
+                            scores[kw] = 0.0
+                    break
+                else:
+                    if attempt < max_retries - 1:
+                        time.sleep(5 * (attempt + 1))
+                    else:
+                        errors.append("Données vides retournées par Google Trends")
+
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str:
+                    if attempt < max_retries - 1:
+                        time.sleep(10 * (attempt + 1) + random.uniform(0, 5))
+                    else:
+                        errors.append("Limite de requêtes Google atteinte (429)")
+                else:
+                    errors.append(f"Erreur: {err_str[:50]}")
+                    break
+
+    # Si plus de 5 candidats, utiliser un pivot pour normaliser
+    else:
+        pivot = keywords[0]
+        pivot_score = None
+        batch_size = 4
+
+        for i in range(0, len(keywords), batch_size):
+            batch = keywords[i:i+batch_size]
+            if pivot not in batch:
+                batch = [pivot] + batch
+
             for attempt in range(max_retries):
                 try:
                     time.sleep(2 + random.uniform(0, 2))
                     pytrends = TrendReq(hl="fr-FR", tz=60)
-                    pytrends.build_payload(keywords, timeframe=timeframe, geo="FR")
+                    pytrends.build_payload(batch, timeframe=timeframe, geo="FR")
                     time.sleep(1 + random.uniform(0, 1))
                     df = pytrends.interest_over_time()
 
@@ -1153,9 +1271,17 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
                         if "isPartial" in df.columns:
                             df = df.drop(columns=["isPartial"])
 
-                        for kw in keywords:
+                        if pivot_score is None and pivot in df.columns:
+                            pivot_score = float(df[pivot].mean())
+
+                        for kw in batch:
                             if kw in df.columns:
-                                scores[kw] = round(float(df[kw].mean()), 1)
+                                raw_score = float(df[kw].mean())
+                                if pivot_score and pivot_score > 0:
+                                    normalized = (raw_score / float(df[pivot].mean())) * pivot_score
+                                    scores[kw] = round(normalized, 1)
+                                else:
+                                    scores[kw] = round(raw_score, 1)
                             else:
                                 scores[kw] = 0.0
                         break
@@ -1163,7 +1289,7 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
                         if attempt < max_retries - 1:
                             time.sleep(5 * (attempt + 1))
                         else:
-                            errors.append("Données vides retournées par Google Trends")
+                            errors.append(f"Données vides pour le batch {i//batch_size + 1}")
 
                 except Exception as e:
                     err_str = str(e)
@@ -1173,81 +1299,94 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
                         else:
                             errors.append("Limite de requêtes Google atteinte (429)")
                     else:
-                        errors.append(f"Erreur: {err_str[:50]}")
+                        errors.append(f"Erreur batch {i//batch_size + 1}: {err_str[:50]}")
                         break
 
-        # Si plus de 5 candidats, utiliser un pivot pour normaliser
+    for kw in keywords:
+        if kw not in scores:
+            scores[kw] = 0.0
+
+    return {"scores": scores, "errors": errors}
+
+
+@st.cache_data(ttl=43200, show_spinner=False)  # Cache 12h
+def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> Dict:
+    """
+    Récupère les données Google Trends avec protection des quotas.
+    Utilise le cache si disponible, sinon vérifie les quotas avant l'appel API.
+    """
+    if not keywords:
+        return {"success": False, "scores": {}, "errors": ["Aucun mot-clé fourni"], "from_cache": False}
+
+    timeframe = f"{start_date.strftime('%Y-%m-%d')} {end_date.strftime('%Y-%m-%d')}"
+    cache_key = f"{timeframe}_{','.join(sorted(keywords))}"
+
+    # Charger le cache
+    cache = load_trends_cache()
+    cached_data = cache.get("data", {}).get(cache_key)
+
+    # Vérifier si le cache est encore frais
+    cache_age = get_trends_cache_age_hours()
+    if cached_data and cache_age < TRENDS_CACHE_DURATION_HOURS:
+        return {
+            "success": True,
+            "scores": cached_data.get("scores", {}),
+            "errors": None,
+            "from_cache": True,
+            "cache_age_hours": round(cache_age, 1)
+        }
+
+    # Vérifier si on peut faire une requête
+    can_request, quota_message = can_make_trends_request()
+
+    if not can_request:
+        # Quota épuisé - retourner les données en cache même si anciennes
+        if cached_data:
+            return {
+                "success": True,
+                "scores": cached_data.get("scores", {}),
+                "errors": [f"Données en cache utilisées: {quota_message}"],
+                "from_cache": True,
+                "cache_age_hours": round(cache_age, 1) if cache_age != float('inf') else None
+            }
         else:
-            pivot = keywords[0]  # Premier candidat comme référence
-            pivot_score = None
+            # Pas de cache, retourner des scores à 0
+            return {
+                "success": False,
+                "scores": {kw: 0.0 for kw in keywords},
+                "errors": [quota_message],
+                "from_cache": False
+            }
 
-            # Diviser en groupes de 4 + pivot
-            batch_size = 4
-            for i in range(0, len(keywords), batch_size):
-                batch = keywords[i:i+batch_size]
-                if pivot not in batch:
-                    batch = [pivot] + batch
+    # Faire la requête API
+    try:
+        result = _fetch_google_trends_api(keywords, timeframe)
+        scores = result.get("scores", {})
+        errors = result.get("errors", [])
 
-                for attempt in range(max_retries):
-                    try:
-                        time.sleep(2 + random.uniform(0, 2))
-                        pytrends = TrendReq(hl="fr-FR", tz=60)
-                        pytrends.build_payload(batch, timeframe=timeframe, geo="FR")
-                        time.sleep(1 + random.uniform(0, 1))
-                        df = pytrends.interest_over_time()
+        # Incrémenter le compteur de quota
+        increment_trends_quota()
 
-                        if df is not None and not df.empty:
-                            if "isPartial" in df.columns:
-                                df = df.drop(columns=["isPartial"])
-
-                            # Stocker le score du pivot de la première requête
-                            if pivot_score is None and pivot in df.columns:
-                                pivot_score = float(df[pivot].mean())
-
-                            # Normaliser tous les scores par rapport au pivot
-                            for kw in batch:
-                                if kw in df.columns:
-                                    raw_score = float(df[kw].mean())
-                                    if pivot_score and pivot_score > 0:
-                                        # Normaliser par rapport au pivot
-                                        normalized = (raw_score / float(df[pivot].mean())) * pivot_score
-                                        scores[kw] = round(normalized, 1)
-                                    else:
-                                        scores[kw] = round(raw_score, 1)
-                                else:
-                                    scores[kw] = 0.0
-                            break
-                        else:
-                            if attempt < max_retries - 1:
-                                time.sleep(5 * (attempt + 1))
-                            else:
-                                errors.append(f"Données vides pour le batch {i//batch_size + 1}")
-
-                    except Exception as e:
-                        err_str = str(e)
-                        if "429" in err_str:
-                            if attempt < max_retries - 1:
-                                time.sleep(10 * (attempt + 1) + random.uniform(0, 5))
-                            else:
-                                errors.append("Limite de requêtes Google atteinte (429)")
-                        else:
-                            errors.append(f"Erreur batch {i//batch_size + 1}: {err_str[:50]}")
-                            break
-
-        for kw in keywords:
-            if kw not in scores:
-                scores[kw] = 0.0
+        # Sauvegarder dans le cache si on a des résultats
+        if any(v > 0 for v in scores.values()):
+            cache = load_trends_cache()
+            if "data" not in cache:
+                cache["data"] = {}
+            cache["data"][cache_key] = {"scores": scores, "timestamp": datetime.now().isoformat()}
+            cache["last_refresh"] = datetime.now().isoformat()
+            save_trends_cache(cache)
 
         return {
             "success": any(v > 0 for v in scores.values()),
             "scores": scores,
-            "errors": errors if errors else None
+            "errors": errors if errors else None,
+            "from_cache": False
         }
 
     except ImportError:
-        return {"success": False, "scores": {kw: 0.0 for kw in keywords}, "error": "Module pytrends non installé"}
+        return {"success": False, "scores": {kw: 0.0 for kw in keywords}, "errors": ["Module pytrends non installé"], "from_cache": False}
     except Exception as e:
-        return {"success": False, "scores": {kw: 0.0 for kw in keywords}, "error": str(e)[:100]}
+        return {"success": False, "scores": {kw: 0.0 for kw in keywords}, "errors": [str(e)[:100]], "from_cache": False}
 
 
 def _is_short(duration: str) -> bool:
@@ -1704,6 +1843,28 @@ header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visi
         if st.button("🔄 Rafraîchir les données", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
+
+        # Afficher le statut des quotas Google Trends
+        quota_status = get_trends_quota_status()
+        with st.expander("📊 Quotas Trends", expanded=False):
+            remaining = quota_status["remaining"]
+            max_req = quota_status["max_requests"]
+            pct = (remaining / max_req) * 100 if max_req > 0 else 0
+
+            if remaining > 5:
+                st.success(f"✅ {remaining}/{max_req} requêtes restantes")
+            elif remaining > 0:
+                st.warning(f"⚠️ {remaining}/{max_req} requêtes restantes")
+            else:
+                st.error(f"❌ Quota épuisé (0/{max_req})")
+
+            if quota_status["cache_fresh"]:
+                st.info(f"💾 Cache: {quota_status['cache_age_hours']}h")
+            elif quota_status["cache_age_hours"]:
+                st.caption(f"💾 Cache ancien: {quota_status['cache_age_hours']}h")
+
+            if not quota_status["can_request"]:
+                st.caption(f"ℹ️ {quota_status['message']}")
 
         st.markdown("---")
         st.markdown("### Pondération du score")

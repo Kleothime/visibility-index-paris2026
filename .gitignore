@@ -1,0 +1,16 @@
+# Cache et fichiers locaux
+trends_cache.json
+trends_quota.json
+youtube_quota.json
+visibility_history.json
+__pycache__/
+*.pyc
+
+# Environnement
+.env
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
