@@ -2497,7 +2497,7 @@ def main():
         days_in_period = (end_date - start_date).days + 1
 
         if days_in_period < 2:
-            st.warning("Wikipedia requiert une période de 48h minimum. Les données affichées peuvent être incomplètes.")
+            st.warning("Wikipedia requiert une période de 48h minimum. Les données affichées sont incomplètes.")
 
         col1, col2 = st.columns(2)
 
@@ -2651,3 +2651,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
