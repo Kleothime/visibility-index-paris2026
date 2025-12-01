@@ -1814,6 +1814,20 @@ def main():
     data = result["candidates"]
     sorted_data = sorted(data.items(), key=lambda x: x[1]["score"]["total"], reverse=True)
 
+    # === SAUVEGARDE AUTOMATIQUE HISTORIQUE (1x par jour max) ===
+    # Ne pas sauvegarder si quotas épuisés (données faussées)
+    trends_quota_ok = not result.get("trends", {}).get("quota_exhausted", False)
+    youtube_quota_ok = not result.get("youtube", {}).get("quota_exhausted", False)
+    quotas_ok = trends_quota_ok and youtube_quota_ok
+
+    today_str = end_date.strftime("%Y-%m-%d")
+    history = load_history()
+    already_saved_today = any(h.get("date") == today_str for h in history)
+
+    if not already_saved_today and quotas_ok:
+        period_label = f"{start_date} à {end_date}"
+        add_to_history(data, period_label, end_date)
+
     # === CLASSEMENT ===
     st.markdown("---")
     st.markdown("## Classement général")
@@ -2281,45 +2295,22 @@ def main():
     # TAB 5: HISTORIQUE
     with tab5:
         st.markdown("### Évolution des scores de visibilité")
-
-        # Bouton pour construire l'historique automatiquement
-        col_btn1, col_btn2 = st.columns([1, 3])
-        with col_btn1:
-            if st.button("Générer l'historique automatique", type="primary"):
-                with st.spinner("Analyse des 8 dernières semaines en cours..."):
-                    # Construire l'historique des 8 dernières semaines (56 jours = 2 mois)
-                    today = datetime.now().date()
-
-                    # Supprimer l'ancien historique
-                    save_history([])
-
-                    progress_bar = st.progress(0)
-
-                    for week_num in range(8):
-                        # Calculer les dates de la semaine
-                        week_end = today - timedelta(days=week_num * 7)
-                        week_start = week_end - timedelta(days=6)
-
-                        # Collecter les données pour cette semaine
-                        week_result = collect_data(selected, week_start, week_end, YOUTUBE_API_KEY)
-                        week_data = week_result["candidates"]
-
-                        # Enregistrer dans l'historique
-                        period_label = f"{week_start} à {week_end}"
-                        add_to_history(week_data, period_label, week_end)
-
-                        progress_bar.progress((week_num + 1) / 8)
-
-                    st.success("Historique généré avec succès sur 8 semaines")
-                    st.rerun()
-
-        with col_btn2:
-            st.caption("Analyse automatique des 8 dernières semaines (56 jours)")
+        st.caption("L'historique se construit automatiquement à chaque visite (1 point par semaine)")
 
         # Charger l'historique existant
         history = load_history()
 
         if history and len(history) >= 1:
+            # Dédupliquer par semaine (garder 1 entrée par semaine ISO)
+            from datetime import datetime as dt
+            week_entries = {}
+            for entry in history:
+                entry_date = dt.strptime(entry["date"], "%Y-%m-%d")
+                week_key = entry_date.isocalendar()[:2]  # (year, week)
+                if week_key not in week_entries or entry["date"] > week_entries[week_key]["date"]:
+                    week_entries[week_key] = entry
+            history = list(week_entries.values())
+
             # Construire les données pour le graphique
             history_df_data = []
             for entry in sorted(history, key=lambda x: x.get("date")):
