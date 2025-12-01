@@ -632,9 +632,9 @@ def set_cached_youtube_data(candidate_name: str, data: Dict, start_date: date, e
 # CACHE GOOGLE TRENDS RELATED QUERIES
 # =============================================================================
 
-TRENDS_CACHE_DURATION_HOURS = 12  # Cache Trends pendant 12h
-TRENDS_COOLDOWN_HOURS = 1  # Minimum 1h entre les requêtes Trends
-TRENDS_MAX_REQUESTS_PER_DAY = 10  # Maximum 10 requêtes par jour
+TRENDS_CACHE_DURATION_HOURS = 24  # Cache Trends pendant 24h
+TRENDS_COOLDOWN_HOURS = 2  # Minimum 2h entre les requêtes Trends
+TRENDS_MAX_REQUESTS_PER_DAY = 5  # Maximum 5 requêtes par jour
 TRENDS_QUOTA_FILE = "trends_quota.json"
 
 
@@ -1309,7 +1309,7 @@ def _fetch_google_trends_api(keywords: List[str], timeframe: str) -> Dict:
     return {"scores": scores, "errors": errors}
 
 
-@st.cache_data(ttl=43200, show_spinner=False)  # Cache 12h
+@st.cache_data(ttl=86400, show_spinner=False)  # Cache 24h
 def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> Dict:
     """
     Récupère les données Google Trends avec protection des quotas.
