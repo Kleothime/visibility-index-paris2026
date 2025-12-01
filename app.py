@@ -664,8 +664,7 @@ def set_cached_youtube_data(candidate_name: str, data: Dict, start_date: date, e
 # =============================================================================
 
 TRENDS_CACHE_DURATION_HOURS = 6  # Cache Trends pendant 6h
-TRENDS_COOLDOWN_HOURS = 1  # Minimum 1h entre les requêtes Trends
-TRENDS_MAX_REQUESTS_PER_DAY = 8  # Maximum 8 requêtes par jour
+TRENDS_MAX_REQUESTS_PER_DAY = 12  # Maximum 12 requêtes par jour (4 périodes x 3 refreshes)
 TRENDS_QUOTA_FILE = "trends_quota.json"
 
 
@@ -708,21 +707,9 @@ def can_make_trends_request() -> tuple[bool, str]:
     """
     quota = load_trends_quota()
 
-    # Vérifier le quota journalier
+    # Vérifier le quota journalier uniquement (pas de cooldown pour permettre l'exploration rapide)
     if quota.get("requests", 0) >= TRENDS_MAX_REQUESTS_PER_DAY:
         return False, f"Quota journalier atteint ({TRENDS_MAX_REQUESTS_PER_DAY} requêtes max/jour)"
-
-    # Vérifier le cooldown
-    last_request = quota.get("last_request")
-    if last_request:
-        try:
-            last_dt = datetime.fromisoformat(last_request)
-            hours_since = (datetime.now() - last_dt).total_seconds() / 3600
-            if hours_since < TRENDS_COOLDOWN_HOURS:
-                remaining = int((TRENDS_COOLDOWN_HOURS - hours_since) * 60)
-                return False, f"Cooldown actif ({remaining} min restantes)"
-        except:
-            pass
 
     return True, "OK"
 
