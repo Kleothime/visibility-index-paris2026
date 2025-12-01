@@ -360,7 +360,10 @@ MEDIA_NAMES = {
     "paris", "match", "parismatch", "afp", "reuters", "actu", "news", "info", "presse",
     "journal", "quotidien", "hebdo", "magazine", "média", "media", "article", "source",
     "interview", "vidéo", "video", "photo", "image", "exclusif", "breaking", "alerte",
-    "direct", "live", "replay", "podcast", "émission", "emission"
+    "direct", "live", "replay", "podcast", "émission", "emission",
+    # Ajouts
+    "jdd", "lejdd", "opinion", "lopinion", "tribune", "latribune", "echos", "lesechos",
+    "telegramme", "dépêche", "depeche", "provençal", "provencal", "dauphine", "dauphiné"
 }
 
 
@@ -810,7 +813,7 @@ STOP_WORDS = {
     "interview", "interviews", "émission", "plateau", "direct", "live",
     "exclusif", "exclusivité", "révélation", "scoop", "breaking",
 
-    # Verbes journalistiques et génériques
+    # Verbes journalistiques et génériques (infinitifs + conjugaisons)
     "lance", "annonce", "révèle", "affirme", "confie", "déclare", "explique",
     "raconte", "officialise", "présente", "veut", "souhaite", "demande",
     "faut", "falloir", "doit", "peut", "pourrait", "devrait", "soit", "être",
@@ -823,6 +826,22 @@ STOP_WORDS = {
     "répond", "répondre", "répondu", "pose", "poser", "posé", "posée",
     "attend", "attendre", "attendu", "propose", "proposer", "proposé",
     "revient", "revenir", "revenu", "revenue", "appelle", "appeler", "appelé",
+    # Verbes conjugués courants (imparfait, passé, etc.)
+    "pouvait", "devait", "avait", "était", "allait", "faisait", "disait", "voyait",
+    "voulait", "savait", "venait", "tenait", "prenait", "mettait", "donnait",
+    "perdre", "perdu", "perdue", "perdait", "perd", "gagne", "gagner", "gagné",
+    "marcher", "marche", "marchait", "marché", "courir", "court", "courait",
+    "tomber", "tombe", "tombé", "tombait", "monter", "monte", "monté", "montait",
+    "descendre", "descend", "descendu", "descendait", "passer", "passe", "passé", "passait",
+    "commencer", "commence", "commencé", "commençait", "finir", "finit", "fini", "finissait",
+    "continuer", "continue", "continué", "continuait", "arrêter", "arrête", "arrêté",
+    "essayer", "essaie", "essayé", "essayait", "tenter", "tente", "tenté", "tentait",
+    "réussir", "réussit", "réussi", "réussissait", "échouer", "échoue", "échoué",
+    "changer", "change", "changé", "changeait", "garder", "garde", "gardé", "gardait",
+    "lancer", "lancé", "lançait", "ouvrir", "ouvre", "ouvert", "ouvrait",
+    "fermer", "ferme", "fermé", "fermait", "suivre", "suit", "suivi", "suivait",
+    # Mots tronqués et fragments
+    "quelqu", "lorsqu", "puisqu", "quoiqu", "jusqu", "aujourd",
 
     # Mots de temps
     "ans", "année", "années", "jour", "jours", "mois", "semaine", "semaines",
@@ -898,13 +917,17 @@ def extract_keywords_from_articles(articles: List[Dict], candidate_name: str, to
         # Remplacer l', d', qu', n', s', j', m', t', c' par un espace
         title_clean = re.sub(r"\b[lLdDqQnNsSmMtTcCjJ]['']\s*", "", title)
 
-        # Étape 2: Extraire les mots (min 3 caractères)
-        words = re.findall(r'\b[a-zA-ZàâäéèêëïîôùûüçœæÀÂÄÉÈÊËÏÎÔÙÛÜÇŒÆ]{3,}\b', title_clean.lower())
+        # Étape 2: Extraire les mots (min 4 caractères pour éviter bruit)
+        words = re.findall(r'\b[a-zA-ZàâäéèêëïîôùûüçœæÀÂÄÉÈÊËÏÎÔÙÛÜÇŒÆ]{4,}\b', title_clean.lower())
 
         # Étape 3: Lemmatiser et filtrer
         seen_in_article = set()  # Éviter de compter plusieurs fois le même lemme dans un article
         for word in words:
             lemma = lemmatize_word(word)
+
+            # Ignorer mots trop courts après lemmatisation
+            if len(lemma) < 4:
+                continue
 
             # Ignorer stop words, nom du candidat et noms de médias
             if lemma in STOP_WORDS or lemma in name_parts or lemma in MEDIA_NAMES:
