@@ -194,144 +194,6 @@ def load_sondages() -> List[Dict]:
     return sorted(sondages, key=lambda x: x["date"], reverse=True)
 
 
-def save_sondages(sondages: List[Dict]) -> bool:
-    """Sauvegarde les sondages dans le fichier JSON"""
-    try:
-        # Ne sauvegarder que les sondages qui ne sont pas dans SONDAGES_BASE
-        base_keys = {
-            (s["date"], s["institut"], s.get("hypothese", ""))
-            for s in SONDAGES_BASE
-        }
-        to_save = [
-            s for s in sondages
-            if (s["date"], s["institut"], s.get("hypothese", "")) not in base_keys
-        ]
-
-        with open(SONDAGES_FILE, "w", encoding="utf-8") as f:
-            json.dump(to_save, f, indent=2, ensure_ascii=False)
-        return True
-    except Exception as e:
-        st.error(f"Erreur sauvegarde sondages: {e}")
-        return False
-
-
-def add_sondage(sondage: Dict) -> bool:
-    """Ajoute un sondage s'il n'existe pas déjà"""
-    sondages = load_sondages()
-    key = (sondage["date"], sondage["institut"], sondage.get("hypothese", ""))
-
-    existing_keys = {
-        (s["date"], s["institut"], s.get("hypothese", ""))
-        for s in sondages
-    }
-
-    if key not in existing_keys:
-        sondages.append(sondage)
-        return save_sondages(sondages)
-    return False  # Déjà existant
-
-
-def fetch_new_sondages() -> List[Dict]:
-    """
-    Recherche de nouveaux sondages sur les sources officielles.
-    Retourne la liste des nouveaux sondages trouvés.
-    """
-    new_sondages = []
-
-    # Sources à scraper
-    sources = [
-        {
-            "name": "IFOP",
-            "search_url": "https://www.google.com/search?q=site:ifop.com+sondage+municipales+paris+2026",
-        },
-        {
-            "name": "Elabe",
-            "search_url": "https://www.google.com/search?q=site:elabe.fr+sondage+municipales+paris+2026",
-        },
-        {
-            "name": "Harris Interactive",
-            "search_url": "https://www.google.com/search?q=site:harris-interactive.fr+sondage+municipales+paris",
-        },
-        {
-            "name": "OpinionWay",
-            "search_url": "https://www.google.com/search?q=site:opinion-way.com+sondage+municipales+paris",
-        },
-    ]
-
-    # Note: Le scraping automatique des instituts est complexe car chaque site
-    # a une structure différente. On utilise plutôt une recherche Google News
-    # pour détecter les nouveaux sondages.
-
-    try:
-        # Recherche via Google News RSS
-        search_query = "sondage municipales Paris 2026 IFOP OR Elabe OR Harris OR OpinionWay"
-        rss_url = f"https://news.google.com/rss/search?q={quote_plus(search_query)}&hl=fr&gl=FR&ceid=FR:fr"
-
-        response = requests.get(rss_url, timeout=15)
-        if response.status_code == 200:
-            root = ET.fromstring(response.content)
-
-            for item in root.findall(".//item"):
-                title = item.findtext("title", "").lower()
-                link = item.findtext("link", "")
-                pub_date = item.findtext("pubDate", "")
-
-                # Filtrer les articles qui parlent de sondages Paris
-                if "sondage" in title and "paris" in title:
-                    # Détecter l'institut
-                    institut = None
-                    if "ifop" in title:
-                        institut = "IFOP"
-                    elif "elabe" in title:
-                        institut = "Elabe"
-                    elif "harris" in title:
-                        institut = "Harris Interactive"
-                    elif "opinionway" in title:
-                        institut = "OpinionWay"
-                    elif "ipsos" in title:
-                        institut = "Ipsos"
-
-                    if institut:
-                        # Parser la date
-                        try:
-                            from email.utils import parsedate_to_datetime
-                            dt = parsedate_to_datetime(pub_date)
-                            date_str = dt.strftime("%Y-%m-%d")
-                        except:
-                            date_str = datetime.now().strftime("%Y-%m-%d")
-
-                        new_sondages.append({
-                            "detected": True,
-                            "date": date_str,
-                            "institut": institut,
-                            "title": item.findtext("title", ""),
-                            "url": link,
-                            "source": "Google News"
-                        })
-
-    except Exception as e:
-        st.warning(f"Erreur recherche sondages: {e}")
-
-    return new_sondages
-
-
-# Variable globale pour les sondages (chargée au démarrage)
-SONDAGES = load_sondages()
-
-
-def get_latest_sondage():
-    """Retourne le sondage le plus récent"""
-    if not SONDAGES:
-        return None
-    return max(SONDAGES, key=lambda x: x["date"])
-
-def get_candidate_sondage_score(candidate_name: str) -> Optional[int]:
-    """Retourne le score du candidat dans le dernier sondage"""
-    latest = get_latest_sondage()
-    if latest and candidate_name in latest["scores"]:
-        return latest["scores"][candidate_name]
-    return None
-
 # Médias TV et Radio français principaux
 MEDIAS_TV_RADIO = [
     "BFM", "BFMTV", "LCI", "CNews", "TF1", "France 2", "France 3",
@@ -408,11 +270,6 @@ def get_cloud_config():
         api_key = st.session_state.get("jsonbin_api_key", "")
 
     return bin_id, api_key
-
-def is_cloud_configured() -> bool:
-    """Vérifie si la persistance cloud est configurée"""
-    bin_id, api_key = get_cloud_config()
-    return bool(bin_id and api_key)
 
 # =============================================================================
 # HISTORIQUE (avec fallback local)
@@ -597,23 +454,6 @@ def increment_youtube_quota(cost: int = YOUTUBE_COST_PER_CANDIDATE):
     save_youtube_cache(cache)
 
 
-def get_cached_youtube_data(candidate_name: str) -> Optional[Dict]:
-    """Récupère les données YouTube en cache pour un candidat et une période exacte"""
-    cache = load_youtube_cache()
-    entry = cache.get("data", {}).get(candidate_name)
-    if not entry:
-        return None
-
-    start = entry.get("start")
-    end = entry.get("end")
-    payload = entry.get("payload")
-
-    if not (start and end and payload):
-        return None
-
-    return payload
-
-
 def get_cached_youtube_data_for_period(candidate_name: str, start_date: date, end_date: date, allow_fallback: bool = False) -> Optional[Dict]:
     """
     Récupère le cache YouTube.
@@ -712,23 +552,6 @@ def can_make_trends_request() -> tuple[bool, str]:
         return False, f"Quota journalier atteint ({TRENDS_MAX_REQUESTS_PER_DAY} requêtes max/jour)"
 
     return True, "OK"
-
-
-def get_trends_quota_status() -> Dict:
-    """Retourne le statut actuel des quotas Trends"""
-    quota = load_trends_quota()
-    can_request, message = can_make_trends_request()
-    cache_age = get_trends_cache_age_hours()
-
-    return {
-        "requests_today": quota.get("requests", 0),
-        "max_requests": TRENDS_MAX_REQUESTS_PER_DAY,
-        "remaining": max(0, TRENDS_MAX_REQUESTS_PER_DAY - quota.get("requests", 0)),
-        "can_request": can_request,
-        "message": message,
-        "cache_age_hours": round(cache_age, 1) if cache_age != float('inf') else None,
-        "cache_fresh": cache_age < TRENDS_CACHE_DURATION_HOURS
-    }
 
 
 def load_trends_cache() -> Dict:
@@ -908,13 +731,19 @@ def format_number(n: int) -> str:
         return f"{n:,}".replace(",", " ")
     return str(n)
 
-def format_number_short(n: int) -> str:
-    """Formate un nombre en version courte pour graphiques"""
-    if n >= 1_000_000:
-        return f"{n/1_000_000:.1f}M".replace(".", ",")
-    elif n >= 1_000:
-        return f"{n/1_000:.0f}k".replace(".", ",")
-    return str(n)
+
+def format_candidate_name(name: str, html: bool = False) -> str:
+    """Formate le nom du candidat - Sarah Knafo en gras"""
+    if name == "Sarah Knafo":
+        if html:
+            return f"<b>{name}</b>"
+        return f"**{name}**"
+    return name
+
+
+def is_sarah_knafo(name: str) -> bool:
+    """Vérifie si c'est Sarah Knafo"""
+    return name == "Sarah Knafo"
 
 
 # Mots vides français à ignorer dans l'analyse
@@ -1073,12 +902,6 @@ def extract_keywords_from_articles(articles: List[Dict], candidate_name: str, to
     # Retourner les top mots-clés avec leurs articles associés
     top_keywords = word_counts.most_common(top_n)
     return [(word, count, word_articles.get(word, [])) for word, count in top_keywords]
-
-def get_keywords_summary(keywords: List[tuple], max_display: int = 5) -> str:
-    """Formate les mots-clés pour affichage"""
-    if not keywords:
-        return "-"
-    return " · ".join([f"{word} ({count})" for word, count in keywords[:max_display]])
 
 # =============================================================================
 # FONCTIONS DE COLLECTE
@@ -1969,11 +1792,11 @@ def main():
 
         with col_yt1:
             if yt_cache_age == float('inf'):
-                st.metric("?ge des donn?es", "Jamais charg?")
+                st.metric("Âge des données", "Jamais chargé")
             elif yt_cache_age < 1:
-                st.metric("?ge des donn?es", f"{int(yt_cache_age * 60)} min")
+                st.metric("Âge des données", f"{int(yt_cache_age * 60)} min")
             else:
-                st.metric("?ge des donn?es", f"{yt_cache_age:.1f}h")
+                st.metric("Âge des données", f"{yt_cache_age:.1f}h")
 
         with col_yt2:
             quota_pct = (yt_quota / YOUTUBE_QUOTA_DAILY_LIMIT) * 100
@@ -1981,25 +1804,25 @@ def main():
 
         with col_yt3:
             if yt_mode == "disabled":
-                st.info("API YouTube non configur?e")
+                st.info("API YouTube non configurée")
             elif yt_mode == "cache":
                 st.info(f"Depuis cache ({yt_status.get('refresh_reason')})")
             else:
-                st.success("Donn?es fra?ches")
+                st.success("Données fraîches")
 
         # Bouton refresh manuel avec gardes-fous
         if yt_mode == "disabled":
-            st.warning("Refresh impossible : cl? API YouTube absente")
+            st.warning("Refresh impossible : clé API YouTube absente")
         else:
             expected_cost = len(selected) * YOUTUBE_COST_PER_CANDIDATE
             can_refresh, refresh_reason = can_refresh_youtube(force=True, expected_cost=expected_cost)
             if can_refresh:
-                help_text = f"Rafra?chir les donn?es YouTube (co?t estim? {expected_cost} unit?s)"
+                help_text = f"Rafraîchir les données YouTube (coût estimé {expected_cost} unités)"
                 if st.button("Forcer refresh YouTube", help=help_text):
                     st.session_state["force_youtube_refresh"] = True
                     st.rerun()
             else:
-                st.warning(f"Refresh bloqu? : {refresh_reason}")
+                st.warning(f"Refresh bloqué : {refresh_reason}")
 
     # === CLASSEMENT ===
     st.markdown("---")
@@ -2032,18 +1855,15 @@ def main():
 
     df = pd.DataFrame(rows)
 
-    col_config = {
-        'Rang': st.column_config.NumberColumn('Rang', format='%d'),
-        'Score': st.column_config.ProgressColumn('Score / 100', min_value=0, max_value=100, format='%.1f'),
-        'Thèmes': st.column_config.TextColumn('Thèmes presse', help='Mots-clés extraits des articles de presse'),
-        'Top Média': st.column_config.TextColumn('Top Média', help='Média qui parle le plus du candidat'),
-        'Articles': st.column_config.NumberColumn('Articles', format='%d'),
-        'Trends': st.column_config.NumberColumn('Trends', format='%.0f'),
-        'Wikipedia': st.column_config.TextColumn('Wikipedia'),
-        'Vues YT': st.column_config.TextColumn('Vues YT'),
-    }
+    # Styler pour mettre Sarah Knafo en gras
+    def highlight_knafo(row):
+        if row['Candidat'] == 'Sarah Knafo':
+            return ['font-weight: bold; background-color: rgba(30, 58, 95, 0.15)'] * len(row)
+        return [''] * len(row)
 
-    st.dataframe(df, column_config=col_config, hide_index=True, use_container_width=True)
+    styled_df = df.style.apply(highlight_knafo, axis=1)
+
+    st.dataframe(styled_df, hide_index=True, use_container_width=True)
 
     # Metriques
     leader = sorted_data[0][1]
@@ -2073,6 +1893,8 @@ def main():
 
     names = [d['info']['name'] for _, d in sorted_data]
     colors = [d['info']['color'] for _, d in sorted_data]
+    # Noms avec Sarah Knafo en gras (HTML pour Plotly)
+    names_html = [f"<b>{n}</b>" if n == "Sarah Knafo" else n for n in names]
 
     # Config Plotly pour mobile (graphiques statiques = pas de capture du scroll)
     plotly_config = {
@@ -2089,7 +1911,7 @@ def main():
 
         with col1:
             scores = [d['score']['total'] for _, d in sorted_data]
-            fig = px.bar(x=names, y=scores, color=names, color_discrete_sequence=colors,
+            fig = px.bar(x=names_html, y=scores, color=names, color_discrete_sequence=colors,
                         title='Score de visibilite')
             fig.update_layout(
                 showlegend=False,
@@ -2109,8 +1931,10 @@ def main():
             decomp_data = []
             for _, d in sorted_data:
                 s = d['score']
+                name = d['info']['name']
+                name_display = f"<b>{name}</b>" if name == "Sarah Knafo" else name
                 decomp_data.append({
-                    'Candidat': d['info']['name'],
+                    'Candidat': name_display,
                     'Presse (40%)': s['contrib_press'],
                     'Trends (35%)': s['contrib_trends'],
                     'Wikipedia (15%)': s['contrib_wiki'],
@@ -2149,8 +1973,11 @@ def main():
         for rank, (cid, d) in enumerate(sorted_data, 1):
             keywords = d.get('keywords', [])
             name = d['info']['name']
+            # Sarah Knafo en gras dans le titre
+            expander_title = f'{rank}. **{name}** ⭐' if name == "Sarah Knafo" else f'{rank}. {name}'
+            is_knafo = name == "Sarah Knafo"
 
-            with st.expander(f'{rank}. {name}', expanded=(rank <= 3)):
+            with st.expander(expander_title, expanded=(rank <= 3 or is_knafo)):
                 if keywords:
                     for word, count, articles in keywords:
                         st.markdown(f"**{word}** ({count} mentions)")
@@ -2176,7 +2003,13 @@ def main():
                 'Thème 3': top_3[2] if len(top_3) > 2 else '-',
             })
 
-        st.dataframe(pd.DataFrame(recap_data), use_container_width=True, hide_index=True)
+        df_recap = pd.DataFrame(recap_data)
+        # Styler pour Sarah Knafo en gras
+        def highlight_knafo_recap(row):
+            if row['Candidat'] == 'Sarah Knafo':
+                return ['font-weight: bold; background-color: rgba(30, 58, 95, 0.15)'] * len(row)
+            return [''] * len(row)
+        st.dataframe(df_recap.style.apply(highlight_knafo_recap, axis=1), use_container_width=True, hide_index=True)
     # TAB 3: SONDAGES
     with tab3:
         st.markdown("### Sondages d'intentions de vote")
@@ -2207,9 +2040,11 @@ def main():
             for item in latest_data:
                 candidat = item["Candidat"]
                 color = color_map.get(candidat, "#888")
+                # Sarah Knafo en gras sur l'axe X
+                x_label = f"<b>{candidat}</b>" if candidat == "Sarah Knafo" else candidat
                 fig_latest.add_trace(go.Bar(
                     name=candidat,
-                    x=[candidat],
+                    x=[x_label],
                     y=[item["Intentions"]],
                     marker_color=color,
                     text=[f"{item['Intentions']}%"],
@@ -2226,9 +2061,14 @@ def main():
             )
             st.plotly_chart(fig_latest, use_container_width=True, config=plotly_config)
 
-            # Tableau du dernier sondage
+            # Tableau du dernier sondage avec Sarah Knafo en gras
+            df_latest = pd.DataFrame(latest_data)
+            def highlight_knafo_sondage(row):
+                if row['Candidat'] == 'Sarah Knafo':
+                    return ['font-weight: bold; background-color: rgba(30, 58, 95, 0.15)'] * len(row)
+                return [''] * len(row)
             st.dataframe(
-                pd.DataFrame(latest_data),
+                df_latest.style.apply(highlight_knafo_sondage, axis=1),
                 use_container_width=True,
                 hide_index=True
             )
@@ -2291,7 +2131,7 @@ def main():
             st.markdown("#### Detail par sondage")
 
             for sondage in sorted(sondages_actuels, key=lambda x: x["date"], reverse=True):
-                with st.expander(f"{sondage['institut']} - {sondage['date']} - {sondage['hypothese'][:50]}...", expanded=(sondage == get_latest_sondage())):
+                with st.expander(f"{sondage['institut']} - {sondage['date']} - {sondage['hypothese'][:50]}...", expanded=(sondage == sondages_actuels[0])):
                     col_info, col_chart = st.columns([1, 2])
 
                     with col_info:
@@ -2342,6 +2182,7 @@ def main():
             tv = d.get("tv_radio", {})
             mentions = tv.get("mentions", [])
             top_media = tv.get("top_media", [])
+            name = d["info"]["name"]
 
             top_media_html = ""
             if top_media:
@@ -2361,8 +2202,10 @@ def main():
                         links.append(f"{media_name} ({count})")
                 top_media_html = " · ".join(links)
 
+            # Sarah Knafo en gras dans le HTML
+            candidat_html = f"<b>{name}</b>" if name == "Sarah Knafo" else name
             tv_data.append({
-                "Candidat": d["info"]["name"],
+                "Candidat": candidat_html,
                 "Mentions": tv.get("count", 0),
                 "Top médias": top_media_html if top_media_html else "-"
             })
@@ -2375,9 +2218,12 @@ def main():
         for cid, d in sorted_data:
             tv = d.get("tv_radio", {})
             mentions = tv.get("mentions", [])
+            name = d["info"]["name"]
 
             if mentions:
-                with st.expander(f"{d['info']['name']} - {len(mentions)} mention(s)"):
+                # Sarah Knafo en gras dans le titre de l'expander
+                expander_title = f"**{name}** ⭐ - {len(mentions)} mention(s)" if name == "Sarah Knafo" else f"{name} - {len(mentions)} mention(s)"
+                with st.expander(expander_title):
                     # Clé unique pour chaque candidat
                     show_all_mentions_key = f"show_all_mentions_{cid}"
                     if show_all_mentions_key not in st.session_state:
@@ -2608,7 +2454,7 @@ def main():
         with col1:
             wiki_views = [d["wikipedia"]["views"] for _, d in sorted_data]
             fig = px.bar(
-                x=names,
+                x=names_html,
                 y=wiki_views,
                 color=names,
                 color_discrete_sequence=colors,
@@ -2627,7 +2473,7 @@ def main():
         with col2:
             variations = [max(min(d["wikipedia"]["variation"], 100), -100) for _, d in sorted_data]
             fig = px.bar(
-                x=names,
+                x=names_html,
                 y=variations,
                 color=variations,
                 color_continuous_scale=["#dc2626", "#6b7280", "#16a34a"],
@@ -2651,7 +2497,7 @@ def main():
         with col1:
             articles = [d["press"]["count"] for _, d in sorted_data]
             fig = px.bar(
-                x=names,
+                x=names_html,
                 y=articles,
                 color=names,
                 color_discrete_sequence=colors,
@@ -2669,7 +2515,7 @@ def main():
 
         with col2:
             fig = px.pie(
-                names=names,
+                names=names_html,
                 values=articles,
                 color=names,
                 color_discrete_sequence=colors,
@@ -2686,7 +2532,9 @@ def main():
 
     for rank, (cid, d) in enumerate(sorted_data, 1):
         arts = d["press"]["articles"]
-        with st.expander(f"{rank}. {d['info']['name']} — {len(arts)} article(s)"):
+        name = d['info']['name']
+        expander_title = f"{rank}. **{name}** ⭐ — {len(arts)} article(s)" if name == "Sarah Knafo" else f"{rank}. {name} — {len(arts)} article(s)"
+        with st.expander(expander_title):
             if arts:
                 # Clé unique pour chaque candidat
                 show_all_key = f"show_all_articles_{cid}"
@@ -2722,8 +2570,10 @@ def main():
     else:
         for rank, (cid, d) in enumerate(sorted_data, 1):
             yt = d["youtube"]
+            name = d['info']['name']
             if yt.get("available") and yt.get("videos"):
-                with st.expander(f"{rank}. {d['info']['name']} — {format_number(yt['total_views'])} vues"):
+                expander_title = f"{rank}. **{name}** ⭐ — {format_number(yt['total_views'])} vues" if name == "Sarah Knafo" else f"{rank}. {name} — {format_number(yt['total_views'])} vues"
+                with st.expander(expander_title):
                     # Clé unique pour chaque candidat
                     show_all_videos_key = f"show_all_videos_{cid}"
                     if show_all_videos_key not in st.session_state:
