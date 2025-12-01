@@ -1653,7 +1653,7 @@ header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visi
 
         if period_type == "Prédéfinie":
             period_options = {"24 heures": 1, "7 jours": 7, "14 jours": 14, "30 jours": 30}
-            period_label = st.selectbox("Durée", list(period_options.keys()), index=0)  # 24h par défaut
+            period_label = st.selectbox("Durée", list(period_options.keys()), index=2)  # 14 jours par défaut
             period_days = period_options[period_label]
             end_date = date.today()
             start_date = end_date - timedelta(days=period_days - 1)
