@@ -434,8 +434,7 @@ def can_refresh_youtube(force: bool = False, expected_cost: int = YOUTUBE_COST_P
     # Vérifier le quota
     remaining_quota = get_youtube_quota_remaining()
     if remaining_quota < expected_cost:
-        wait_time = get_time_until_midnight()
-        return False, f"Quota épuisé - réessayez dans {wait_time}"
+        return False, f"Quota insuffisant ({remaining_quota} < {expected_cost} nécessaires)"
 
     return True, "OK"
 
@@ -541,11 +540,19 @@ def increment_trends_quota() -> bool:
     return save_trends_quota(quota)
 
 
-def get_time_until_midnight() -> str:
-    """Retourne le temps restant jusqu'à minuit (reset des quotas)"""
+def get_time_until_quota_reset() -> str:
+    """Retourne le temps restant jusqu'à 9h (reset des quotas Google API - minuit Pacific = 9h Paris)"""
     now = datetime.now()
-    midnight = datetime(now.year, now.month, now.day) + timedelta(days=1)
-    delta = midnight - now
+    # Reset à 9h du matin (heure de Paris)
+    reset_today = datetime(now.year, now.month, now.day, 9, 0, 0)
+    if now.hour >= 9:
+        # Après 9h, le prochain reset est demain à 9h
+        reset_time = reset_today + timedelta(days=1)
+    else:
+        # Avant 9h, le reset est aujourd'hui à 9h
+        reset_time = reset_today
+
+    delta = reset_time - now
     hours = int(delta.total_seconds() // 3600)
     minutes = int((delta.total_seconds() % 3600) // 60)
     if hours > 0:
@@ -562,8 +569,7 @@ def can_make_trends_request() -> tuple[bool, str]:
 
     # Vérifier le quota journalier uniquement (pas de cooldown pour permettre l'exploration rapide)
     if quota.get("requests", 0) >= TRENDS_MAX_REQUESTS_PER_DAY:
-        wait_time = get_time_until_midnight()
-        return False, f"Quota épuisé - réessayez dans {wait_time}"
+        return False, f"Quota journalier atteint ({TRENDS_MAX_REQUESTS_PER_DAY} requêtes max/jour)"
 
     return True, "OK"
 
@@ -1576,7 +1582,11 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
     if not trends.get("success", True):
         err = trends.get("error") or trends.get("errors")
         if err:
-            st.warning(f"Attention : Google Trends indisponible - {err}")
+            if trends.get("quota_exhausted"):
+                wait_time = get_time_until_quota_reset()
+                st.warning(f"⏳ Google Trends : quota épuisé. Données disponibles dans {wait_time} (9h)")
+            else:
+                st.warning(f"Attention : Google Trends indisponible - {err}")
 
     progress.progress(0.1)
 
