@@ -750,48 +750,6 @@ def save_trends_cache(cache: Dict) -> bool:
         return False
 
 
-def get_any_trends_cache(keywords: List[str]) -> Optional[Dict]:
-    """
-    Fallback: récupère n'importe quel cache Trends disponible pour ces candidats.
-    Retourne le cache le plus récent, même si période différente.
-    """
-    cache = load_trends_cache()
-    all_data = cache.get("data", {})
-
-    if not all_data:
-        return None
-
-    # Chercher le cache le plus récent qui contient ces keywords
-    keywords_set = set(keywords)
-    best_match = None
-    best_timestamp = None
-
-    for cache_key, entry in all_data.items():
-        if not entry or not entry.get("scores"):
-            continue
-
-        # Vérifier si ce cache contient les mêmes candidats
-        cached_keywords = set(entry.get("scores", {}).keys())
-        if not keywords_set.issubset(cached_keywords) and not cached_keywords.issubset(keywords_set):
-            continue
-
-        # Prendre le plus récent
-        entry_timestamp = entry.get("timestamp")
-        if entry_timestamp:
-            if best_timestamp is None or entry_timestamp > best_timestamp:
-                best_timestamp = entry_timestamp
-                best_match = entry
-
-    if best_match:
-        return {
-            "scores": best_match.get("scores", {}),
-            "timestamp": best_timestamp,
-            "fallback": True
-        }
-
-    return None
-
-
 def get_trends_cache_age_hours(cache_key: str = None) -> float:
     """Retourne l'âge du cache Trends en heures (global ou par clé)"""
     cache = load_trends_cache()
@@ -1476,24 +1434,14 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
                 "cache_age_hours": round(cache_age, 1) if cache_age != float('inf') else None
             }
         else:
-            # Pas de cache exact - essayer le fallback (cache d'une autre période)
-            fallback = get_any_trends_cache(keywords)
-            if fallback:
-                # Utiliser les scores du fallback, filtrer pour les keywords demandés
-                fallback_scores = {kw: fallback["scores"].get(kw, 0.0) for kw in keywords}
-                return {
-                    "success": True,
-                    "scores": fallback_scores,
-                    "errors": [f"Données fallback utilisées: {quota_message}"],
-                    "from_cache": True,
-                    "fallback": True
-                }
-            # Vraiment aucun cache - retourner des scores à 0
+            # Pas de cache pour cette période exacte - retourner indisponible
+            # (on ne mélange PAS les données d'autres périodes pour éviter de fausser les résultats)
             return {
                 "success": False,
                 "scores": {kw: 0.0 for kw in keywords},
-                "errors": [quota_message],
-                "from_cache": False
+                "errors": [f"Données indisponibles pour cette période: {quota_message}"],
+                "from_cache": False,
+                "quota_exhausted": True
             }
 
     # Faire la requête API
@@ -1835,8 +1783,8 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             set_cached_youtube_data(name, youtube, yt_start, yt_end)
             youtube_api_called = True
         elif youtube_mode == "cache":
-            # Essayer le cache exact d'abord, sinon fallback sur n'importe quel cache
-            cached = get_cached_youtube_data_for_period(name, yt_start, yt_end, allow_fallback=True)
+            # Utiliser uniquement le cache de la période exacte (pas de fallback cross-période)
+            cached = get_cached_youtube_data_for_period(name, yt_start, yt_end, allow_fallback=False)
             if cached:
                 youtube = dict(cached)
                 youtube["from_cache"] = True
