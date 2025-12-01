@@ -1,512 +1,8 @@
 [
   {
-    "date": "2025-10-04",
-    "timestamp": "2025-11-29T21:57:56.757347",
-    "period": "2025-09-28 à 2025-10-04",
-    "scores": {
-      "Rachida Dati": {
-        "total": 44.7,
-        "trends": 50.3,
-        "press": 4,
-        "wiki": 14855,
-        "youtube": 1880082
-      },
-      "Emmanuel Grégoire": {
-        "total": 23.6,
-        "trends": 0,
-        "press": 5,
-        "wiki": 1583,
-        "youtube": 140285
-      },
-      "Pierre-Yves Bournazel": {
-        "total": 15.6,
-        "trends": 0,
-        "press": 1,
-        "wiki": 941,
-        "youtube": 1163
-      },
-      "Ian Brossat": {
-        "total": 18.3,
-        "trends": 0,
-        "press": 0,
-        "wiki": 1625,
-        "youtube": 65126
-      },
-      "David Belliard": {
-        "total": 13.9,
-        "trends": 0,
-        "press": 0,
-        "wiki": 495,
-        "youtube": 1455
-      },
-      "Sophia Chikirou": {
-        "total": 30.1,
-        "trends": 5,
-        "press": 7,
-        "wiki": 11619,
-        "youtube": 75045
-      },
-      "Thierry Mariani": {
-        "total": 22.8,
-        "trends": 5,
-        "press": 2,
-        "wiki": 1506,
-        "youtube": 210547
-      }
-    }
-  },
-  {
-    "date": "2025-11-29",
-    "timestamp": "2025-11-29T22:09:20.966510",
-    "period": "2025-11-23 à 2025-11-29",
-    "scores": {
-      "Rachida Dati": {
-        "total": 87.5,
-        "trends": 67.1,
-        "press": 97,
-        "wiki": 23841,
-        "youtube": 1880082
-      },
-      "Emmanuel Grégoire": {
-        "total": 37,
-        "trends": 8.4,
-        "press": 13,
-        "wiki": 9799,
-        "youtube": 140285
-      },
-      "Pierre-Yves Bournazel": {
-        "total": 20.3,
-        "trends": 0.1,
-        "press": 4,
-        "wiki": 2751,
-        "youtube": 1163
-      },
-      "Ian Brossat": {
-        "total": 23.7,
-        "trends": 1.6,
-        "press": 5,
-        "wiki": 1677,
-        "youtube": 65126
-      },
-      "David Belliard": {
-        "total": 24.9,
-        "trends": 2.3,
-        "press": 8,
-        "wiki": 2573,
-        "youtube": 1455
-      },
-      "Sophia Chikirou": {
-        "total": 25.2,
-        "trends": 8,
-        "press": 1,
-        "wiki": 13591,
-        "youtube": 75045
-      },
-      "Thierry Mariani": {
-        "total": 21.5,
-        "trends": 8,
-        "press": 0,
-        "wiki": 1240,
-        "youtube": 210547
-      }
-    }
-  },
-  {
-    "date": "2025-11-22",
-    "timestamp": "2025-11-29T22:09:21.952324",
-    "period": "2025-11-16 à 2025-11-22",
-    "scores": {
-      "Rachida Dati": {
-        "total": 75.7,
-        "trends": 60.7,
-        "press": 36,
-        "wiki": 15928,
-        "youtube": 1880082
-      },
-      "Emmanuel Grégoire": {
-        "total": 24,
-        "trends": 3.3,
-        "press": 3,
-        "wiki": 3043,
-        "youtube": 140285
-      },
-      "Pierre-Yves Bournazel": {
-        "total": 25,
-        "trends": 0.3,
-        "press": 9,
-        "wiki": 2385,
-        "youtube": 1163
-      },
-      "Ian Brossat": {
-        "total": 22,
-        "trends": 3.3,
-        "press": 2,
-        "wiki": 2304,
-        "youtube": 65126
-      },
-      "David Belliard": {
-        "total": 18.7,
-        "trends": 1.3,
-        "press": 3,
-        "wiki": 1233,
-        "youtube": 1455
-      },
-      "Sophia Chikirou": {
-        "total": 36.6,
-        "trends": 6.9,
-        "press": 12,
-        "wiki": 18141,
-        "youtube": 75045
-      },
-      "Thierry Mariani": {
-        "total": 22.3,
-        "trends": 6.9,
-        "press": 0,
-        "wiki": 2772,
-        "youtube": 210547
-      }
-    }
-  },
-  {
-    "date": "2025-11-15",
-    "timestamp": "2025-11-29T22:09:22.959501",
-    "period": "2025-11-09 à 2025-11-15",
-    "scores": {
-      "Rachida Dati": {
-        "total": 65.6,
-        "trends": 85.1,
-        "press": 13,
-        "wiki": 12740,
-        "youtube": 1880082
-      },
-      "Emmanuel Grégoire": {
-        "total": 21.7,
-        "trends": 0.7,
-        "press": 2,
-        "wiki": 2486,
-        "youtube": 140285
-      },
-      "Pierre-Yves Bournazel": {
-        "total": 17.2,
-        "trends": 0,
-        "press": 1,
-        "wiki": 2981,
-        "youtube": 1163
-      },
-      "Ian Brossat": {
-        "total": 20.5,
-        "trends": 0.6,
-        "press": 2,
-        "wiki": 1530,
-        "youtube": 65126
-      },
-      "David Belliard": {
-        "total": 21.8,
-        "trends": 0.3,
-        "press": 6,
-        "wiki": 1533,
-        "youtube": 1455
-      },
-      "Sophia Chikirou": {
-        "total": 57.9,
-        "trends": 8.7,
-        "press": 38,
-        "wiki": 32500,
-        "youtube": 75045
-      },
-      "Thierry Mariani": {
-        "total": 21.8,
-        "trends": 8.7,
-        "press": 0,
-        "wiki": 1260,
-        "youtube": 210547
-      }
-    }
-  },
-  {
-    "date": "2025-11-08",
-    "timestamp": "2025-11-29T22:09:23.959244",
-    "period": "2025-11-02 à 2025-11-08",
-    "scores": {
-      "Rachida Dati": {
-        "total": 66.9,
-        "trends": 83.6,
-        "press": 16,
-        "wiki": 16083,
-        "youtube": 1880082
-      },
-      "Emmanuel Grégoire": {
-        "total": 24.9,
-        "trends": 0,
-        "press": 5,
-        "wiki": 3005,
-        "youtube": 140285
-      },
-      "Pierre-Yves Bournazel": {
-        "total": 27.8,
-        "trends": 0,
-        "press": 11,
-        "wiki": 4451,
-        "youtube": 1163
-      },
-      "Ian Brossat": {
-        "total": 21.6,
-        "trends": 0,
-        "press": 3,
-        "wiki": 2549,
-        "youtube": 65126
-      },
-      "David Belliard": {
-        "total": 15.6,
-        "trends": 0,
-        "press": 1,
-        "wiki": 800,
-        "youtube": 1455
-      },
-      "Sophia Chikirou": {
-        "total": 27,
-        "trends": 8.4,
-        "press": 4,
-        "wiki": 8541,
-        "youtube": 75045
-      },
-      "Thierry Mariani": {
-        "total": 21.4,
-        "trends": 8.4,
-        "press": 0,
-        "wiki": 1020,
-        "youtube": 210547
-      }
-    }
-  },
-  {
-    "date": "2025-11-01",
-    "timestamp": "2025-11-29T22:09:24.962767",
-    "period": "2025-10-26 à 2025-11-01",
-    "scores": {
-      "Rachida Dati": {
-        "total": 52.5,
-        "trends": 51,
-        "press": 10,
-        "wiki": 28802,
-        "youtube": 1880082
-      },
-      "Emmanuel Grégoire": {
-        "total": 20.9,
-        "trends": 0,
-        "press": 1,
-        "wiki": 3414,
-        "youtube": 140285
-      },
-      "Pierre-Yves Bournazel": {
-        "total": 58.3,
-        "trends": 0.9,
-        "press": 49,
-        "wiki": 17505,
-        "youtube": 1163
-      },
-      "Ian Brossat": {
-        "total": 23,
-        "trends": 1.1,
-        "press": 3,
-        "wiki": 3997,
-        "youtube": 65126
-      },
-      "David Belliard": {
-        "total": 14.5,
-        "trends": 0,
-        "press": 0,
-        "wiki": 773,
-        "youtube": 1455
-      },
-      "Sophia Chikirou": {
-        "total": 23.1,
-        "trends": 5.3,
-        "press": 1,
-        "wiki": 5926,
-        "youtube": 75045
-      },
-      "Thierry Mariani": {
-        "total": 22.1,
-        "trends": 5.3,
-        "press": 1,
-        "wiki": 1713,
-        "youtube": 210547
-      }
-    }
-  },
-  {
-    "date": "2025-10-25",
-    "timestamp": "2025-11-29T22:09:25.962250",
-    "period": "2025-10-19 à 2025-10-25",
-    "scores": {
-      "Rachida Dati": {
-        "total": 44.7,
-        "trends": 51.3,
-        "press": 2,
-        "wiki": 39349,
-        "youtube": 1880082
-      },
-      "Emmanuel Grégoire": {
-        "total": 20.1,
-        "trends": 0,
-        "press": 1,
-        "wiki": 1918,
-        "youtube": 140285
-      },
-      "Pierre-Yves Bournazel": {
-        "total": 29.9,
-        "trends": 0,
-        "press": 13,
-        "wiki": 4648,
-        "youtube": 1163
-      },
-      "Ian Brossat": {
-        "total": 24.5,
-        "trends": 0.7,
-        "press": 6,
-        "wiki": 2427,
-        "youtube": 65126
-      },
-      "David Belliard": {
-        "total": 16.3,
-        "trends": 0,
-        "press": 2,
-        "wiki": 631,
-        "youtube": 1455
-      },
-      "Sophia Chikirou": {
-        "total": 21.8,
-        "trends": 5.2,
-        "press": 0,
-        "wiki": 5142,
-        "youtube": 75045
-      },
-      "Thierry Mariani": {
-        "total": 20.4,
-        "trends": 5.2,
-        "press": 0,
-        "wiki": 1082,
-        "youtube": 210547
-      }
-    }
-  },
-  {
-    "date": "2025-10-18",
-    "timestamp": "2025-11-29T22:09:26.960450",
-    "period": "2025-10-12 à 2025-10-18",
-    "scores": {
-      "Rachida Dati": {
-        "total": 49.7,
-        "trends": 50.7,
-        "press": 7,
-        "wiki": 39735,
-        "youtube": 1880082
-      },
-      "Emmanuel Grégoire": {
-        "total": 20.9,
-        "trends": 0,
-        "press": 2,
-        "wiki": 1583,
-        "youtube": 140285
-      },
-      "Pierre-Yves Bournazel": {
-        "total": 16.1,
-        "trends": 0,
-        "press": 1,
-        "wiki": 1305,
-        "youtube": 1163
-      },
-      "Ian Brossat": {
-        "total": 24.3,
-        "trends": 0,
-        "press": 5,
-        "wiki": 2872,
-        "youtube": 65126
-      },
-      "David Belliard": {
-        "total": 13.9,
-        "trends": 0,
-        "press": 0,
-        "wiki": 488,
-        "youtube": 1455
-      },
-      "Sophia Chikirou": {
-        "total": 22.4,
-        "trends": 5.1,
-        "press": 0,
-        "wiki": 7957,
-        "youtube": 75045
-      },
-      "Thierry Mariani": {
-        "total": 21.4,
-        "trends": 5.1,
-        "press": 0,
-        "wiki": 2291,
-        "youtube": 210547
-      }
-    }
-  },
-  {
-    "date": "2025-10-11",
-    "timestamp": "2025-11-29T22:09:27.960832",
-    "period": "2025-10-05 à 2025-10-11",
-    "scores": {
-      "Rachida Dati": {
-        "total": 46.2,
-        "trends": 45.6,
-        "press": 6,
-        "wiki": 24780,
-        "youtube": 1880082
-      },
-      "Emmanuel Grégoire": {
-        "total": 18.7,
-        "trends": 0,
-        "press": 0,
-        "wiki": 1458,
-        "youtube": 140285
-      },
-      "Pierre-Yves Bournazel": {
-        "total": 17.5,
-        "trends": 0,
-        "press": 1,
-        "wiki": 3476,
-        "youtube": 1163
-      },
-      "Ian Brossat": {
-        "total": 21.7,
-        "trends": 0.7,
-        "press": 3,
-        "wiki": 2240,
-        "youtube": 65126
-      },
-      "David Belliard": {
-        "total": 14.8,
-        "trends": 0,
-        "press": 1,
-        "wiki": 472,
-        "youtube": 1455
-      },
-      "Sophia Chikirou": {
-        "total": 24.7,
-        "trends": 4.6,
-        "press": 2,
-        "wiki": 11245,
-        "youtube": 75045
-      },
-      "Thierry Mariani": {
-        "total": 22.7,
-        "trends": 4.6,
-        "press": 1,
-        "wiki": 3248,
-        "youtube": 210547
-      }
-    }
-  },
-  {
     "date": "2025-11-30",
     "timestamp": "2025-11-30T20:41:08.784970",
-    "period": "2025-11-24 à 2025-11-30",
+    "period": "2025-11-24 \u00c3\u00a0 2025-11-30",
     "scores": {
       "Rachida Dati": {
         "total": 77.5,
@@ -515,7 +11,7 @@
         "wiki": 25042,
         "youtube": 0
       },
-      "Emmanuel Grégoire": {
+      "Emmanuel Gr\u00c3\u00a9goire": {
         "total": 34.2,
         "trends": 8,
         "press": 30,
@@ -569,7 +65,7 @@
   {
     "date": "2025-11-23",
     "timestamp": "2025-11-30T20:41:38.295662",
-    "period": "2025-11-17 à 2025-11-23",
+    "period": "2025-11-17 \u00c3\u00a0 2025-11-23",
     "scores": {
       "Rachida Dati": {
         "total": 76.3,
@@ -578,7 +74,7 @@
         "wiki": 16746,
         "youtube": 0
       },
-      "Emmanuel Grégoire": {
+      "Emmanuel Gr\u00c3\u00a9goire": {
         "total": 19.2,
         "trends": 3.4,
         "press": 5,
@@ -632,7 +128,7 @@
   {
     "date": "2025-11-16",
     "timestamp": "2025-11-30T20:42:08.221422",
-    "period": "2025-11-10 à 2025-11-16",
+    "period": "2025-11-10 \u00c3\u00a0 2025-11-16",
     "scores": {
       "Rachida Dati": {
         "total": 67.9,
@@ -641,7 +137,7 @@
         "wiki": 13063,
         "youtube": 0
       },
-      "Emmanuel Grégoire": {
+      "Emmanuel Gr\u00c3\u00a9goire": {
         "total": 17,
         "trends": 0.9,
         "press": 4,
@@ -695,7 +191,7 @@
   {
     "date": "2025-11-09",
     "timestamp": "2025-11-30T20:42:37.626297",
-    "period": "2025-11-03 à 2025-11-09",
+    "period": "2025-11-03 \u00c3\u00a0 2025-11-09",
     "scores": {
       "Rachida Dati": {
         "total": 80.2,
@@ -704,7 +200,7 @@
         "wiki": 14680,
         "youtube": 0
       },
-      "Emmanuel Grégoire": {
+      "Emmanuel Gr\u00c3\u00a9goire": {
         "total": 28.3,
         "trends": 0,
         "press": 7,
@@ -758,7 +254,7 @@
   {
     "date": "2025-11-02",
     "timestamp": "2025-11-30T20:43:10.003960",
-    "period": "2025-10-27 à 2025-11-02",
+    "period": "2025-10-27 \u00c3\u00a0 2025-11-02",
     "scores": {
       "Rachida Dati": {
         "total": 45,
@@ -767,7 +263,7 @@
         "wiki": 29203,
         "youtube": 0
       },
-      "Emmanuel Grégoire": {
+      "Emmanuel Gr\u00c3\u00a9goire": {
         "total": 17.6,
         "trends": 0,
         "press": 5,
@@ -821,7 +317,7 @@
   {
     "date": "2025-10-26",
     "timestamp": "2025-11-30T20:44:05.810694",
-    "period": "2025-10-20 à 2025-10-26",
+    "period": "2025-10-20 \u00c3\u00a0 2025-10-26",
     "scores": {
       "Rachida Dati": {
         "total": 38.4,
@@ -830,7 +326,7 @@
         "wiki": 34060,
         "youtube": 0
       },
-      "Emmanuel Grégoire": {
+      "Emmanuel Gr\u00c3\u00a9goire": {
         "total": 16.2,
         "trends": 0,
         "press": 2,
@@ -884,7 +380,7 @@
   {
     "date": "2025-10-19",
     "timestamp": "2025-11-30T20:44:36.341175",
-    "period": "2025-10-13 à 2025-10-19",
+    "period": "2025-10-13 \u00c3\u00a0 2025-10-19",
     "scores": {
       "Rachida Dati": {
         "total": 66.6,
@@ -893,7 +389,7 @@
         "wiki": 35642,
         "youtube": 0
       },
-      "Emmanuel Grégoire": {
+      "Emmanuel Gr\u00c3\u00a9goire": {
         "total": 34.8,
         "trends": 0,
         "press": 5,
@@ -947,7 +443,7 @@
   {
     "date": "2025-10-12",
     "timestamp": "2025-11-30T20:45:06.453067",
-    "period": "2025-10-06 à 2025-10-12",
+    "period": "2025-10-06 \u00c3\u00a0 2025-10-12",
     "scores": {
       "Rachida Dati": {
         "total": 67.5,
@@ -956,7 +452,7 @@
         "wiki": 31036,
         "youtube": 0
       },
-      "Emmanuel Grégoire": {
+      "Emmanuel Gr\u00c3\u00a9goire": {
         "total": 10.0,
         "trends": 0.0,
         "press": 0,
