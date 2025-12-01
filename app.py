@@ -1582,7 +1582,11 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
     if not trends.get("success", True):
         err = trends.get("error") or trends.get("errors")
         if err:
-            if trends.get("quota_exhausted"):
+            # Détecter si c'est une erreur de quota (flag ou code 429)
+            err_str = str(err) if not isinstance(err, str) else err
+            is_quota_error = trends.get("quota_exhausted") or "429" in err_str
+
+            if is_quota_error:
                 wait_time = get_time_until_quota_reset()
                 st.warning(f"⏳ Google Trends : quota épuisé. Données disponibles dans {wait_time} (9h)")
             else:
