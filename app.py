@@ -663,9 +663,9 @@ def set_cached_youtube_data(candidate_name: str, data: Dict, start_date: date, e
 # CACHE GOOGLE TRENDS RELATED QUERIES
 # =============================================================================
 
-TRENDS_CACHE_DURATION_HOURS = 24  # Cache Trends pendant 24h
-TRENDS_COOLDOWN_HOURS = 2  # Minimum 2h entre les requêtes Trends
-TRENDS_MAX_REQUESTS_PER_DAY = 5  # Maximum 5 requêtes par jour
+TRENDS_CACHE_DURATION_HOURS = 6  # Cache Trends pendant 6h
+TRENDS_COOLDOWN_HOURS = 1  # Minimum 1h entre les requêtes Trends
+TRENDS_MAX_REQUESTS_PER_DAY = 8  # Maximum 8 requêtes par jour
 TRENDS_QUOTA_FILE = "trends_quota.json"
 
 
@@ -761,6 +761,48 @@ def save_trends_cache(cache: Dict) -> bool:
         return True
     except:
         return False
+
+
+def get_any_trends_cache(keywords: List[str]) -> Optional[Dict]:
+    """
+    Fallback: récupère n'importe quel cache Trends disponible pour ces candidats.
+    Retourne le cache le plus récent, même si période différente.
+    """
+    cache = load_trends_cache()
+    all_data = cache.get("data", {})
+
+    if not all_data:
+        return None
+
+    # Chercher le cache le plus récent qui contient ces keywords
+    keywords_set = set(keywords)
+    best_match = None
+    best_timestamp = None
+
+    for cache_key, entry in all_data.items():
+        if not entry or not entry.get("scores"):
+            continue
+
+        # Vérifier si ce cache contient les mêmes candidats
+        cached_keywords = set(entry.get("scores", {}).keys())
+        if not keywords_set.issubset(cached_keywords) and not cached_keywords.issubset(keywords_set):
+            continue
+
+        # Prendre le plus récent
+        entry_timestamp = entry.get("timestamp")
+        if entry_timestamp:
+            if best_timestamp is None or entry_timestamp > best_timestamp:
+                best_timestamp = entry_timestamp
+                best_match = entry
+
+    if best_match:
+        return {
+            "scores": best_match.get("scores", {}),
+            "timestamp": best_timestamp,
+            "fallback": True
+        }
+
+    return None
 
 
 def get_trends_cache_age_hours(cache_key: str = None) -> float:
@@ -1353,7 +1395,7 @@ def _fetch_google_trends_api(keywords: List[str], timeframe: str) -> Dict:
     return {"scores": scores, "errors": errors}
 
 
-@st.cache_data(ttl=86400, show_spinner=False)  # Cache 24h
+@st.cache_data(ttl=21600, show_spinner=False)  # Cache 6h
 def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> Dict:
     """
     Récupère les données Google Trends avec protection des quotas.
@@ -1394,7 +1436,19 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
                 "cache_age_hours": round(cache_age, 1) if cache_age != float('inf') else None
             }
         else:
-            # Pas de cache, retourner des scores à 0
+            # Pas de cache exact - essayer le fallback (cache d'une autre période)
+            fallback = get_any_trends_cache(keywords)
+            if fallback:
+                # Utiliser les scores du fallback, filtrer pour les keywords demandés
+                fallback_scores = {kw: fallback["scores"].get(kw, 0.0) for kw in keywords}
+                return {
+                    "success": True,
+                    "scores": fallback_scores,
+                    "errors": [f"Données fallback utilisées: {quota_message}"],
+                    "from_cache": True,
+                    "fallback": True
+                }
+            # Vraiment aucun cache - retourner des scores à 0
             return {
                 "success": False,
                 "scores": {kw: 0.0 for kw in keywords},
