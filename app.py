@@ -1814,17 +1814,41 @@ def main():
     data = result["candidates"]
     sorted_data = sorted(data.items(), key=lambda x: x[1]["score"]["total"], reverse=True)
 
-    # === SAUVEGARDE AUTOMATIQUE HISTORIQUE (1x par jour max) ===
-    # Ne pas sauvegarder si quotas épuisés (données faussées)
-    trends_quota_ok = not result.get("trends", {}).get("quota_exhausted", False)
-    youtube_quota_ok = not result.get("youtube", {}).get("quota_exhausted", False)
-    quotas_ok = trends_quota_ok and youtube_quota_ok
-
-    today_str = end_date.strftime("%Y-%m-%d")
+    # === SAUVEGARDE AUTOMATIQUE HISTORIQUE (fiable, tous les 3-4 jours) ===
     history = load_history()
-    already_saved_today = any(h.get("date") == today_str for h in history)
 
-    if not already_saved_today and quotas_ok:
+    # 1. Vérifier l'intervalle minimum (3 jours depuis la dernière entrée)
+    min_interval_days = 3
+    last_entry_date = None
+    if history:
+        last_entry_date = max(h.get("date") for h in history)
+        days_since_last = (end_date - datetime.strptime(last_entry_date, "%Y-%m-%d").date()).days
+        interval_ok = days_since_last >= min_interval_days
+    else:
+        interval_ok = True  # Pas d'historique = première entrée OK
+
+    # 2. Vérifier que TOUTES les données sont complètes (pas de quotas épuisés)
+    trends_ok = not result.get("trends", {}).get("quota_exhausted", False)
+    youtube_ok = not result.get("youtube", {}).get("quota_exhausted", False)
+
+    # 3. Vérifier les données réelles pour TOUS les candidats
+    all_wiki_ok = all(d["wikipedia"]["views"] > 0 for _, d in sorted_data)
+    # Trends: au moins 1 candidat avec score > 0 (certains peuvent légitimement être à 0)
+    any_trends_ok = any(d["trends_score"] > 0 for _, d in sorted_data)
+    # YouTube: au moins 1 candidat avec vues > 0
+    any_youtube_ok = any(d["youtube"].get("total_views", 0) > 0 for _, d in sorted_data)
+
+    # 4. Toutes les conditions doivent être réunies
+    data_complete = all([
+        trends_ok,           # Pas de quota Trends épuisé
+        youtube_ok,          # Pas de quota YouTube épuisé
+        all_wiki_ok,         # Wikipedia OK pour tous
+        any_trends_ok,       # Au moins 1 candidat avec Trends
+        any_youtube_ok,      # Au moins 1 candidat avec YouTube
+    ])
+
+    # Sauvegarder seulement si intervalle OK ET données complètes
+    if interval_ok and data_complete:
         period_label = f"{start_date} à {end_date}"
         add_to_history(data, period_label, end_date)
 
@@ -2295,7 +2319,7 @@ def main():
     # TAB 5: HISTORIQUE
     with tab5:
         st.markdown("### Évolution des scores de visibilité")
-        st.caption("L'historique se construit automatiquement à chaque visite (1 point par semaine)")
+        st.caption("Sauvegarde auto tous les 3+ jours, uniquement si toutes les données sont complètes")
 
         # Charger l'historique existant
         history = load_history()
