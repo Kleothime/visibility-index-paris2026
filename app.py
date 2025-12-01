@@ -653,103 +653,6 @@ def get_trends_cache_age_hours() -> float:
         return float('inf')
 
 
-def get_cached_trends_queries(candidate_name: str) -> Optional[Dict]:
-    """Récupère les related queries en cache pour un candidat"""
-    cache = load_trends_cache()
-    cache_age = get_trends_cache_age_hours()
-
-    # Cache expiré
-    if cache_age > TRENDS_CACHE_DURATION_HOURS:
-        return None
-
-    return cache.get("data", {}).get(candidate_name)
-
-
-def set_cached_trends_queries(candidate_name: str, data: Dict):
-    """Stocke les related queries en cache"""
-    cache = load_trends_cache()
-    if "data" not in cache:
-        cache["data"] = {}
-    cache["data"][candidate_name] = data
-    cache["last_refresh"] = datetime.now().isoformat()
-    save_trends_cache(cache)
-
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_trends_related_queries(candidate_name: str, timeframe: str = "today 1-m") -> Dict:
-    """
-    Récupère les sujets et requêtes associés à un candidat via Google Trends.
-
-    Retourne:
-    - top_queries: Les requêtes les plus fréquentes associées au candidat
-    - rising_topics: Les SUJETS en forte croissance (entités, pas requêtes brutes)
-
-    Args:
-        candidate_name: Nom du candidat
-        timeframe: Période (ex: "today 1-m" = dernier mois, "today 3-m" = 3 mois)
-    """
-    import time
-    import random
-
-    # Vérifier le cache d'abord
-    cached = get_cached_trends_queries(candidate_name)
-    if cached:
-        cached["from_cache"] = True
-        return cached
-
-    result = {
-        "success": False,
-        "top_queries": [],
-        "rising_topics": [],  # Changé: topics au lieu de queries
-        "error": None,
-        "from_cache": False
-    }
-
-    try:
-        from pytrends.request import TrendReq
-
-        # Délai pour éviter le rate limiting
-        time.sleep(2 + random.uniform(0, 2))
-
-        pytrends = TrendReq(hl="fr-FR", tz=60)
-        pytrends.build_payload([candidate_name], timeframe=timeframe, geo="FR")
-
-        time.sleep(1 + random.uniform(0, 1))
-
-        # Top queries (requêtes les plus fréquentes)
-        related_queries = pytrends.related_queries()
-        if related_queries and candidate_name in related_queries:
-            candidate_data = related_queries[candidate_name]
-            top_df = candidate_data.get("top")
-            if top_df is not None and not top_df.empty:
-                for _, row in top_df.head(10).iterrows():
-                    query = row.get("query", "")
-                    value = row.get("value", 0)
-                    if query.lower() != candidate_name.lower():
-                        result["top_queries"].append({
-                            "query": query,
-                            "value": int(value) if isinstance(value, (int, float)) else 0
-                        })
-
-        # Note: related_topics() désactivé car trop lent et cause des blocages
-        # On garde uniquement les top_queries pour l'instant
-
-        result["success"] = len(result["top_queries"]) > 0
-
-        # Sauvegarder en cache si succès
-        if result["success"]:
-            set_cached_trends_queries(candidate_name, result)
-
-    except Exception as e:
-        error_str = str(e)
-        if "429" in error_str:
-            result["error"] = "Limite Google Trends atteinte (429)"
-        else:
-            result["error"] = error_str[:100]
-
-    return result
-
-
 def load_history() -> List[Dict]:
     """Charge l'historique (cloud prioritaire, sinon local)"""
     bin_id, api_key = get_cloud_config()
@@ -1607,18 +1510,7 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         youtube_mode = "disabled"
 
     youtube_api_called = False
-
-    # Déterminer le timeframe pour les related queries selon la période
-    period_days = (end_date - start_date).days + 1
-    if period_days <= 7:
-        trends_timeframe = "now 7-d"
-    elif period_days <= 30:
-        trends_timeframe = "today 1-m"
-    else:
-        trends_timeframe = "today 3-m"
-
     total = len(candidate_ids)
-    trends_queries_errors = []
 
     for i, cid in enumerate(candidate_ids):
         c = CANDIDATES[cid]
@@ -1630,9 +1522,9 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         press = get_all_press_coverage(name, c["search_terms"], start_date, end_date)
         tv_radio = get_tv_radio_mentions(name, start_date, end_date)
 
-        # YouTube: toujours chercher sur 30 jours minimum pour avoir des résultats
-        yt_end = date.today()
-        yt_start = yt_end - timedelta(days=30)
+        # YouTube: utiliser la période sélectionnée
+        yt_start = start_date
+        yt_end = end_date
 
         if youtube_mode == "api":
             status.text(f"Analyse YouTube de {name}...")
@@ -1649,15 +1541,9 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         else:
             youtube = {"available": False, "total_views": 0, "videos": [], "disabled": True}
 
-        # Récupérer les Related Queries Google Trends
-        status.text(f"Analyse des recherches associées pour {name}...")
-        related_queries = get_trends_related_queries(name, timeframe=trends_timeframe)
-        if related_queries.get("error"):
-            trends_queries_errors.append(f"{name}: {related_queries['error']}")
-
         trends_score = trends.get("scores", {}).get(name, 0)
 
-        # Mots-clés extraits des articles (fallback si related queries échoue)
+        # Mots-clés extraits des articles de presse
         keywords = extract_keywords_from_articles(press["articles"], name, top_n=5)
 
         # Stocker les données brutes (score calculé après pour comparaison relative)
@@ -1670,7 +1556,6 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             "trends_score": trends_score,
             "trends_success": trends.get("success", True),
             "trends_error": trends.get("error") or trends.get("errors"),
-            "related_queries": related_queries,
             "keywords": keywords
         }
 
@@ -1698,10 +1583,6 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
     if youtube_api_called and expected_youtube_cost > 0:
         increment_youtube_quota(cost=expected_youtube_cost)
 
-    # Afficher les erreurs des related queries si présentes
-    if trends_queries_errors:
-        st.warning(f"Certaines requêtes Trends ont échoué : {'; '.join(trends_queries_errors[:3])}")
-
     progress.empty()
     status.empty()
 
@@ -1713,10 +1594,6 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             "quota_remaining": get_youtube_quota_remaining(),
             "refresh_reason": youtube_refresh_reason if youtube_mode == "cache" else None,
             "cost": expected_youtube_cost
-        },
-        "trends_queries": {
-            "cache_age_hours": get_trends_cache_age_hours(),
-            "errors": trends_queries_errors if trends_queries_errors else None
         }
     }
 
@@ -1877,17 +1754,9 @@ header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visi
 
     rows = []
     for rank, (cid, d) in enumerate(sorted_data, 1):
-        # Priorité aux Related Queries Google Trends, fallback sur mots-clés articles
-        related = d.get('related_queries', {})
-        top_queries = related.get('top_queries', [])
-
-        if top_queries:
-            # Utiliser les top queries Google Trends
-            themes_str = ' · '.join([q['query'] for q in top_queries[:3]])
-        else:
-            # Fallback: mots-clés extraits des articles
-            top_keywords = d.get('keywords', [])[:3]
-            themes_str = ' · '.join([word for word, count, arts in top_keywords]) if top_keywords else '-'
+        # Mots-clés extraits des articles de presse
+        top_keywords = d.get('keywords', [])[:3]
+        themes_str = ' · '.join([word for word, count, arts in top_keywords]) if top_keywords else '-'
 
         row = {
             'Rang': rank,
@@ -2013,82 +1882,37 @@ header[data-testid="stHeader"] {height: 48px; min-height: 48px; visibility: visi
 
     # TAB 2: THEMES / ANALYSE QUALITATIVE
     with tab2:
-        st.markdown('### Ce que les gens recherchent sur Google')
-        st.markdown('*Requetes associees a chaque candidat sur Google Trends (France)*')
-
-        # Afficher le statut du cache Trends
-        trends_cache_age = result.get("trends_queries", {}).get("cache_age_hours", float('inf'))
-        if trends_cache_age != float('inf') and trends_cache_age < TRENDS_CACHE_DURATION_HOURS:
-            st.caption(f"Donnees en cache (age: {trends_cache_age:.1f}h)")
+        st.markdown('### Thèmes dans la presse')
+        st.markdown('*Mots-clés extraits des articles de presse pour chaque candidat*')
 
         for rank, (cid, d) in enumerate(sorted_data, 1):
-            related = d.get('related_queries', {})
-            keywords = d.get('keywords', [])  # Fallback
+            keywords = d.get('keywords', [])
             name = d['info']['name']
 
-            top_queries = related.get('top_queries', [])
-            has_trends_data = len(top_queries) > 0
-
-            # Titre avec indicateur de source
-            if has_trends_data:
-                title = f'{rank}. {name} - Recherches Google'
-            else:
-                title = f'{rank}. {name} - Themes presse (fallback)'
-
-            with st.expander(title, expanded=(rank <= 3)):
-                if has_trends_data:
-                    st.markdown('**Top recherches Google**')
-                    st.caption('Ce que les gens recherchent en association avec ce candidat')
-                    if top_queries:
-                        for q in top_queries[:7]:
-                            query_text = q.get('query', '')
-                            value = q.get('value', 0)
-                            st.markdown(f"**{query_text}**")
-                            st.progress(min(value / 100, 1.0))
-                    else:
-                        st.info('Aucune donnee')
-
-                    # Afficher aussi les themes presse en complement
-                    if keywords:
-                        st.markdown('---')
-                        st.markdown('**Complement: Themes dans la presse**')
-                        themes_str = ' · '.join([f"{word} ({count})" for word, count, _ in keywords[:5]])
-                        st.caption(themes_str)
-
-                elif keywords:
-                    # Fallback: afficher les mots-cles des articles
-                    st.warning('Google Trends indisponible, affichage des themes presse')
+            with st.expander(f'{rank}. {name}', expanded=(rank <= 3)):
+                if keywords:
                     for word, count, articles in keywords:
-                        with st.expander(f'**{word}** ({count} mentions)', expanded=False):
-                            if articles:
-                                for art in articles[:10]:
-                                    st.markdown(f"- [{art.get('title', 'Sans titre')}]({art.get('url', '#')})")
-                                    st.caption(f"   {art.get('date', '')} - {art.get('domain', '')}")
-                                if len(articles) > 10:
-                                    st.caption(f"... et {len(articles) - 10} autres articles")
+                        st.markdown(f"**{word}** ({count} mentions)")
+                        if articles:
+                            for art in articles[:5]:
+                                st.caption(f"- [{art.get('title', 'Sans titre')}]({art.get('url', '#')}) - {art.get('domain', '')}")
                 else:
-                    st.info('Aucune donnee disponible')
+                    st.info('Aucun thème détecté')
 
-                # Erreur Trends si presente
-                if related.get('error'):
-                    st.error(f"Erreur Trends: {related['error']}")
-
-        # === TABLEAU RECAPITULATIF TOP QUERIES ===
+        # === TABLEAU RECAPITULATIF ===
         st.markdown('---')
-        st.markdown('### Tableau recapitulatif')
+        st.markdown('### Tableau récapitulatif')
 
         recap_data = []
         for _, d in sorted_data:
-            related = d.get('related_queries', {})
-            top_queries = related.get('top_queries', [])
-            # Extraire les 3 premieres requetes
-            top_3 = [q['query'] for q in top_queries[:3]]
+            keywords = d.get('keywords', [])[:3]
+            top_3 = [word for word, count, _ in keywords]
 
             recap_data.append({
                 'Candidat': d['info']['name'],
-                'Recherche 1': top_3[0] if len(top_3) > 0 else '-',
-                'Recherche 2': top_3[1] if len(top_3) > 1 else '-',
-                'Recherche 3': top_3[2] if len(top_3) > 2 else '-',
+                'Thème 1': top_3[0] if len(top_3) > 0 else '-',
+                'Thème 2': top_3[1] if len(top_3) > 1 else '-',
+                'Thème 3': top_3[2] if len(top_3) > 2 else '-',
             })
 
         st.dataframe(pd.DataFrame(recap_data), use_container_width=True, hide_index=True)
