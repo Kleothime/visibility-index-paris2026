@@ -2388,48 +2388,26 @@ def main():
                 # Graphique d'évolution avec Knafo mise en avant
                 fig = go.Figure()
 
-                # Couleur vive pour Knafo
-                KNAFO_COLOR = "#E63946"  # Rouge vif intense
-
-                # Couleurs distinctes et visibles pour les concurrents
-                COMPETITOR_COLORS = {
-                    "Rachida Dati": "#3498DB",       # Bleu vif
-                    "Emmanuel Grégoire": "#8E44AD",  # Violet foncé
-                    "David Belliard": "#27AE60",     # Vert
-                    "Pierre-Yves Bournazel": "#F39C12",  # Orange
-                    "Sophia Chikirou": "#D35400",    # Orange foncé
-                    "Thierry Mariani": "#1ABC9C",    # Turquoise
-                    "Ian Brossat": "#2980B9",        # Bleu foncé
-                }
-
-                # D'abord ajouter tous les concurrents
+                # D'abord ajouter tous les concurrents (couleurs originales des candidats)
                 for candidate_name in color_map.keys():
                     if candidate_name == "Sarah Knafo":
                         continue  # On l'ajoute après pour qu'elle soit au premier plan
 
                     candidate_data = df_hist[df_hist["Candidat"] == candidate_name]
                     if not candidate_data.empty:
-                        color = COMPETITOR_COLORS.get(candidate_name, "#888888")
+                        color = color_map.get(candidate_name, "#888888")
                         fig.add_trace(go.Scatter(
                             x=candidate_data["Date"],
                             y=candidate_data["Score"],
                             name=candidate_name,
                             mode='lines+markers',
-                            line=dict(
-                                color=color,
-                                width=2
-                            ),
-                            marker=dict(
-                                symbol='circle',
-                                size=8,
-                                color=color,
-                                line=dict(color='white', width=1)
-                            ),
-                            opacity=0.8,
+                            line=dict(color=color, width=2),
+                            marker=dict(symbol='circle', size=6, color=color),
+                            opacity=0.7,
                             hovertemplate='<b>%{fullData.name}</b><br>Date: %{x}<br>Score: %{y:.1f}<extra></extra>'
                         ))
 
-                # Ensuite ajouter Knafo au premier plan avec style qui claque
+                # Sarah Knafo : trait ÉPAIS, rouge vif, diamants
                 knafo_data = df_hist[df_hist["Candidat"] == "Sarah Knafo"]
                 if not knafo_data.empty:
                     fig.add_trace(go.Scatter(
@@ -2437,16 +2415,8 @@ def main():
                         y=knafo_data["Score"],
                         name="Sarah Knafo",
                         mode='lines+markers',
-                        line=dict(
-                            color=KNAFO_COLOR,
-                            width=4
-                        ),
-                        marker=dict(
-                            symbol='diamond',
-                            size=12,
-                            color=KNAFO_COLOR,
-                            line=dict(color='white', width=2)
-                        ),
+                        line=dict(color="#E63946", width=6),  # ÉPAIS
+                        marker=dict(symbol='diamond', size=14, color="#E63946", line=dict(color='white', width=2)),
                         hovertemplate='<b>Sarah Knafo</b><br>Date: %{x}<br>Score: %{y:.1f}<extra></extra>'
                     ))
 
