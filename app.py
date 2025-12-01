@@ -1579,18 +1579,13 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
     names = [CANDIDATES[cid]["name"] for cid in candidate_ids]
     trends = get_google_trends(names, start_date, end_date)
 
+    # Détecter si quota Trends épuisé
+    trends_quota_exhausted = False
     if not trends.get("success", True):
         err = trends.get("error") or trends.get("errors")
         if err:
-            # Détecter si c'est une erreur de quota (flag ou code 429)
             err_str = str(err) if not isinstance(err, str) else err
-            is_quota_error = trends.get("quota_exhausted") or "429" in err_str
-
-            if is_quota_error:
-                wait_time = get_time_until_quota_reset()
-                st.warning(f"⏳ Google Trends : quota épuisé. Données disponibles dans {wait_time} (9h)")
-            else:
-                st.warning(f"Attention : Google Trends indisponible - {err}")
+            trends_quota_exhausted = trends.get("quota_exhausted") or "429" in err_str
 
     progress.progress(0.1)
 
@@ -1690,6 +1685,19 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
     progress.empty()
     status.empty()
 
+    # Détecter si YouTube quota épuisé (données à 0 pour tous)
+    youtube_quota_exhausted = False
+    if youtube_mode != "disabled":
+        all_yt_zero = all(
+            results[cid]["youtube"].get("total_views", 0) == 0
+            for cid in candidate_ids
+        )
+        any_yt_error = any(
+            results[cid]["youtube"].get("error") and "quota" in str(results[cid]["youtube"].get("error", "")).lower()
+            for cid in candidate_ids
+        )
+        youtube_quota_exhausted = all_yt_zero and (any_yt_error or get_youtube_quota_remaining() == 0)
+
     return {
         "candidates": results,
         "youtube": {
@@ -1697,7 +1705,11 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             "cache_age_hours": get_youtube_cache_age_hours(),
             "quota_remaining": get_youtube_quota_remaining(),
             "refresh_reason": youtube_refresh_reason if youtube_mode == "cache" else None,
-            "cost": expected_youtube_cost
+            "cost": expected_youtube_cost,
+            "quota_exhausted": youtube_quota_exhausted
+        },
+        "trends": {
+            "quota_exhausted": trends_quota_exhausted
         }
     }
 
@@ -1897,6 +1909,23 @@ def main():
     })
 
     st.dataframe(styled_df, hide_index=True, use_container_width=True)
+
+    # Message quota si données à 0 et quota épuisé
+    all_trends_zero = all(d['trends_score'] == 0 for _, d in sorted_data)
+    all_yt_zero = all(d['youtube'].get('total_views', 0) == 0 for _, d in sorted_data)
+    trends_quota = result.get("trends", {}).get("quota_exhausted", False)
+    yt_quota = result.get("youtube", {}).get("quota_exhausted", False)
+
+    quota_messages = []
+    if all_trends_zero and trends_quota:
+        quota_messages.append("Google Trends")
+    if all_yt_zero and yt_quota:
+        quota_messages.append("YouTube")
+
+    if quota_messages:
+        wait_time = get_time_until_quota_reset()
+        sources_str = " et ".join(quota_messages)
+        st.warning(f"⏳ {sources_str} : quota épuisé. Données disponibles dans {wait_time}")
 
     # Metriques
     leader = sorted_data[0][1]
