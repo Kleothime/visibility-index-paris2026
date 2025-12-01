@@ -1972,10 +1972,11 @@ def main():
     # Config Plotly pour mobile (graphiques statiques = pas de capture du scroll)
     plotly_config = {
         'displayModeBar': False,  # Cache la barre d'outils
-        'staticPlot': True,       # Graphiques statiques (pas d'interactivité = pas de problème de scroll)
-        'scrollZoom': False,
-        'doubleClick': False,
+        'staticPlot': False,      # Permet le hover
+        'scrollZoom': False,      # Désactive zoom molette
+        'doubleClick': False,     # Désactive double-clic
         'responsive': True,
+        'dragmode': False,        # Désactive drag/selection
     }
 
     # TAB 1: SCORES
@@ -2347,6 +2348,11 @@ def main():
         # Charger l'historique existant
         history = load_history()
 
+        # Debug: afficher les dates chargées
+        if history:
+            dates_loaded = sorted([h.get("date") for h in history])
+            st.caption(f"📊 Données chargées: {dates_loaded}")
+
         if history and len(history) >= 1:
             # Dédupliquer par semaine (garder 1 entrée par semaine ISO)
             from datetime import datetime as dt
@@ -2385,42 +2391,42 @@ def main():
                 # Couleur vive pour Knafo
                 KNAFO_COLOR = "#E63946"  # Rouge vif intense
 
-                # Couleurs pâles distinctes pour les concurrents
-                PALE_COLORS = {
-                    "Rachida Dati": "#B8D4E3",       # Bleu pâle
-                    "Emmanuel Grégoire": "#F5CEC7",  # Rose saumon pâle
-                    "David Belliard": "#C7E9C0",     # Vert pâle
-                    "Pierre-Yves Bournazel": "#E2D4F0",  # Violet pâle
-                    "Sophia Chikirou": "#FFE5B4",    # Pêche pâle
-                    "Thierry Mariani": "#D4E5F7",    # Bleu ciel pâle
-                    "Ian Brossat": "#FADADD",        # Rose pâle
+                # Couleurs distinctes et visibles pour les concurrents
+                COMPETITOR_COLORS = {
+                    "Rachida Dati": "#3498DB",       # Bleu vif
+                    "Emmanuel Grégoire": "#8E44AD",  # Violet foncé
+                    "David Belliard": "#27AE60",     # Vert
+                    "Pierre-Yves Bournazel": "#F39C12",  # Orange
+                    "Sophia Chikirou": "#D35400",    # Orange foncé
+                    "Thierry Mariani": "#1ABC9C",    # Turquoise
+                    "Ian Brossat": "#2980B9",        # Bleu foncé
                 }
 
-                # D'abord ajouter tous les concurrents (en arrière-plan, couleurs pâles)
+                # D'abord ajouter tous les concurrents
                 for candidate_name in color_map.keys():
                     if candidate_name == "Sarah Knafo":
                         continue  # On l'ajoute après pour qu'elle soit au premier plan
 
                     candidate_data = df_hist[df_hist["Candidat"] == candidate_name]
                     if not candidate_data.empty:
-                        pale_color = PALE_COLORS.get(candidate_name, "#D3D3D3")
+                        color = COMPETITOR_COLORS.get(candidate_name, "#888888")
                         fig.add_trace(go.Scatter(
                             x=candidate_data["Date"],
                             y=candidate_data["Score"],
                             name=candidate_name,
                             mode='lines+markers',
                             line=dict(
-                                color=pale_color,
+                                color=color,
                                 width=2
                             ),
                             marker=dict(
                                 symbol='circle',
-                                size=7,
-                                color=pale_color,
+                                size=8,
+                                color=color,
                                 line=dict(color='white', width=1)
                             ),
-                            opacity=0.7,
-                            hovertemplate='<b>%{fullData.name}</b><br>Score: %{y:.1f}<extra></extra>'
+                            opacity=0.8,
+                            hovertemplate='<b>%{fullData.name}</b><br>Date: %{x}<br>Score: %{y:.1f}<extra></extra>'
                         ))
 
                 # Ensuite ajouter Knafo au premier plan avec style qui claque
@@ -2441,17 +2447,25 @@ def main():
                             color=KNAFO_COLOR,
                             line=dict(color='white', width=2)
                         ),
-                        hovertemplate='<b>Sarah Knafo</b><br>Score: %{y:.1f}<extra></extra>'
+                        hovertemplate='<b>Sarah Knafo</b><br>Date: %{x}<br>Score: %{y:.1f}<extra></extra>'
                     ))
 
                 fig.update_layout(
                     title="Évolution temporelle",
                     yaxis_range=[0, 100],
-                    yaxis_title="Score de visibilité",
+                    yaxis_title="Score",
                     xaxis_title="",
-                    legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
-                    height=500,
-                    margin=dict(b=100)
+                    legend=dict(
+                        orientation="v",  # Vertical pour mobile
+                        yanchor="top",
+                        y=1,
+                        xanchor="left",
+                        x=1.02,
+                        font=dict(size=10),
+                        itemsizing="constant"
+                    ),
+                    height=400,
+                    margin=dict(l=40, r=120, t=40, b=40)  # Marge droite pour légende
                 )
                 st.plotly_chart(fig, use_container_width=True, config=plotly_config)
 
