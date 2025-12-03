@@ -34,10 +34,10 @@ except:
     YOUTUBE_API_KEY = ""  # Fallback si secrets non configurés
 
 # =============================================================================
-# CANDIDATS
+# CANDIDATS PARIS 2026
 # =============================================================================
 
-CANDIDATES = {
+CANDIDATES_PARIS = {
     "rachida_dati": {
         "name": "Rachida Dati",
         "party": "LR / Renaissance",
@@ -96,14 +96,155 @@ CANDIDATES = {
     },
     "sarah_knafo": {
         "name": "Sarah Knafo",
-        "party": "Reconquête!",
+        "party": "Reconquête",
         "role": "Députée européenne",
         "color": "#1E3A5F",
         "wikipedia": "Sarah_Knafo",
         "search_terms": ["Sarah Knafo", "Knafo Reconquête", "Knafo Paris"],
-        "youtube_handle": "@SarahKnafo-Videos",  # Chaîne officielle active
+        "youtube_handle": "@SarahKnafo-Videos",
     }
 }
+
+# =============================================================================
+# CANDIDATS POLITIQUE NATIONALE
+# =============================================================================
+
+CANDIDATES_NATIONAL = {
+    # --- GAUCHE ---
+    "jean_luc_melenchon": {
+        "name": "Jean-Luc Mélenchon",
+        "party": "LFI",
+        "role": "Député, leader LFI",
+        "color": "#CC2443",
+        "wikipedia": "Jean-Luc_Mélenchon",
+        "search_terms": ["Jean-Luc Mélenchon", "Mélenchon LFI", "Mélenchon insoumis"],
+    },
+    "francois_ruffin": {
+        "name": "François Ruffin",
+        "party": "Picardie Debout",
+        "role": "Député de la Somme",
+        "color": "#E4032E",
+        "wikipedia": "François_Ruffin",
+        "search_terms": ["François Ruffin", "Ruffin député", "Ruffin Picardie"],
+    },
+    "raphael_glucksmann": {
+        "name": "Raphaël Glucksmann",
+        "party": "Place Publique",
+        "role": "Député européen",
+        "color": "#FF8C00",
+        "wikipedia": "Raphaël_Glucksmann",
+        "search_terms": ["Raphaël Glucksmann", "Glucksmann Place Publique", "Glucksmann PS"],
+    },
+    "marine_tondelier": {
+        "name": "Marine Tondelier",
+        "party": "EELV",
+        "role": "Secrétaire nationale EELV",
+        "color": "#00A86B",
+        "wikipedia": "Marine_Tondelier",
+        "search_terms": ["Marine Tondelier", "Tondelier EELV", "Tondelier écologistes"],
+    },
+    "fabien_roussel": {
+        "name": "Fabien Roussel",
+        "party": "PCF",
+        "role": "Secrétaire national PCF",
+        "color": "#DD0000",
+        "wikipedia": "Fabien_Roussel",
+        "search_terms": ["Fabien Roussel", "Roussel PCF", "Roussel communiste"],
+    },
+    # --- CENTRE ---
+    "edouard_philippe": {
+        "name": "Édouard Philippe",
+        "party": "Horizons",
+        "role": "Maire du Havre, ex-PM",
+        "color": "#0080C9",
+        "wikipedia": "Édouard_Philippe",
+        "search_terms": ["Édouard Philippe", "Philippe Horizons", "Philippe Le Havre"],
+    },
+    "gabriel_attal": {
+        "name": "Gabriel Attal",
+        "party": "Renaissance",
+        "role": "Ex-Premier ministre",
+        "color": "#FFCC00",
+        "wikipedia": "Gabriel_Attal",
+        "search_terms": ["Gabriel Attal", "Attal Renaissance", "Attal Premier ministre"],
+    },
+    "gerald_darmanin": {
+        "name": "Gérald Darmanin",
+        "party": "Renaissance",
+        "role": "Ex-ministre de l'Intérieur",
+        "color": "#FFD700",
+        "wikipedia": "Gérald_Darmanin",
+        "search_terms": ["Gérald Darmanin", "Darmanin ministre", "Darmanin Intérieur"],
+    },
+    # --- DROITE ---
+    "bruno_retailleau": {
+        "name": "Bruno Retailleau",
+        "party": "LR",
+        "role": "Ministre de l'Intérieur",
+        "color": "#0066CC",
+        "wikipedia": "Bruno_Retailleau",
+        "search_terms": ["Bruno Retailleau", "Retailleau LR", "Retailleau ministre"],
+    },
+    "david_lisnard": {
+        "name": "David Lisnard",
+        "party": "LR",
+        "role": "Maire de Cannes",
+        "color": "#0055A4",
+        "wikipedia": "David_Lisnard",
+        "search_terms": ["David Lisnard", "Lisnard Cannes", "Lisnard LR"],
+    },
+    "laurent_wauquiez": {
+        "name": "Laurent Wauquiez",
+        "party": "LR",
+        "role": "Président région AURA",
+        "color": "#003399",
+        "wikipedia": "Laurent_Wauquiez",
+        "search_terms": ["Laurent Wauquiez", "Wauquiez LR", "Wauquiez région"],
+    },
+    "eric_ciotti": {
+        "name": "Éric Ciotti",
+        "party": "UDR",
+        "role": "Député des Alpes-Maritimes",
+        "color": "#8B4513",
+        "wikipedia": "Éric_Ciotti",
+        "search_terms": ["Éric Ciotti", "Ciotti UDR", "Ciotti droite"],
+    },
+    "jordan_bardella": {
+        "name": "Jordan Bardella",
+        "party": "RN",
+        "role": "Président du RN",
+        "color": "#0D2C54",
+        "wikipedia": "Jordan_Bardella",
+        "search_terms": ["Jordan Bardella", "Bardella RN", "Bardella président"],
+    },
+    "marine_le_pen": {
+        "name": "Marine Le Pen",
+        "party": "RN",
+        "role": "Députée, ex-présidente RN",
+        "color": "#0A1F3C",
+        "wikipedia": "Marine_Le_Pen",
+        "search_terms": ["Marine Le Pen", "Le Pen RN", "Marine Le Pen présidentielle"],
+    },
+    "eric_zemmour": {
+        "name": "Éric Zemmour",
+        "party": "Reconquête",
+        "role": "Président de Reconquête",
+        "color": "#1E3A5F",
+        "wikipedia": "Éric_Zemmour",
+        "search_terms": ["Éric Zemmour", "Zemmour Reconquête", "Zemmour politique"],
+    },
+    "marion_marechal": {
+        "name": "Marion Maréchal",
+        "party": "Reconquête",
+        "role": "Vice-présidente Reconquête",
+        "color": "#2C3E50",
+        "wikipedia": "Marion_Maréchal",
+        "search_terms": ["Marion Maréchal", "Maréchal Reconquête", "Marion Maréchal Le Pen"],
+    },
+}
+
+# Variable active (sera définie dynamiquement selon le contexte)
+CANDIDATES = CANDIDATES_PARIS
 
 # =============================================================================
 # SONDAGES OFFICIELS - Instituts reconnus uniquement
@@ -276,9 +417,25 @@ def get_cloud_config():
 # HISTORIQUE (avec fallback local)
 # =============================================================================
 
-HISTORY_FILE = "visibility_history.json"
-YOUTUBE_CACHE_FILE = "youtube_cache.json"
-TRENDS_CACHE_FILE = "trends_cache.json"
+# Fichiers par défaut (seront surchargés selon le contexte)
+HISTORY_FILE = "history_paris.json"
+YOUTUBE_CACHE_FILE = "youtube_cache_paris.json"
+TRENDS_CACHE_FILE = "trends_cache_paris.json"
+
+def get_context_files(contexte: str) -> dict:
+    """Retourne les noms de fichiers selon le contexte"""
+    if contexte == "national":
+        return {
+            "history": "history_national.json",
+            "youtube_cache": "youtube_cache_national.json",
+            "trends_cache": "trends_cache_national.json",
+        }
+    else:  # paris
+        return {
+            "history": "history_paris.json",
+            "youtube_cache": "youtube_cache_paris.json",
+            "trends_cache": "trends_cache_paris.json",
+        }
 
 # =============================================================================
 # LEMMATISATION BASIQUE FRANÇAIS
@@ -608,7 +765,7 @@ def set_cached_youtube_data(candidate_name: str, data: Dict, start_date: date, e
 # CACHE GOOGLE TRENDS - SYSTÈME INTELLIGENT PAR PÉRIODE
 # =============================================================================
 
-TRENDS_CACHE_FILE = "trends_cache.json"
+# TRENDS_CACHE_FILE est défini plus haut et sera mis à jour dynamiquement selon le contexte
 TRENDS_24H_COOLDOWN_HOURS = 2  # Cooldown de 2h pour la période 24h
 TRENDS_LONG_PERIOD_MAX_PER_DAY = 1  # Max 1 requête/jour pour 7j, 14j, 30j
 
@@ -921,18 +1078,18 @@ def format_number(n: int) -> str:
     return str(n)
 
 
-def format_candidate_name(name: str, html: bool = False) -> str:
-    """Formate le nom du candidat - Sarah Knafo en gras"""
-    if name == "Sarah Knafo":
+def format_candidate_name(name: str, html: bool = False, contexte: str = "paris") -> str:
+    """Formate le nom du candidat - Sarah Knafo en gras uniquement pour Paris"""
+    if name == "Sarah Knafo" and contexte == "paris":
         if html:
             return f"<b>{name}</b>"
         return f"**{name}**"
     return name
 
 
-def is_sarah_knafo(name: str) -> bool:
-    """Vérifie si c'est Sarah Knafo"""
-    return name == "Sarah Knafo"
+def is_sarah_knafo(name: str, contexte: str = "paris") -> bool:
+    """Vérifie si c'est Sarah Knafo (et contexte Paris)"""
+    return name == "Sarah Knafo" and contexte == "paris"
 
 
 # Mots vides français à ignorer dans l'analyse
@@ -2220,6 +2377,8 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
 # =============================================================================
 
 def main():
+    global CANDIDATES, HISTORY_FILE, YOUTUBE_CACHE_FILE, TRENDS_CACHE_FILE
+
     # Viewport meta pour iPhone + CSS responsive
     mobile_css = """
     <style>
@@ -2253,12 +2412,71 @@ def main():
         h1 {font-size: 1.2rem !important;}
         .stTabs [data-baseweb="tab"] {padding: 0.2rem 0.3rem !important; font-size: 0.65rem !important;}
     }
+    /* Style pour les boutons de contexte */
+    .context-button {
+        padding: 0.5rem 1.5rem;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        background: white;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    .context-button.active {
+        background: #0066CC;
+        color: white;
+        border-color: #0066CC;
+    }
     </style>
     """
     st.markdown(mobile_css, unsafe_allow_html=True)
 
+    # === SÉLECTEUR DE CONTEXTE (deux gros boutons) ===
     st.markdown("# Baromètre de visibilité médiatique")
-    st.markdown("**Élections municipales Paris 2026**")
+
+    # Initialiser le contexte en session state
+    if "contexte" not in st.session_state:
+        st.session_state.contexte = "paris"
+
+    # Boutons de sélection du contexte
+    col_btn1, col_btn2, col_spacer = st.columns([1, 1, 2])
+    with col_btn1:
+        if st.button(
+            "Paris 2026",
+            use_container_width=True,
+            type="primary" if st.session_state.contexte == "paris" else "secondary"
+        ):
+            if st.session_state.contexte != "paris":
+                st.session_state.contexte = "paris"
+                st.cache_data.clear()
+                st.rerun()
+    with col_btn2:
+        if st.button(
+            "Politique nationale",
+            use_container_width=True,
+            type="primary" if st.session_state.contexte == "national" else "secondary"
+        ):
+            if st.session_state.contexte != "national":
+                st.session_state.contexte = "national"
+                st.cache_data.clear()
+                st.rerun()
+
+    # Appliquer le contexte
+    contexte = st.session_state.contexte
+
+    if contexte == "national":
+        CANDIDATES = CANDIDATES_NATIONAL
+        context_files = get_context_files("national")
+        st.markdown("**Politique nationale**")
+    else:
+        CANDIDATES = CANDIDATES_PARIS
+        context_files = get_context_files("paris")
+        st.markdown("**Élections municipales Paris 2026**")
+
+    # Mettre à jour les fichiers de cache selon le contexte
+    HISTORY_FILE = context_files["history"]
+    YOUTUBE_CACHE_FILE = context_files["youtube_cache"]
+    TRENDS_CACHE_FILE = context_files["trends_cache"]
 
     with st.sidebar:
         st.markdown("## Configuration")
@@ -2315,6 +2533,9 @@ def main():
     result = collect_data(selected, start_date, end_date, YOUTUBE_API_KEY)
     data = result["candidates"]
     sorted_data = sorted(data.items(), key=lambda x: x[1]["score"]["total"], reverse=True)
+
+    # Variable pour conditionner l'affichage de Sarah Knafo en gras
+    is_paris = contexte == "paris"
 
     # === SAUVEGARDE AUTOMATIQUE HISTORIQUE (fiable, tous les 3-4 jours) ===
     history = load_history()
@@ -2388,9 +2609,9 @@ def main():
 
     df = pd.DataFrame(rows)
 
-    # Styler pour mettre Sarah Knafo en gras
+    # Styler pour mettre Sarah Knafo en gras (uniquement Paris)
     def highlight_knafo(row):
-        if row['Candidat'] == 'Sarah Knafo':
+        if row['Candidat'] == 'Sarah Knafo' and is_paris:
             return ['font-weight: bold; background-color: rgba(30, 58, 95, 0.15)'] * len(row)
         return [''] * len(row)
 
@@ -2439,14 +2660,21 @@ def main():
     st.markdown('---')
     st.markdown('## Visualisations detaillees')
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
-        ['Scores', 'Themes', 'Sondages', 'TV / Radio', 'Historique', 'Wikipedia', 'Presse']
-    )
+    # Onglets différents selon le contexte (pas de Sondages pour National)
+    if contexte == "national":
+        tab1, tab2, tab4, tab5, tab6, tab7 = st.tabs(
+            ['Scores', 'Themes', 'TV / Radio', 'Historique', 'Wikipedia', 'Presse']
+        )
+        tab3 = None  # Pas d'onglet Sondages pour National
+    else:
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+            ['Scores', 'Themes', 'Sondages', 'TV / Radio', 'Historique', 'Wikipedia', 'Presse']
+        )
 
     names = [d['info']['name'] for _, d in sorted_data]
     colors = [d['info']['color'] for _, d in sorted_data]
-    # Noms avec Sarah Knafo en gras (HTML pour Plotly)
-    names_html = [f"<b>{n}</b>" if n == "Sarah Knafo" else n for n in names]
+    # Noms avec Sarah Knafo en gras (HTML pour Plotly) - uniquement pour Paris
+    names_html = [f"<b>{n}</b>" if (n == "Sarah Knafo" and is_paris) else n for n in names]
 
     # Config Plotly pour mobile (graphiques statiques = pas de capture du scroll)
     plotly_config = {
@@ -2483,7 +2711,7 @@ def main():
             for _, d in sorted_data:
                 s = d['score']
                 name = d['info']['name']
-                name_display = f"<b>{name}</b>" if name == "Sarah Knafo" else name
+                name_display = f"<b>{name}</b>" if (name == "Sarah Knafo" and is_paris) else name
                 decomp_data.append({
                     'Candidat': name_display,
                     'Presse (30%)': s['contrib_press'],
@@ -2522,9 +2750,9 @@ def main():
         for rank, (cid, d) in enumerate(sorted_data, 1):
             keywords = d.get('keywords', [])
             name = d['info']['name']
-            # Sarah Knafo en gras dans le titre
-            expander_title = f'{rank}. **{name}**' if name == "Sarah Knafo" else f'{rank}. {name}'
-            is_knafo = name == "Sarah Knafo"
+            # Sarah Knafo en gras dans le titre (uniquement Paris)
+            is_knafo = name == "Sarah Knafo" and is_paris
+            expander_title = f'{rank}. **{name}**' if is_knafo else f'{rank}. {name}'
 
             with st.expander(expander_title, expanded=(rank <= 3 or is_knafo)):
                 if keywords:
@@ -2553,174 +2781,175 @@ def main():
             })
 
         df_recap = pd.DataFrame(recap_data)
-        # Styler pour Sarah Knafo en gras
+        # Styler pour Sarah Knafo en gras (uniquement Paris)
         def highlight_knafo_recap(row):
-            if row['Candidat'] == 'Sarah Knafo':
+            if row['Candidat'] == 'Sarah Knafo' and is_paris:
                 return ['font-weight: bold; background-color: rgba(30, 58, 95, 0.15)'] * len(row)
             return [''] * len(row)
         st.dataframe(df_recap.style.apply(highlight_knafo_recap, axis=1), use_container_width=True, hide_index=True)
-    # TAB 3: SONDAGES
-    with tab3:
-        st.markdown("### Sondages d'intentions de vote")
+    # TAB 3: SONDAGES (uniquement pour Paris)
+    if tab3 is not None:
+        with tab3:
+            st.markdown("### Sondages d'intentions de vote")
 
-        # Recharger les sondages
-        sondages_actuels = load_sondages()
+            # Recharger les sondages
+            sondages_actuels = load_sondages()
 
-        if sondages_actuels:
-            # === DERNIER SONDAGE (le plus recent) ===
-            latest_sondage = sondages_actuels[0]  # Deja trie par date decroissante
+            if sondages_actuels:
+                # === DERNIER SONDAGE (le plus recent) ===
+                latest_sondage = sondages_actuels[0]  # Deja trie par date decroissante
 
-            st.markdown(f"#### Dernier sondage : {latest_sondage['institut']} ({latest_sondage['date']})")
-            st.caption(f"Commanditaire: {latest_sondage.get('commanditaire', 'N/A')} · Echantillon: {latest_sondage.get('echantillon', 'N/A')} personnes")
+                st.markdown(f"#### Dernier sondage : {latest_sondage['institut']} ({latest_sondage['date']})")
+                st.caption(f"Commanditaire: {latest_sondage.get('commanditaire', 'N/A')} · Echantillon: {latest_sondage.get('echantillon', 'N/A')} personnes")
 
-            # Preparer les donnees du dernier sondage
-            latest_data = []
-            for candidat, score in latest_sondage["scores"].items():
-                latest_data.append({
-                    "Candidat": candidat,
-                    "Intentions": score
-                })
-
-            latest_data.sort(key=lambda x: x["Intentions"], reverse=True)
-            color_map = {c["name"]: c["color"] for c in CANDIDATES.values()}
-
-            # Graphique du dernier sondage
-            fig_latest = go.Figure()
-            for item in latest_data:
-                candidat = item["Candidat"]
-                color = color_map.get(candidat, "#888")
-                # Sarah Knafo en gras sur l'axe X
-                x_label = f"<b>{candidat}</b>" if candidat == "Sarah Knafo" else candidat
-                fig_latest.add_trace(go.Bar(
-                    name=candidat,
-                    x=[x_label],
-                    y=[item["Intentions"]],
-                    marker_color=color,
-                    text=[f"{item['Intentions']}%"],
-                    textposition='outside',
-                    hovertemplate=f'<b>{candidat}</b><br>{item["Intentions"]}%<extra></extra>'
-                ))
-
-            fig_latest.update_layout(
-                title=f"Intentions de vote - {latest_sondage['institut']} ({latest_sondage['date']})",
-                showlegend=False,
-                yaxis=dict(title="Intentions de vote (%)", range=[0, max(item["Intentions"] for item in latest_data) + 10], fixedrange=True),
-                xaxis=dict(title="", fixedrange=True),
-                dragmode=False
-            )
-            st.plotly_chart(fig_latest, use_container_width=True, config=plotly_config)
-
-            # Tableau du dernier sondage avec Sarah Knafo en gras
-            df_latest = pd.DataFrame(latest_data)
-            def highlight_knafo_sondage(row):
-                if row['Candidat'] == 'Sarah Knafo':
-                    return ['font-weight: bold; background-color: rgba(30, 58, 95, 0.15)'] * len(row)
-                return [''] * len(row)
-            st.dataframe(
-                df_latest.style.apply(highlight_knafo_sondage, axis=1),
-                use_container_width=True,
-                hide_index=True
-            )
-
-            if latest_sondage.get("source_url"):
-                st.markdown(f"[Source: {latest_sondage['institut']}]({latest_sondage['source_url']})")
-
-            st.markdown("---")
-
-            # === EVOLUTION TEMPORELLE ===
-            st.markdown("#### Evolution dans le temps")
-
-            # Regrouper par date unique (prendre la moyenne si plusieurs hypotheses meme jour)
-            date_scores = {}
-            for sondage in sondages_actuels:
-                date_key = sondage["date"]
-                if date_key not in date_scores:
-                    date_scores[date_key] = {}
-                for candidat, score in sondage["scores"].items():
-                    if candidat not in date_scores[date_key]:
-                        date_scores[date_key][candidat] = []
-                    date_scores[date_key][candidat].append(score)
-
-            evolution_data = []
-            for date_key, candidats in sorted(date_scores.items()):
-                for candidat, scores in candidats.items():
-                    evolution_data.append({
-                        "Date": date_key,
+                # Preparer les donnees du dernier sondage
+                latest_data = []
+                for candidat, score in latest_sondage["scores"].items():
+                    latest_data.append({
                         "Candidat": candidat,
-                        "Score": round(sum(scores) / len(scores), 1)
+                        "Intentions": score
                     })
 
-            df_evolution = pd.DataFrame(evolution_data)
+                latest_data.sort(key=lambda x: x["Intentions"], reverse=True)
+                color_map = {c["name"]: c["color"] for c in CANDIDATES.values()}
 
-            fig_evolution = px.line(
-                df_evolution,
-                x="Date",
-                y="Score",
-                color="Candidat",
-                markers=True,
-                color_discrete_map=color_map,
-                title="Evolution des intentions de vote"
-            )
-            fig_evolution.update_layout(
-                yaxis=dict(range=[0, 45], title="Intentions de vote (%)", fixedrange=True),
-                xaxis=dict(title="", fixedrange=True),
-                legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
-                height=500,
-                margin=dict(b=100),
-                dragmode=False
-            )
-            fig_evolution.update_traces(
-                hovertemplate='<b>%{fullData.name}</b><br>%{x}<br>%{y}%<extra></extra>'
-            )
-            st.plotly_chart(fig_evolution, use_container_width=True, config=plotly_config)
+                # Graphique du dernier sondage
+                fig_latest = go.Figure()
+                for item in latest_data:
+                    candidat = item["Candidat"]
+                    color = color_map.get(candidat, "#888")
+                    # Sarah Knafo en gras sur l'axe X (uniquement Paris)
+                    x_label = f"<b>{candidat}</b>" if (candidat == "Sarah Knafo" and is_paris) else candidat
+                    fig_latest.add_trace(go.Bar(
+                        name=candidat,
+                        x=[x_label],
+                        y=[item["Intentions"]],
+                        marker_color=color,
+                        text=[f"{item['Intentions']}%"],
+                        textposition='outside',
+                        hovertemplate=f'<b>{candidat}</b><br>{item["Intentions"]}%<extra></extra>'
+                    ))
 
-            st.markdown("---")
+                fig_latest.update_layout(
+                    title=f"Intentions de vote - {latest_sondage['institut']} ({latest_sondage['date']})",
+                    showlegend=False,
+                    yaxis=dict(title="Intentions de vote (%)", range=[0, max(item["Intentions"] for item in latest_data) + 10], fixedrange=True),
+                    xaxis=dict(title="", fixedrange=True),
+                    dragmode=False
+                )
+                st.plotly_chart(fig_latest, use_container_width=True, config=plotly_config)
 
-            # === DETAIL PAR SONDAGE ===
-            st.markdown("#### Detail par sondage")
+                # Tableau du dernier sondage avec Sarah Knafo en gras (uniquement Paris)
+                df_latest = pd.DataFrame(latest_data)
+                def highlight_knafo_sondage(row):
+                    if row['Candidat'] == 'Sarah Knafo' and is_paris:
+                        return ['font-weight: bold; background-color: rgba(30, 58, 95, 0.15)'] * len(row)
+                    return [''] * len(row)
+                st.dataframe(
+                    df_latest.style.apply(highlight_knafo_sondage, axis=1),
+                    use_container_width=True,
+                    hide_index=True
+                )
 
-            for sondage in sorted(sondages_actuels, key=lambda x: x["date"], reverse=True):
-                with st.expander(f"{sondage['institut']} - {sondage['date']} - {sondage['hypothese'][:50]}...", expanded=(sondage == sondages_actuels[0])):
-                    col_info, col_chart = st.columns([1, 2])
+                if latest_sondage.get("source_url"):
+                    st.markdown(f"[Source: {latest_sondage['institut']}]({latest_sondage['source_url']})")
 
-                    with col_info:
-                        st.markdown(f"**Commanditaire:** {sondage['commanditaire']}")
-                        st.markdown(f"**Echantillon:** {sondage['echantillon']} personnes")
-                        st.markdown(f"**Methode:** {sondage['methode']}")
-                        st.markdown(f"**Hypothese:** {sondage['hypothese']}")
-                        if sondage.get("source_url"):
-                            st.markdown(f"[Voir le sondage]({sondage['source_url']})")
+                st.markdown("---")
 
-                    with col_chart:
-                        sondage_rows = []
-                        for name, score in sorted(sondage["scores"].items(), key=lambda x: x[1], reverse=True):
-                            party = next((c["party"] for c in CANDIDATES.values() if c["name"] == name), "-")
-                            sondage_rows.append({
-                                "Candidat": name,
-                                "Parti": party,
-                                "Intentions": f"{score}%"
-                            })
+                # === EVOLUTION TEMPORELLE ===
+                st.markdown("#### Evolution dans le temps")
 
-                        sondage_colors = [color_map.get(r["Candidat"], "#888") for r in sondage_rows]
+                # Regrouper par date unique (prendre la moyenne si plusieurs hypotheses meme jour)
+                date_scores = {}
+                for sondage in sondages_actuels:
+                    date_key = sondage["date"]
+                    if date_key not in date_scores:
+                        date_scores[date_key] = {}
+                    for candidat, score in sondage["scores"].items():
+                        if candidat not in date_scores[date_key]:
+                            date_scores[date_key][candidat] = []
+                        date_scores[date_key][candidat].append(score)
 
-                        fig = px.bar(
-                            x=[r["Candidat"] for r in sondage_rows],
-                            y=[int(r["Intentions"].replace("%", "")) for r in sondage_rows],
-                            color=[r["Candidat"] for r in sondage_rows],
-                            color_discrete_sequence=sondage_colors
-                        )
-                        fig.update_layout(
-                            showlegend=False,
-                            yaxis=dict(title="%", range=[0, 40], fixedrange=True),
-                            xaxis=dict(title="", fixedrange=True),
-                            height=300,
-                            margin=dict(t=10),
-                            dragmode=False
-                        )
-                        st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+                evolution_data = []
+                for date_key, candidats in sorted(date_scores.items()):
+                    for candidat, scores in candidats.items():
+                        evolution_data.append({
+                            "Date": date_key,
+                            "Candidat": candidat,
+                            "Score": round(sum(scores) / len(scores), 1)
+                        })
 
-        else:
-            st.info("Aucun sondage disponible")
+                df_evolution = pd.DataFrame(evolution_data)
+
+                fig_evolution = px.line(
+                    df_evolution,
+                    x="Date",
+                    y="Score",
+                    color="Candidat",
+                    markers=True,
+                    color_discrete_map=color_map,
+                    title="Evolution des intentions de vote"
+                )
+                fig_evolution.update_layout(
+                    yaxis=dict(range=[0, 45], title="Intentions de vote (%)", fixedrange=True),
+                    xaxis=dict(title="", fixedrange=True),
+                    legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
+                    height=500,
+                    margin=dict(b=100),
+                    dragmode=False
+                )
+                fig_evolution.update_traces(
+                    hovertemplate='<b>%{fullData.name}</b><br>%{x}<br>%{y}%<extra></extra>'
+                )
+                st.plotly_chart(fig_evolution, use_container_width=True, config=plotly_config)
+
+                st.markdown("---")
+
+                # === DETAIL PAR SONDAGE ===
+                st.markdown("#### Detail par sondage")
+
+                for sondage in sorted(sondages_actuels, key=lambda x: x["date"], reverse=True):
+                    with st.expander(f"{sondage['institut']} - {sondage['date']} - {sondage['hypothese'][:50]}...", expanded=(sondage == sondages_actuels[0])):
+                        col_info, col_chart = st.columns([1, 2])
+
+                        with col_info:
+                            st.markdown(f"**Commanditaire:** {sondage['commanditaire']}")
+                            st.markdown(f"**Echantillon:** {sondage['echantillon']} personnes")
+                            st.markdown(f"**Methode:** {sondage['methode']}")
+                            st.markdown(f"**Hypothese:** {sondage['hypothese']}")
+                            if sondage.get("source_url"):
+                                st.markdown(f"[Voir le sondage]({sondage['source_url']})")
+
+                        with col_chart:
+                            sondage_rows = []
+                            for name, score in sorted(sondage["scores"].items(), key=lambda x: x[1], reverse=True):
+                                party = next((c["party"] for c in CANDIDATES.values() if c["name"] == name), "-")
+                                sondage_rows.append({
+                                    "Candidat": name,
+                                    "Parti": party,
+                                    "Intentions": f"{score}%"
+                                })
+
+                            sondage_colors = [color_map.get(r["Candidat"], "#888") for r in sondage_rows]
+
+                            fig = px.bar(
+                                x=[r["Candidat"] for r in sondage_rows],
+                                y=[int(r["Intentions"].replace("%", "")) for r in sondage_rows],
+                                color=[r["Candidat"] for r in sondage_rows],
+                                color_discrete_sequence=sondage_colors
+                            )
+                            fig.update_layout(
+                                showlegend=False,
+                                yaxis=dict(title="%", range=[0, 40], fixedrange=True),
+                                xaxis=dict(title="", fixedrange=True),
+                                height=300,
+                                margin=dict(t=10),
+                                dragmode=False
+                            )
+                            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+
+            else:
+                st.info("Aucun sondage disponible")
 
     # TAB 4: TV/RADIO
     with tab4:
@@ -2751,8 +2980,8 @@ def main():
                         links.append(f"{media_name} ({count})")
                 top_media_html = " · ".join(links)
 
-            # Sarah Knafo en gras dans le HTML
-            candidat_html = f"<b>{name}</b>" if name == "Sarah Knafo" else name
+            # Sarah Knafo en gras dans le HTML (uniquement Paris)
+            candidat_html = f"<b>{name}</b>" if (name == "Sarah Knafo" and is_paris) else name
             tv_data.append({
                 "Candidat": candidat_html,
                 "Mentions": tv.get("count", 0),
@@ -2770,8 +2999,8 @@ def main():
             name = d["info"]["name"]
 
             if mentions:
-                # Sarah Knafo en gras dans le titre de l'expander
-                expander_title = f"**{name}** - {len(mentions)} mention(s)" if name == "Sarah Knafo" else f"{name} - {len(mentions)} mention(s)"
+                # Sarah Knafo en gras dans le titre de l'expander (uniquement Paris)
+                expander_title = f"**{name}** - {len(mentions)} mention(s)" if (name == "Sarah Knafo" and is_paris) else f"{name} - {len(mentions)} mention(s)"
                 with st.expander(expander_title):
                     # Clé unique pour chaque candidat
                     show_all_mentions_key = f"show_all_mentions_{cid}"
@@ -2861,13 +3090,14 @@ def main():
                 else:
                     st.success(f"Historique : {unique_dates} semaines enregistrées")
 
-                # Graphique d'évolution avec Knafo mise en avant
+                # Graphique d'évolution (avec Knafo mise en avant uniquement pour Paris)
                 fig = go.Figure()
 
                 # D'abord ajouter tous les concurrents (couleurs originales des candidats)
                 for candidate_name in color_map.keys():
-                    if candidate_name == "Sarah Knafo":
-                        continue  # On l'ajoute après pour qu'elle soit au premier plan
+                    # Pour Paris, on ajoute Knafo après pour qu'elle soit au premier plan
+                    if candidate_name == "Sarah Knafo" and is_paris:
+                        continue
 
                     candidate_data = df_hist[df_hist["Candidat"] == candidate_name]
                     if not candidate_data.empty:
@@ -2883,18 +3113,19 @@ def main():
                             hovertemplate='<b>%{fullData.name}</b><br>Date: %{x}<br>Score: %{y:.1f}<extra></extra>'
                         ))
 
-                # Sarah Knafo : trait ÉPAIS, rouge vif, diamants
-                knafo_data = df_hist[df_hist["Candidat"] == "Sarah Knafo"]
-                if not knafo_data.empty:
-                    fig.add_trace(go.Scatter(
-                        x=knafo_data["Date"],
-                        y=knafo_data["Score"],
-                        name="Sarah Knafo",
-                        mode='lines+markers',
-                        line=dict(color="#E63946", width=6),  # ÉPAIS
-                        marker=dict(symbol='diamond', size=14, color="#E63946", line=dict(color='white', width=2)),
-                        hovertemplate='<b>Sarah Knafo</b><br>Date: %{x}<br>Score: %{y:.1f}<extra></extra>'
-                    ))
+                # Sarah Knafo : trait ÉPAIS, rouge vif, diamants (uniquement Paris)
+                if is_paris:
+                    knafo_data = df_hist[df_hist["Candidat"] == "Sarah Knafo"]
+                    if not knafo_data.empty:
+                        fig.add_trace(go.Scatter(
+                            x=knafo_data["Date"],
+                            y=knafo_data["Score"],
+                            name="Sarah Knafo",
+                            mode='lines+markers',
+                            line=dict(color="#E63946", width=6),  # ÉPAIS
+                            marker=dict(symbol='diamond', size=14, color="#E63946", line=dict(color='white', width=2)),
+                            hovertemplate='<b>Sarah Knafo</b><br>Date: %{x}<br>Score: %{y:.1f}<extra></extra>'
+                        ))
 
                 fig.update_layout(
                     title="Évolution temporelle",
@@ -3045,7 +3276,7 @@ def main():
     for rank, (cid, d) in enumerate(sorted_data, 1):
         arts = d["press"]["articles"]
         name = d['info']['name']
-        expander_title = f"{rank}. **{name}** — {len(arts)} article(s)" if name == "Sarah Knafo" else f"{rank}. {name} — {len(arts)} article(s)"
+        expander_title = f"{rank}. **{name}** — {len(arts)} article(s)" if (name == "Sarah Knafo" and is_paris) else f"{rank}. {name} — {len(arts)} article(s)"
         with st.expander(expander_title):
             if arts:
                 # Clé unique pour chaque candidat
@@ -3084,7 +3315,7 @@ def main():
             yt = d["youtube"]
             name = d['info']['name']
             if yt.get("available") and yt.get("videos"):
-                expander_title = f"{rank}. **{name}** — {format_number(yt['total_views'])} vues" if name == "Sarah Knafo" else f"{rank}. {name} — {format_number(yt['total_views'])} vues"
+                expander_title = f"{rank}. **{name}** — {format_number(yt['total_views'])} vues" if (name == "Sarah Knafo" and is_paris) else f"{rank}. {name} — {format_number(yt['total_views'])} vues"
                 with st.expander(expander_title):
                     # Clé unique pour chaque candidat
                     show_all_videos_key = f"show_all_videos_{cid}"

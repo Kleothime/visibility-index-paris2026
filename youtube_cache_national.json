@@ -1,0 +1,14 @@
+{
+  "last_refresh": "2025-12-03T20:53:56.150248",
+  "quota_date": "2025-12-03",
+  "quota_used": 1616,
+  "data": {},
+  "period_refreshes": {
+    "14d": {
+      "date": "2025-12-03",
+      "count": 1,
+      "last_refresh": "2025-12-03T20:53:56.150248"
+    }
+  },
+  "last_valid": {}
+}

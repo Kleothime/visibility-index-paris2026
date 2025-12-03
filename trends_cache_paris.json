@@ -1,0 +1,50 @@
+{
+  "last_refresh": "2025-12-03T20:49:11.468919",
+  "data": {
+    "2025-11-20 2025-12-03_David Belliard,Emmanuel Grégoire,Ian Brossat,Pierre-Yves Bournazel,Rachida Dati,Sarah Knafo,Sophia Chikirou,Thierry Mariani": {
+      "scores": {
+        "Rachida Dati": 60.1,
+        "Emmanuel Grégoire": 5.6,
+        "Pierre-Yves Bournazel": 0.2,
+        "Ian Brossat": 1.6,
+        "David Belliard": 1.8,
+        "Sophia Chikirou": 9.0,
+        "Thierry Mariani": 0.9,
+        "Sarah Knafo": 45.0
+      },
+      "timestamp": "2025-12-03T20:49:11.468919"
+    }
+  },
+  "period_refreshes": {
+    "14d": {
+      "date": "2025-12-03",
+      "count": 1,
+      "last_refresh": "2025-12-03T20:49:11.488556"
+    }
+  },
+  "last_valid": {
+    "14d": {
+      "scores": {
+        "Rachida Dati": 60.1,
+        "Emmanuel Grégoire": 5.6,
+        "Pierre-Yves Bournazel": 0.2,
+        "Ian Brossat": 1.6,
+        "David Belliard": 1.8,
+        "Sophia Chikirou": 9.0,
+        "Thierry Mariani": 0.9,
+        "Sarah Knafo": 45.0
+      },
+      "keywords": [
+        "Rachida Dati",
+        "Emmanuel Grégoire",
+        "Pierre-Yves Bournazel",
+        "Ian Brossat",
+        "David Belliard",
+        "Sophia Chikirou",
+        "Thierry Mariani",
+        "Sarah Knafo"
+      ],
+      "timestamp": "2025-12-03T20:49:11.479472"
+    }
+  }
+}

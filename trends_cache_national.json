@@ -1,0 +1,74 @@
+{
+  "last_refresh": "2025-12-03T20:49:32.833190",
+  "data": {
+    "2025-11-20 2025-12-03_Bruno Retailleau,David Lisnard,Fabien Roussel,François Ruffin,Gabriel Attal,Gérald Darmanin,Jean-Luc Mélenchon,Jordan Bardella,Laurent Wauquiez,Marine Le Pen,Marine Tondelier,Marion Maréchal,Raphaël Glucksmann,Édouard Philippe,Éric Ciotti,Éric Zemmour": {
+      "scores": {
+        "Jean-Luc Mélenchon": 1.0,
+        "François Ruffin": 1.8,
+        "Raphaël Glucksmann": 9.7,
+        "Marine Tondelier": 9.7,
+        "Fabien Roussel": 1.8,
+        "Édouard Philippe": 1.0,
+        "Gabriel Attal": 8.8,
+        "Gérald Darmanin": 2.1,
+        "Bruno Retailleau": 3.1,
+        "David Lisnard": 2.4,
+        "Laurent Wauquiez": 3.2,
+        "Éric Ciotti": 1.1,
+        "Jordan Bardella": 42.1,
+        "Marine Le Pen": 11.5,
+        "Éric Zemmour": 1.2,
+        "Marion Maréchal": 1.8
+      },
+      "timestamp": "2025-12-03T20:49:32.833190"
+    }
+  },
+  "period_refreshes": {
+    "14d": {
+      "date": "2025-12-03",
+      "count": 1,
+      "last_refresh": "2025-12-03T20:49:32.852524"
+    }
+  },
+  "last_valid": {
+    "14d": {
+      "scores": {
+        "Jean-Luc Mélenchon": 1.0,
+        "François Ruffin": 1.8,
+        "Raphaël Glucksmann": 9.7,
+        "Marine Tondelier": 9.7,
+        "Fabien Roussel": 1.8,
+        "Édouard Philippe": 1.0,
+        "Gabriel Attal": 8.8,
+        "Gérald Darmanin": 2.1,
+        "Bruno Retailleau": 3.1,
+        "David Lisnard": 2.4,
+        "Laurent Wauquiez": 3.2,
+        "Éric Ciotti": 1.1,
+        "Jordan Bardella": 42.1,
+        "Marine Le Pen": 11.5,
+        "Éric Zemmour": 1.2,
+        "Marion Maréchal": 1.8
+      },
+      "keywords": [
+        "Jean-Luc Mélenchon",
+        "François Ruffin",
+        "Raphaël Glucksmann",
+        "Marine Tondelier",
+        "Fabien Roussel",
+        "Édouard Philippe",
+        "Gabriel Attal",
+        "Gérald Darmanin",
+        "Bruno Retailleau",
+        "David Lisnard",
+        "Laurent Wauquiez",
+        "Éric Ciotti",
+        "Jordan Bardella",
+        "Marine Le Pen",
+        "Éric Zemmour",
+        "Marion Maréchal"
+      ],
+      "timestamp": "2025-12-03T20:49:32.842544"
+    }
+  }
+}
