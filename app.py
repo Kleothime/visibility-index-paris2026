@@ -1609,15 +1609,15 @@ def _search_youtube_channel(candidate_name: str, api_key: str) -> tuple[Optional
     if not youtube_handle:
         return None, None
 
-    # === Rechercher la chaîne par son handle ===
+    # === Rechercher la chaîne par le nom du candidat ===
     search_url = "https://www.googleapis.com/youtube/v3/search"
-    handle_clean = youtube_handle.lstrip("@")
+    last_name = candidate_name.split()[-1].lower()
 
     params = {
         "part": "snippet",
-        "q": handle_clean,
+        "q": candidate_name,  # Chercher par nom, pas par handle
         "type": "channel",
-        "maxResults": 5,
+        "maxResults": 10,
         "key": api_key
     }
 
@@ -1625,12 +1625,11 @@ def _search_youtube_channel(candidate_name: str, api_key: str) -> tuple[Optional
         response = requests.get(search_url, params=params, timeout=10)
         if response.status_code == 200:
             items = response.json().get("items", [])
-            # Chercher une chaîne qui matche le handle
             for item in items:
                 channel_title = item.get("snippet", {}).get("channelTitle", "")
                 channel_id = item.get("snippet", {}).get("channelId", "")
-                # Match si le handle ou "knafo" est dans le nom
-                if handle_clean.lower() in channel_title.lower() or "knafo" in channel_title.lower():
+                # Match si le nom de famille est dans le titre de la chaîne
+                if last_name in channel_title.lower():
                     _save_channel_id_to_cache(candidate_name, channel_id, channel_title)
                     return channel_id, channel_title
     except Exception:
