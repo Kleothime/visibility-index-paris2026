@@ -1568,14 +1568,21 @@ def get_tv_radio_mentions(candidate_name: str, start_date: date, end_date: date)
 
 def calculate_score(wiki_views: int, press_count: int, press_domains: int,
                     trends_score: float, youtube_views: int, youtube_available: bool,
-                    period_days: int = 7, all_candidates_press: List[int] = None) -> Dict:
+                    period_days: int = 7, all_candidates_press: List[int] = None,
+                    all_candidates_wiki: List[int] = None, all_candidates_youtube: List[int] = None) -> Dict:
     """Calcule le score de visibilité
     Pondération: Presse 30%, Trends 30%, Wikipedia 25%, YouTube 15%
 
-    Le score presse est relatif aux autres candidats pour garantir une différenciation.
+    Tous les scores sont RELATIFS aux autres candidats pour garantir une différenciation.
     """
 
-    wiki_score = min((math.log10(wiki_views) / 4.7) * 100, 100) if wiki_views > 0 else 0
+    # Score Wikipedia RELATIF : basé sur le max des candidats
+    if all_candidates_wiki and max(all_candidates_wiki) > 0:
+        max_wiki = max(all_candidates_wiki)
+        wiki_score = (wiki_views / max_wiki) * 100
+    else:
+        # Fallback logarithmique si pas de données comparatives
+        wiki_score = min((math.log10(wiki_views) / 5) * 100, 100) if wiki_views > 0 else 0
 
     # Score presse RELATIF : basé sur le max des candidats de cette analyse
     if all_candidates_press and max(all_candidates_press) > 0:
@@ -1587,14 +1594,20 @@ def calculate_score(wiki_views: int, press_count: int, press_domains: int,
         diversity_bonus = min((press_domains / diversity_threshold) * 20, 20)
         press_score = min(press_base + diversity_bonus, 100)
     else:
-        # Fallback si pas de données comparatives
         press_score = 0
 
+    # Trends est déjà relatif (Google Trends compare les termes entre eux)
     trends_norm = min(max(trends_score, 0), 100)
 
+    # Score YouTube RELATIF : basé sur le max des candidats
     yt_score = 0
     if youtube_available and youtube_views > 0:
-        yt_score = min((math.log10(youtube_views) / 6) * 100, 100)
+        if all_candidates_youtube and max(all_candidates_youtube) > 0:
+            max_yt = max(all_candidates_youtube)
+            yt_score = (youtube_views / max_yt) * 100
+        else:
+            # Fallback logarithmique si pas de données comparatives
+            yt_score = min((math.log10(youtube_views) / 6) * 100, 100)
 
     total = trends_norm * 0.30 + press_score * 0.30 + wiki_score * 0.25 + yt_score * 0.15
     total = min(max(total, 0), 100)
@@ -1711,8 +1724,10 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         progress.progress((i + 1) / total)
 
     # === CALCUL DES SCORES (après collecte de tous les candidats) ===
-    # Collecter tous les comptages presse pour calcul relatif
+    # Collecter tous les comptages pour calcul relatif
     all_press_counts = [results[cid]["press"]["count"] for cid in candidate_ids]
+    all_wiki_views = [results[cid]["wikipedia"]["views"] for cid in candidate_ids]
+    all_youtube_views = [results[cid]["youtube"].get("total_views", 0) for cid in candidate_ids]
     period_days = (end_date - start_date).days + 1
 
     for cid in candidate_ids:
@@ -1725,7 +1740,9 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             youtube_views=d["youtube"].get("total_views", 0),
             youtube_available=d["youtube"].get("available", False),
             period_days=period_days,
-            all_candidates_press=all_press_counts
+            all_candidates_press=all_press_counts,
+            all_candidates_wiki=all_wiki_views,
+            all_candidates_youtube=all_youtube_views
         )
         results[cid]["score"] = score
 
@@ -2035,21 +2052,21 @@ def main():
                 name_display = f"<b>{name}</b>" if name == "Sarah Knafo" else name
                 decomp_data.append({
                     'Candidat': name_display,
-                    'Presse (40%)': s['contrib_press'],
-                    'Trends (35%)': s['contrib_trends'],
-                    'Wikipedia (15%)': s['contrib_wiki'],
-                    'YouTube (10%)': s['contrib_youtube'],
+                    'Presse (30%)': s['contrib_press'],
+                    'Trends (30%)': s['contrib_trends'],
+                    'Wikipedia (25%)': s['contrib_wiki'],
+                    'YouTube (15%)': s['contrib_youtube'],
                 })
 
             df_decomp = pd.DataFrame(decomp_data)
             fig = px.bar(df_decomp, x='Candidat',
-                        y=['Presse (40%)', 'Trends (35%)', 'Wikipedia (15%)', 'YouTube (10%)'],
+                        y=['Presse (30%)', 'Trends (30%)', 'Wikipedia (25%)', 'YouTube (15%)'],
                         barmode='stack', title='Decomposition du score',
                         color_discrete_map={
-                            'Presse (40%)': '#2563eb',
-                            'Trends (35%)': '#16a34a',
-                            'Wikipedia (15%)': '#eab308',
-                            'YouTube (10%)': '#dc2626'
+                            'Presse (30%)': '#2563eb',
+                            'Trends (30%)': '#16a34a',
+                            'Wikipedia (25%)': '#eab308',
+                            'YouTube (15%)': '#dc2626'
                         })
             fig.update_layout(
                 yaxis=dict(range=[0, 100], title='Points', fixedrange=True),
