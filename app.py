@@ -241,6 +241,15 @@ CANDIDATES_NATIONAL = {
         "wikipedia": "Marion_Maréchal",
         "search_terms": ["Marion Maréchal", "Maréchal Reconquête", "Marion Maréchal Le Pen"],
     },
+    "sarah_knafo": {
+        "name": "Sarah Knafo",
+        "party": "Reconquête",
+        "role": "Députée européenne",
+        "color": "#1E3A5F",
+        "wikipedia": "Sarah_Knafo",
+        "search_terms": ["Sarah Knafo", "Knafo Reconquête", "Knafo politique"],
+        "youtube_handle": "@SarahKnafo-Videos",
+    },
 }
 
 # Variable active (sera définie dynamiquement selon le contexte)
@@ -1139,6 +1148,9 @@ STOP_WORDS = {
     # Verbes journalistiques et génériques (infinitifs + conjugaisons)
     "lance", "annonce", "révèle", "affirme", "confie", "déclare", "explique",
     "raconte", "officialise", "présente", "veut", "souhaite", "demande",
+    "assure", "réclame", "réagit", "estime", "juge", "plaide", "dénonce",
+    "charge", "tranche", "maintient", "redit", "accepte", "rejette", "refuse", "obtient",
+    "utilisera", "propos", "déclaration", "entretien", "exclu", "réaction",
     "faut", "falloir", "doit", "peut", "pourrait", "devrait", "soit", "être",
     "mettre", "créer", "faire", "aller", "allant", "avoir", "venir", "prendre",
     "pris", "prise", "dit", "dire", "parle", "parler", "parlé", "montre", "montrer",
@@ -1202,6 +1214,8 @@ STOP_WORDS = {
     "emmanuel", "grégoire", "ian", "brossat", "david", "belliard", "sophia", "chikirou",
     "thierry", "mariani", "bournazel", "macron", "mélenchon", "bardella", "lepen",
     "zemmour", "ciotti", "wauquiez", "retailleau", "philippe", "hollande", "sarkozy",
+    "jordan", "marine", "edouard", "sébastien", "christian", "jean-luc", "raphaël",
+    "gabriel", "fabien", "marion", "maud", "joyce",
 
     # Faits divers / bruit / hors sujet
     "fille", "fils", "enfant", "enfants", "enlèvement", "tentative", "bayonne",
@@ -1215,7 +1229,23 @@ STOP_WORDS = {
     "vraiment", "simplement", "seulement", "justement", "exactement", "absolument",
     "totalement", "complètement", "entièrement", "parfaitement", "clairement",
     "aujourd", "hui", "maintenant", "actuellement", "récemment", "bientôt",
-    "toujours", "jamais", "souvent", "parfois", "rarement", "longtemps"
+    "toujours", "jamais", "souvent", "parfois", "rarement", "longtemps",
+    "enfin", "finalement", "devant", "mieux", "aura", "sauf", "second",
+
+    # Adverbes/adjectifs vagues
+    "définitivement", "civil", "dimension",
+
+    # Vocabulaire judiciaire générique
+    "suspect",
+
+    # Fragments média/URL
+    "orange", "actus", "lamarseillaise", "honte", "francebleu",
+
+    # Fragments de mots composés
+    "porte", "parole", "tour",
+
+    # Verbes journalistiques supplémentaires
+    "soutiendra", "compare"
 }
 
 
@@ -2534,8 +2564,9 @@ def main():
     data = result["candidates"]
     sorted_data = sorted(data.items(), key=lambda x: x[1]["score"]["total"], reverse=True)
 
-    # Variable pour conditionner l'affichage de Sarah Knafo en gras
-    is_paris = contexte == "paris"
+    # Variable pour conditionner l'affichage de Sarah Knafo en gras (dans les deux contextes)
+    is_paris = contexte == "paris"  # Gardé pour l'onglet Sondages
+    highlight_knafo = True  # Sarah Knafo en gras dans tous les contextes
 
     # === SAUVEGARDE AUTOMATIQUE HISTORIQUE (fiable, tous les 3-4 jours) ===
     history = load_history()
@@ -2611,7 +2642,7 @@ def main():
 
     # Styler pour mettre Sarah Knafo en gras (uniquement Paris)
     def highlight_knafo(row):
-        if row['Candidat'] == 'Sarah Knafo' and is_paris:
+        if row['Candidat'] == 'Sarah Knafo' and highlight_knafo:
             return ['font-weight: bold; background-color: rgba(30, 58, 95, 0.15)'] * len(row)
         return [''] * len(row)
 
@@ -2674,7 +2705,7 @@ def main():
     names = [d['info']['name'] for _, d in sorted_data]
     colors = [d['info']['color'] for _, d in sorted_data]
     # Noms avec Sarah Knafo en gras (HTML pour Plotly) - uniquement pour Paris
-    names_html = [f"<b>{n}</b>" if (n == "Sarah Knafo" and is_paris) else n for n in names]
+    names_html = [f"<b>{n}</b>" if (n == "Sarah Knafo" and highlight_knafo) else n for n in names]
 
     # Config Plotly pour mobile (graphiques statiques = pas de capture du scroll)
     plotly_config = {
@@ -2711,7 +2742,7 @@ def main():
             for _, d in sorted_data:
                 s = d['score']
                 name = d['info']['name']
-                name_display = f"<b>{name}</b>" if (name == "Sarah Knafo" and is_paris) else name
+                name_display = f"<b>{name}</b>" if (name == "Sarah Knafo" and highlight_knafo) else name
                 decomp_data.append({
                     'Candidat': name_display,
                     'Presse (30%)': s['contrib_press'],
@@ -2751,10 +2782,10 @@ def main():
             keywords = d.get('keywords', [])
             name = d['info']['name']
             # Sarah Knafo en gras dans le titre (uniquement Paris)
-            is_knafo = name == "Sarah Knafo" and is_paris
+            is_knafo = name == "Sarah Knafo" and highlight_knafo
             expander_title = f'{rank}. **{name}**' if is_knafo else f'{rank}. {name}'
 
-            with st.expander(expander_title, expanded=(rank <= 3 or is_knafo)):
+            with st.expander(expander_title):
                 if keywords:
                     for word, count, articles in keywords:
                         st.markdown(f"**{word}** ({count} mentions)")
@@ -2783,7 +2814,7 @@ def main():
         df_recap = pd.DataFrame(recap_data)
         # Styler pour Sarah Knafo en gras (uniquement Paris)
         def highlight_knafo_recap(row):
-            if row['Candidat'] == 'Sarah Knafo' and is_paris:
+            if row['Candidat'] == 'Sarah Knafo' and highlight_knafo:
                 return ['font-weight: bold; background-color: rgba(30, 58, 95, 0.15)'] * len(row)
             return [''] * len(row)
         st.dataframe(df_recap.style.apply(highlight_knafo_recap, axis=1), use_container_width=True, hide_index=True)
@@ -2819,7 +2850,7 @@ def main():
                     candidat = item["Candidat"]
                     color = color_map.get(candidat, "#888")
                     # Sarah Knafo en gras sur l'axe X (uniquement Paris)
-                    x_label = f"<b>{candidat}</b>" if (candidat == "Sarah Knafo" and is_paris) else candidat
+                    x_label = f"<b>{candidat}</b>" if (candidat == "Sarah Knafo" and highlight_knafo) else candidat
                     fig_latest.add_trace(go.Bar(
                         name=candidat,
                         x=[x_label],
@@ -2842,7 +2873,7 @@ def main():
                 # Tableau du dernier sondage avec Sarah Knafo en gras (uniquement Paris)
                 df_latest = pd.DataFrame(latest_data)
                 def highlight_knafo_sondage(row):
-                    if row['Candidat'] == 'Sarah Knafo' and is_paris:
+                    if row['Candidat'] == 'Sarah Knafo' and highlight_knafo:
                         return ['font-weight: bold; background-color: rgba(30, 58, 95, 0.15)'] * len(row)
                     return [''] * len(row)
                 st.dataframe(
@@ -2981,7 +3012,7 @@ def main():
                 top_media_html = " · ".join(links)
 
             # Sarah Knafo en gras dans le HTML (uniquement Paris)
-            candidat_html = f"<b>{name}</b>" if (name == "Sarah Knafo" and is_paris) else name
+            candidat_html = f"<b>{name}</b>" if (name == "Sarah Knafo" and highlight_knafo) else name
             tv_data.append({
                 "Candidat": candidat_html,
                 "Mentions": tv.get("count", 0),
@@ -3000,7 +3031,7 @@ def main():
 
             if mentions:
                 # Sarah Knafo en gras dans le titre de l'expander (uniquement Paris)
-                expander_title = f"**{name}** - {len(mentions)} mention(s)" if (name == "Sarah Knafo" and is_paris) else f"{name} - {len(mentions)} mention(s)"
+                expander_title = f"**{name}** - {len(mentions)} mention(s)" if (name == "Sarah Knafo" and highlight_knafo) else f"{name} - {len(mentions)} mention(s)"
                 with st.expander(expander_title):
                     # Clé unique pour chaque candidat
                     show_all_mentions_key = f"show_all_mentions_{cid}"
@@ -3096,7 +3127,7 @@ def main():
                 # D'abord ajouter tous les concurrents (couleurs originales des candidats)
                 for candidate_name in color_map.keys():
                     # Pour Paris, on ajoute Knafo après pour qu'elle soit au premier plan
-                    if candidate_name == "Sarah Knafo" and is_paris:
+                    if candidate_name == "Sarah Knafo" and highlight_knafo:
                         continue
 
                     candidate_data = df_hist[df_hist["Candidat"] == candidate_name]
@@ -3276,7 +3307,7 @@ def main():
     for rank, (cid, d) in enumerate(sorted_data, 1):
         arts = d["press"]["articles"]
         name = d['info']['name']
-        expander_title = f"{rank}. **{name}** — {len(arts)} article(s)" if (name == "Sarah Knafo" and is_paris) else f"{rank}. {name} — {len(arts)} article(s)"
+        expander_title = f"{rank}. **{name}** — {len(arts)} article(s)" if (name == "Sarah Knafo" and highlight_knafo) else f"{rank}. {name} — {len(arts)} article(s)"
         with st.expander(expander_title):
             if arts:
                 # Clé unique pour chaque candidat
@@ -3315,7 +3346,7 @@ def main():
             yt = d["youtube"]
             name = d['info']['name']
             if yt.get("available") and yt.get("videos"):
-                expander_title = f"{rank}. **{name}** — {format_number(yt['total_views'])} vues" if (name == "Sarah Knafo" and is_paris) else f"{rank}. {name} — {format_number(yt['total_views'])} vues"
+                expander_title = f"{rank}. **{name}** — {format_number(yt['total_views'])} vues" if (name == "Sarah Knafo" and highlight_knafo) else f"{rank}. {name} — {format_number(yt['total_views'])} vues"
                 with st.expander(expander_title):
                     # Clé unique pour chaque candidat
                     show_all_videos_key = f"show_all_videos_{cid}"
