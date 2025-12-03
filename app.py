@@ -2570,15 +2570,15 @@ def main():
     # TAB 5: HISTORIQUE
     with tab5:
         st.markdown("### Évolution des scores de visibilité")
-        st.caption("Sauvegarde auto tous les 3+ jours, uniquement si toutes les données sont complètes")
+        # st.caption("Sauvegarde auto tous les 3+ jours, uniquement si toutes les données sont complètes")
 
         # Charger l'historique existant
         history = load_history()
 
-        # Debug: afficher les dates chargées
-        if history:
-            dates_loaded = sorted([h.get("date") for h in history])
-            st.caption(f"📊 Données chargées: {dates_loaded}")
+        # Debug: afficher les dates chargées (masqué)
+        # if history:
+        #     dates_loaded = sorted([h.get("date") for h in history])
+        #     st.caption(f"📊 Données chargées: {dates_loaded}")
 
         if history and len(history) >= 1:
             # Dédupliquer par semaine (garder 1 entrée par semaine ISO)
