@@ -1570,7 +1570,7 @@ def calculate_score(wiki_views: int, press_count: int, press_domains: int,
                     trends_score: float, youtube_views: int, youtube_available: bool,
                     period_days: int = 7, all_candidates_press: List[int] = None) -> Dict:
     """Calcule le score de visibilité
-    Pondération: Presse 40%, Trends 35%, Wikipedia 15%, YouTube 10%
+    Pondération: Presse 30%, Trends 30%, Wikipedia 25%, YouTube 15%
 
     Le score presse est relatif aux autres candidats pour garantir une différenciation.
     """
@@ -1596,7 +1596,7 @@ def calculate_score(wiki_views: int, press_count: int, press_domains: int,
     if youtube_available and youtube_views > 0:
         yt_score = min((math.log10(youtube_views) / 6) * 100, 100)
 
-    total = trends_norm * 0.35 + press_score * 0.40 + wiki_score * 0.15 + yt_score * 0.10
+    total = trends_norm * 0.30 + press_score * 0.30 + wiki_score * 0.25 + yt_score * 0.15
     total = min(max(total, 0), 100)
 
     return {
@@ -1605,10 +1605,10 @@ def calculate_score(wiki_views: int, press_count: int, press_domains: int,
         "press": round(press_score, 1),
         "wiki": round(wiki_score, 1),
         "youtube": round(yt_score, 1),
-        "contrib_trends": round(trends_norm * 0.35, 1),
-        "contrib_press": round(press_score * 0.40, 1),
-        "contrib_wiki": round(wiki_score * 0.15, 1),
-        "contrib_youtube": round(yt_score * 0.10, 1),
+        "contrib_trends": round(trends_norm * 0.30, 1),
+        "contrib_press": round(press_score * 0.30, 1),
+        "contrib_wiki": round(wiki_score * 0.25, 1),
+        "contrib_youtube": round(yt_score * 0.15, 1),
     }
 
 
@@ -1852,7 +1852,7 @@ def main():
 
         st.markdown("---")
         st.markdown("### Pondération du score")
-        st.caption("Presse 40% · Trends 35% · Wikipedia 15% · YouTube 10%")
+        st.caption("Presse 30% · Trends 30% · Wikipedia 25% · YouTube 15%")
 
         st.markdown("---")
         st.caption("Kléothime Bourdon · bourdonkleothime@gmail.com")
