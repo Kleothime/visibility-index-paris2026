@@ -101,6 +101,7 @@ CANDIDATES = {
         "color": "#1E3A5F",
         "wikipedia": "Sarah_Knafo",
         "search_terms": ["Sarah Knafo", "Knafo Reconquête", "Knafo Paris"],
+        "youtube_handle": "@SarahKnafo-Videos",  # Chaîne officielle active
     }
 }
 
@@ -1581,59 +1582,65 @@ def _save_channel_id_to_cache(candidate_name: str, channel_id: str, channel_name
     save_youtube_cache(cache)
 
 
+def _get_candidate_youtube_handle(candidate_name: str) -> Optional[str]:
+    """Récupère le handle YouTube prédéfini pour un candidat (si défini)."""
+    for candidate in CANDIDATES.values():
+        if candidate["name"] == candidate_name:
+            return candidate.get("youtube_handle")
+    return None
+
+
 def _search_youtube_channel(candidate_name: str, api_key: str) -> tuple[Optional[str], Optional[str]]:
     """
-    Recherche la chaîne YouTube officielle d'un candidat.
-    Utilise le cache si disponible pour économiser le quota.
+    Récupère la chaîne YouTube officielle d'un candidat.
+
+    STRATÉGIE SIMPLIFIÉE:
+    - Si le candidat a un youtube_handle prédéfini → résolution via API (1 appel, puis cache permanent)
+    - Sinon → pas de chaîne officielle (les autres candidats n'ont pas de chaîne active)
+
     Retourne (channel_id, channel_name) ou (None, None).
     """
     # === OPTIMISATION: Vérifier le cache d'abord ===
     cached = _get_cached_channel_id(candidate_name)
     if cached:
-        return cached.get("id"), cached.get("name")
+        cached_id = cached.get("id")
+        if cached_id:  # Si on a un ID valide en cache
+            return cached_id, cached.get("name")
+        else:  # Si on a explicitement caché "pas de chaîne"
+            return None, None
 
-    # === Pas en cache: faire la recherche API ===
-    search_url = "https://www.googleapis.com/youtube/v3/search"
-    last_name = candidate_name.split()[-1]
+    # === Vérifier si le candidat a un handle prédéfini ===
+    youtube_handle = _get_candidate_youtube_handle(candidate_name)
+
+    if not youtube_handle:
+        # Pas de handle défini = pas de chaîne officielle à chercher
+        _save_channel_id_to_cache(candidate_name, "", None)
+        return None, None
+
+    # === Résoudre le handle en channel ID via l'API ===
+    channels_url = "https://www.googleapis.com/youtube/v3/channels"
+    handle_clean = youtube_handle.lstrip("@")
 
     params = {
         "part": "snippet",
-        "q": candidate_name,
-        "type": "channel",
-        "maxResults": 5,  # Réduit de 10 à 5 (suffisant)
+        "forHandle": handle_clean,
         "key": api_key
     }
 
     try:
-        response = requests.get(search_url, params=params, timeout=10)
+        response = requests.get(channels_url, params=params, timeout=10)
         if response.status_code == 200:
             items = response.json().get("items", [])
-
-            name_lower = candidate_name.lower()
-            last_name_lower = last_name.lower()
-
-            for item in items:
-                channel_title = item.get("snippet", {}).get("channelTitle", "")
-                channel_title_lower = channel_title.lower()
-                channel_id = item.get("snippet", {}).get("channelId", "")
-
-                # Match exact ou partiel sur le nom de la chaîne
-                if name_lower in channel_title_lower or channel_title_lower in name_lower:
-                    # Sauvegarder dans le cache pour les prochaines fois
-                    _save_channel_id_to_cache(candidate_name, channel_id, channel_title)
-                    return channel_id, channel_title
-
-                # Match sur le nom de famille uniquement
-                if last_name_lower in channel_title_lower and len(last_name_lower) >= 4:
-                    _save_channel_id_to_cache(candidate_name, channel_id, channel_title)
-                    return channel_id, channel_title
-
-            # Aucune chaîne trouvée - sauvegarder "none" pour ne pas re-chercher
-            _save_channel_id_to_cache(candidate_name, "", None)
-
+            if items:
+                channel_id = items[0].get("id", "")
+                channel_name = items[0].get("snippet", {}).get("title", "")
+                _save_channel_id_to_cache(candidate_name, channel_id, channel_name)
+                return channel_id, channel_name
     except Exception:
         pass
 
+    # Fallback: pas trouvé
+    _save_channel_id_to_cache(candidate_name, "", None)
     return None, None
 
 
