@@ -1,6 +1,8 @@
 {
+  "last_refresh": null,
+  "quota_date": null,
   "quota_used": 0,
-  "quota_date": "",
-  "last_update": "",
-  "data": {}
+  "data": {},
+  "period_refreshes": {},
+  "last_valid": {}
 }

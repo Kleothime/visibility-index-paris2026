@@ -377,7 +377,9 @@ def load_youtube_cache() -> Dict:
             "last_refresh": None,
             "quota_date": None,
             "quota_used": 0,
-            "data": {}
+            "data": {},
+            "period_refreshes": {},
+            "last_valid": {}
         }
 
 
@@ -397,7 +399,7 @@ def get_youtube_cache_age_hours() -> float:
     last_refresh = cache.get("last_refresh")
 
     if not last_refresh:
-        return float('inf')  # Jamais rafraîchi
+        return float('inf')
 
     try:
         last_dt = datetime.fromisoformat(last_refresh)
@@ -412,99 +414,171 @@ def get_youtube_quota_remaining() -> int:
     cache = load_youtube_cache()
     today = date.today().isoformat()
 
-    # Reset si nouveau jour
     if cache.get("quota_date") != today:
         return YOUTUBE_QUOTA_DAILY_LIMIT
 
     return max(0, YOUTUBE_QUOTA_DAILY_LIMIT - cache.get("quota_used", 0))
 
 
-def can_refresh_youtube(expected_cost: int = YOUTUBE_COST_PER_CANDIDATE) -> tuple[bool, str]:
+YOUTUBE_24H_COOLDOWN_HOURS = 2  # Cooldown de 2h pour la période 24h
+YOUTUBE_LONG_PERIOD_MAX_PER_DAY = 1  # Max 1 requête/jour pour 7j, 14j, 30j
+
+
+def can_refresh_youtube_for_period(period_type: str, expected_cost: int = 0) -> tuple[bool, str]:
     """
-    Vérifie si un refresh YouTube est autorisé.
-    Retourne (autorisé, raison)
+    Vérifie si on peut faire une requête YouTube pour ce type de période.
+    - 24h : cooldown de 2h entre les requêtes + vérification quota API
+    - 7d/14d/30d : max 1 requête par jour + vérification quota API
     """
-    # Vérifier si le cache est encore frais
-    cache_age = get_youtube_cache_age_hours()
-    if cache_age < YOUTUBE_CACHE_DURATION_HOURS:
-        return False, f"Cache frais ({cache_age:.1f}h < {YOUTUBE_CACHE_DURATION_HOURS}h)"
-
-    # Vérifier le cooldown
-    if cache_age < YOUTUBE_COOLDOWN_HOURS:
-        remaining = int((YOUTUBE_COOLDOWN_HOURS - cache_age) * 60)
-        return False, f"Cooldown actif ({remaining} min restantes)"
-
-    # Vérifier le quota
-    remaining_quota = get_youtube_quota_remaining()
-    if remaining_quota < expected_cost:
-        return False, f"Quota insuffisant ({remaining_quota} < {expected_cost} nécessaires)"
-
-    return True, "OK"
-
-
-def increment_youtube_quota(cost: int = YOUTUBE_COST_PER_CANDIDATE):
-    """Incrémente le compteur de quota YouTube"""
     cache = load_youtube_cache()
-    today = date.today().isoformat()
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # Vérifier le quota API YouTube global
+    remaining_quota = get_youtube_quota_remaining()
+    if expected_cost > 0 and remaining_quota < expected_cost:
+        return False, f"Quota API insuffisant ({remaining_quota})"
+
+    period_refreshes = cache.get("period_refreshes", {})
+    period_info = period_refreshes.get(period_type, {})
 
     # Reset si nouveau jour
-    if cache.get("quota_date") != today:
-        cache["quota_date"] = today
-        cache["quota_used"] = 0
+    if period_info.get("date") != today:
+        return True, "OK"
 
-    cache["quota_used"] = cache.get("quota_used", 0) + cost
+    if period_type == "24h":
+        # Pour 24h : vérifier le cooldown
+        last_refresh = period_info.get("last_refresh")
+        if last_refresh:
+            try:
+                last_dt = datetime.fromisoformat(last_refresh)
+                age_hours = (datetime.now() - last_dt).total_seconds() / 3600
+                if age_hours < YOUTUBE_24H_COOLDOWN_HOURS:
+                    remaining = int((YOUTUBE_24H_COOLDOWN_HOURS - age_hours) * 60)
+                    return False, f"Cooldown 24h ({remaining} min)"
+            except:
+                pass
+        return True, "OK"
+    else:
+        # Pour 7d/14d/30d : max 1 par jour
+        count = period_info.get("count", 0)
+        if count >= YOUTUBE_LONG_PERIOD_MAX_PER_DAY:
+            return False, f"Limite {period_type} (1/jour)"
+        return True, "OK"
+
+
+def increment_youtube_period_refresh(period_type: str, cost: int = 0):
+    """Incrémente le compteur de refresh YouTube pour un type de période"""
+    cache = load_youtube_cache()
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # Incrémenter le quota API global
+    if cost > 0:
+        if cache.get("quota_date") != today:
+            cache["quota_date"] = today
+            cache["quota_used"] = 0
+        cache["quota_used"] = cache.get("quota_used", 0) + cost
+
+    # Incrémenter le compteur par période
+    if "period_refreshes" not in cache:
+        cache["period_refreshes"] = {}
+
+    if period_type not in cache["period_refreshes"] or cache["period_refreshes"][period_type].get("date") != today:
+        cache["period_refreshes"][period_type] = {"date": today, "count": 0}
+
+    cache["period_refreshes"][period_type]["count"] += 1
+    cache["period_refreshes"][period_type]["last_refresh"] = datetime.now().isoformat()
     cache["last_refresh"] = datetime.now().isoformat()
+
     save_youtube_cache(cache)
 
 
-def get_cached_youtube_data_for_period(candidate_name: str, start_date: date, end_date: date, allow_fallback: bool = False) -> Optional[Dict]:
+def save_youtube_last_valid(period_type: str, candidate_name: str, data: Dict):
+    """Sauvegarde les dernières données YouTube valides pour un candidat et type de période"""
+    if data.get("total_views", 0) <= 0:
+        return  # Ne pas sauvegarder de données vides
+
+    cache = load_youtube_cache()
+
+    if "last_valid" not in cache:
+        cache["last_valid"] = {}
+    if period_type not in cache["last_valid"]:
+        cache["last_valid"][period_type] = {}
+
+    cache["last_valid"][period_type][candidate_name] = {
+        "payload": data,
+        "timestamp": datetime.now().isoformat()
+    }
+
+    save_youtube_cache(cache)
+
+
+def get_youtube_last_valid(period_type: str, candidate_name: str) -> Optional[Dict]:
+    """Récupère les dernières données YouTube valides pour un candidat"""
+    cache = load_youtube_cache()
+
+    # 1. Essayer le type de période exact
+    last_valid = cache.get("last_valid", {}).get(period_type, {}).get(candidate_name)
+    if last_valid:
+        payload = last_valid.get("payload", {})
+        if payload.get("total_views", 0) > 0:
+            result = dict(payload)
+            result["is_fallback"] = True
+            result["fallback_period"] = period_type
+            return result
+
+    # 2. Chercher dans les autres types de période
+    for pt in ["24h", "7d", "14d", "30d"]:
+        if pt != period_type:
+            last_valid = cache.get("last_valid", {}).get(pt, {}).get(candidate_name)
+            if last_valid:
+                payload = last_valid.get("payload", {})
+                if payload.get("total_views", 0) > 0:
+                    result = dict(payload)
+                    result["is_fallback"] = True
+                    result["fallback_period"] = pt
+                    return result
+
+    return None
+
+
+def get_cached_youtube_data_for_period(candidate_name: str, start_date: date, end_date: date) -> Optional[Dict]:
     """
-    Récupère le cache YouTube.
-    - Si allow_fallback=False: seulement si la période correspond exactement
-    - Si allow_fallback=True: retourne le cache le plus récent disponible
+    Récupère le cache YouTube pour un candidat et une période.
+    Cherche d'abord une correspondance exacte, puis le fallback last_valid.
     """
     cache = load_youtube_cache()
+    period_type = get_period_type(start_date, end_date)
     candidate_cache = cache.get("data", {}).get(candidate_name, {})
 
-    if not candidate_cache:
-        return None
-
-    # Clé de période exacte
+    # 1. Chercher correspondance exacte
     period_key = f"{start_date.isoformat()}_{end_date.isoformat()}"
-
-    # Chercher correspondance exacte
     if period_key in candidate_cache:
         entry = candidate_cache[period_key]
         payload = entry.get("payload")
         if isinstance(payload, dict) and payload.get("total_views", 0) > 0:
             result = dict(payload)
             result["cache_exact_match"] = True
+            result["available"] = True
             return result
 
-    # Fallback: chercher le cache le plus récent avec des vues > 0
-    if allow_fallback:
-        best_entry = None
-        best_date = None
-        for key, entry in candidate_cache.items():
-            payload = entry.get("payload", {})
-            if payload.get("total_views", 0) > 0:
-                entry_end = entry.get("end")
-                if entry_end and (best_date is None or entry_end > best_date):
-                    best_date = entry_end
-                    best_entry = entry
-
-        if best_entry:
-            result = dict(best_entry.get("payload", {}))
-            result["cache_exact_match"] = False
-            result["cache_period"] = f"{best_entry.get('start')} → {best_entry.get('end')}"
-            return result
+    # 2. Chercher dans last_valid (fallback)
+    fallback = get_youtube_last_valid(period_type, candidate_name)
+    if fallback:
+        fallback["cache_exact_match"] = False
+        fallback["available"] = True
+        return fallback
 
     return None
 
 
 def set_cached_youtube_data(candidate_name: str, data: Dict, start_date: date, end_date: date):
     """Stocke les données YouTube en cache pour un candidat et une période"""
+    if data.get("total_views", 0) <= 0:
+        return  # Ne pas cacher de données vides
+
     cache = load_youtube_cache()
+    period_type = get_period_type(start_date, end_date)
+
     if "data" not in cache:
         cache["data"] = {}
     if candidate_name not in cache["data"]:
@@ -517,98 +591,52 @@ def set_cached_youtube_data(candidate_name: str, data: Dict, start_date: date, e
         "payload": data
     }
 
-    # Garder max 10 périodes par candidat (éviter explosion du cache)
+    # Garder max 10 périodes par candidat
     if len(cache["data"][candidate_name]) > 10:
-        # Supprimer les plus anciennes
         sorted_keys = sorted(cache["data"][candidate_name].keys())
         for old_key in sorted_keys[:-10]:
             del cache["data"][candidate_name][old_key]
 
     save_youtube_cache(cache)
 
+    # Sauvegarder aussi comme last_valid
+    save_youtube_last_valid(period_type, candidate_name, data)
+
 
 # =============================================================================
-# CACHE GOOGLE TRENDS RELATED QUERIES
+# CACHE GOOGLE TRENDS - SYSTÈME INTELLIGENT PAR PÉRIODE
 # =============================================================================
 
-TRENDS_CACHE_DURATION_HOURS = 6  # Cache Trends pendant 6h
-TRENDS_MAX_REQUESTS_PER_DAY = 12  # Maximum 12 requêtes par jour (4 périodes x 3 refreshes)
-TRENDS_QUOTA_FILE = "trends_quota.json"
+TRENDS_CACHE_FILE = "trends_cache.json"
+TRENDS_24H_COOLDOWN_HOURS = 2  # Cooldown de 2h pour la période 24h
+TRENDS_LONG_PERIOD_MAX_PER_DAY = 1  # Max 1 requête/jour pour 7j, 14j, 30j
 
 
-def load_trends_quota() -> Dict:
-    """Charge le fichier de suivi des quotas Trends"""
-    try:
-        with open(TRENDS_QUOTA_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            # Reset si on est un nouveau jour
-            today = datetime.now().strftime("%Y-%m-%d")
-            if data.get("date") != today:
-                return {"date": today, "requests": 0, "last_request": None}
-            return data
-    except:
-        return {"date": datetime.now().strftime("%Y-%m-%d"), "requests": 0, "last_request": None}
-
-
-def save_trends_quota(quota: Dict) -> bool:
-    """Sauvegarde le fichier de suivi des quotas Trends"""
-    try:
-        with open(TRENDS_QUOTA_FILE, "w", encoding="utf-8") as f:
-            json.dump(quota, f, indent=2)
-        return True
-    except:
-        return False
-
-
-def increment_trends_quota() -> bool:
-    """Incrémente le compteur de requêtes Trends"""
-    quota = load_trends_quota()
-    quota["requests"] = quota.get("requests", 0) + 1
-    quota["last_request"] = datetime.now().isoformat()
-    return save_trends_quota(quota)
-
-
-def get_time_until_quota_reset() -> str:
-    """Retourne le temps restant jusqu'à 9h (reset des quotas Google API - minuit Pacific = 9h Paris)"""
-    now = datetime.now()
-    # Reset à 9h du matin (heure de Paris)
-    reset_today = datetime(now.year, now.month, now.day, 9, 0, 0)
-    if now.hour >= 9:
-        # Après 9h, le prochain reset est demain à 9h
-        reset_time = reset_today + timedelta(days=1)
+def get_period_type(start_date: date, end_date: date) -> str:
+    """Détermine le type de période : 24h, 7d, 14d, 30d"""
+    days = (end_date - start_date).days + 1
+    if days <= 1:
+        return "24h"
+    elif days <= 7:
+        return "7d"
+    elif days <= 14:
+        return "14d"
     else:
-        # Avant 9h, le reset est aujourd'hui à 9h
-        reset_time = reset_today
-
-    delta = reset_time - now
-    hours = int(delta.total_seconds() // 3600)
-    minutes = int((delta.total_seconds() % 3600) // 60)
-    if hours > 0:
-        return f"{hours}h{minutes:02d}"
-    return f"{minutes} min"
-
-
-def can_make_trends_request() -> tuple[bool, str]:
-    """
-    Vérifie si on peut faire une requête Google Trends.
-    Retourne (autorisé, message)
-    """
-    quota = load_trends_quota()
-
-    # Vérifier le quota journalier uniquement (pas de cooldown pour permettre l'exploration rapide)
-    if quota.get("requests", 0) >= TRENDS_MAX_REQUESTS_PER_DAY:
-        return False, f"Quota journalier atteint ({TRENDS_MAX_REQUESTS_PER_DAY} requêtes max/jour)"
-
-    return True, "OK"
+        return "30d"
 
 
 def load_trends_cache() -> Dict:
-    """Charge le cache des related queries Google Trends"""
+    """Charge le cache Google Trends"""
     try:
         with open(TRENDS_CACHE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except:
-        return {"last_refresh": None, "data": {}}
+        return {
+            "last_refresh": None,
+            "data": {},
+            "period_refreshes": {},
+            "last_valid": {}
+        }
 
 
 def save_trends_cache(cache: Dict) -> bool:
@@ -621,11 +649,124 @@ def save_trends_cache(cache: Dict) -> bool:
         return False
 
 
-def get_trends_cache_age_hours(cache_key: str = None) -> float:
-    """Retourne l'âge du cache Trends en heures (global ou par clé)"""
+def get_time_until_quota_reset() -> str:
+    """Retourne le temps restant jusqu'à 9h (reset des quotas)"""
+    now = datetime.now()
+    reset_today = datetime(now.year, now.month, now.day, 9, 0, 0)
+    if now.hour >= 9:
+        reset_time = reset_today + timedelta(days=1)
+    else:
+        reset_time = reset_today
+
+    delta = reset_time - now
+    hours = int(delta.total_seconds() // 3600)
+    minutes = int((delta.total_seconds() % 3600) // 60)
+    if hours > 0:
+        return f"{hours}h{minutes:02d}"
+    return f"{minutes} min"
+
+
+def can_refresh_trends(period_type: str) -> tuple[bool, str]:
+    """
+    Vérifie si on peut faire une requête Trends pour ce type de période.
+    - 24h : cooldown de 2h entre les requêtes
+    - 7d/14d/30d : max 1 requête par jour
+    """
+    cache = load_trends_cache()
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    period_refreshes = cache.get("period_refreshes", {})
+    period_info = period_refreshes.get(period_type, {})
+
+    # Reset si nouveau jour
+    if period_info.get("date") != today:
+        return True, "OK"
+
+    if period_type == "24h":
+        # Pour 24h : vérifier le cooldown
+        last_refresh = period_info.get("last_refresh")
+        if last_refresh:
+            try:
+                last_dt = datetime.fromisoformat(last_refresh)
+                age_hours = (datetime.now() - last_dt).total_seconds() / 3600
+                if age_hours < TRENDS_24H_COOLDOWN_HOURS:
+                    remaining = int((TRENDS_24H_COOLDOWN_HOURS - age_hours) * 60)
+                    return False, f"Cooldown 24h ({remaining} min)"
+            except:
+                pass
+        return True, "OK"
+    else:
+        # Pour 7d/14d/30d : max 1 par jour
+        count = period_info.get("count", 0)
+        if count >= TRENDS_LONG_PERIOD_MAX_PER_DAY:
+            return False, f"Limite atteinte pour {period_type} (1/jour)"
+        return True, "OK"
+
+
+def increment_trends_period_refresh(period_type: str):
+    """Incrémente le compteur de refresh pour un type de période"""
+    cache = load_trends_cache()
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    if "period_refreshes" not in cache:
+        cache["period_refreshes"] = {}
+
+    if period_type not in cache["period_refreshes"] or cache["period_refreshes"][period_type].get("date") != today:
+        cache["period_refreshes"][period_type] = {"date": today, "count": 0}
+
+    cache["period_refreshes"][period_type]["count"] += 1
+    cache["period_refreshes"][period_type]["last_refresh"] = datetime.now().isoformat()
+
+    save_trends_cache(cache)
+
+
+def save_trends_last_valid(period_type: str, scores: Dict, keywords: List[str]):
+    """Sauvegarde les dernières données valides pour un type de période"""
     cache = load_trends_cache()
 
-    # Si une clé spécifique est demandée, vérifier son timestamp
+    if "last_valid" not in cache:
+        cache["last_valid"] = {}
+
+    cache["last_valid"][period_type] = {
+        "scores": scores,
+        "keywords": keywords,
+        "timestamp": datetime.now().isoformat()
+    }
+
+    save_trends_cache(cache)
+
+
+def get_trends_last_valid(period_type: str, keywords: List[str]) -> Optional[Dict]:
+    """Récupère les dernières données valides pour un type de période"""
+    cache = load_trends_cache()
+    last_valid = cache.get("last_valid", {}).get(period_type)
+
+    if not last_valid:
+        return None
+
+    # Vérifier que les mots-clés correspondent (même candidats)
+    cached_keywords = set(last_valid.get("keywords", []))
+    requested_keywords = set(keywords)
+
+    # Si au moins 80% des candidats correspondent, on peut utiliser le fallback
+    if len(cached_keywords & requested_keywords) >= len(requested_keywords) * 0.8:
+        scores = last_valid.get("scores", {})
+        # Ne retourner que les scores des candidats demandés
+        filtered_scores = {kw: scores.get(kw, 0.0) for kw in keywords}
+        if any(v > 0 for v in filtered_scores.values()):
+            return {
+                "scores": filtered_scores,
+                "timestamp": last_valid.get("timestamp"),
+                "is_fallback": True
+            }
+
+    return None
+
+
+def get_trends_cache_age_hours(cache_key: str = None) -> float:
+    """Retourne l'âge du cache Trends en heures"""
+    cache = load_trends_cache()
+
     if cache_key:
         entry = cache.get("data", {}).get(cache_key)
         if entry and entry.get("timestamp"):
@@ -636,7 +777,6 @@ def get_trends_cache_age_hours(cache_key: str = None) -> float:
                 pass
         return float('inf')
 
-    # Sinon, retourner l'âge global (pour compatibilité)
     last_refresh = cache.get("last_refresh")
     if not last_refresh:
         return float('inf')
@@ -1284,25 +1424,81 @@ def _fetch_google_trends_api(keywords: List[str], timeframe: str) -> Dict:
     return {"scores": scores, "errors": errors}
 
 
-@st.cache_data(ttl=21600, show_spinner=False)  # Cache 6h
+@st.cache_data(ttl=3600, show_spinner=False)  # Cache Streamlit 1h
 def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> Dict:
     """
-    Récupère les données Google Trends avec protection des quotas.
-    Utilise le cache si disponible, sinon vérifie les quotas avant l'appel API.
+    Récupère les données Google Trends avec système intelligent de cache.
+
+    Règles:
+    - 24h: Refresh autorisé avec cooldown de 2h
+    - 7j/14j/30j: Max 1 refresh par jour
+    - Fallback: Toujours retourner les dernières données valides (jamais 0)
     """
     if not keywords:
         return {"success": False, "scores": {}, "errors": ["Aucun mot-clé fourni"], "from_cache": False}
 
+    # Déterminer le type de période
+    period_type = get_period_type(start_date, end_date)
     timeframe = f"{start_date.strftime('%Y-%m-%d')} {end_date.strftime('%Y-%m-%d')}"
     cache_key = f"{timeframe}_{','.join(sorted(keywords))}"
 
     # Charger le cache
     cache = load_trends_cache()
     cached_data = cache.get("data", {}).get(cache_key)
-
-    # Vérifier si le cache de CETTE PERIODE est encore frais
     cache_age = get_trends_cache_age_hours(cache_key)
-    if cached_data and cache_age < TRENDS_CACHE_DURATION_HOURS:
+
+    # Fonction helper pour retourner des données avec fallback (JAMAIS 0)
+    def return_with_fallback(reason: str):
+        # 1. Essayer le cache exact de cette période
+        if cached_data and any(v > 0 for v in cached_data.get("scores", {}).values()):
+            return {
+                "success": True,
+                "scores": cached_data.get("scores", {}),
+                "errors": [reason] if reason else None,
+                "from_cache": True,
+                "cache_age_hours": round(cache_age, 1) if cache_age != float('inf') else None
+            }
+
+        # 2. Essayer le fallback last_valid pour ce type de période
+        fallback = get_trends_last_valid(period_type, keywords)
+        if fallback:
+            return {
+                "success": True,
+                "scores": fallback["scores"],
+                "errors": [f"{reason} (secours)"] if reason else None,
+                "from_cache": True,
+                "is_fallback": True
+            }
+
+        # 3. Dernier recours: chercher dans n'importe quel last_valid
+        for pt in ["24h", "7d", "14d", "30d"]:
+            fallback = get_trends_last_valid(pt, keywords)
+            if fallback:
+                return {
+                    "success": True,
+                    "scores": fallback["scores"],
+                    "errors": [f"{reason} (données {pt})"] if reason else None,
+                    "from_cache": True,
+                    "is_fallback": True
+                }
+
+        # 4. Vraiment rien disponible
+        return {
+            "success": False,
+            "scores": {kw: 0.0 for kw in keywords},
+            "errors": [reason or "Aucune donnée disponible"],
+            "from_cache": False,
+            "quota_exhausted": True
+        }
+
+    # Vérifier si on peut faire un refresh selon les règles par période
+    can_request, quota_message = can_refresh_trends(period_type)
+
+    if not can_request:
+        return return_with_fallback(quota_message)
+
+    # Si le cache est très frais (< 30min), l'utiliser directement
+    if cached_data and cache_age < 0.5 and any(v > 0 for v in cached_data.get("scores", {}).values()):
         return {
             "success": True,
             "scores": cached_data.get("scores", {}),
@@ -1311,41 +1507,16 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
             "cache_age_hours": round(cache_age, 1)
         }
 
-    # Vérifier si on peut faire une requête
-    can_request, quota_message = can_make_trends_request()
-
-    if not can_request:
-        # Quota épuisé - retourner les données en cache même si anciennes
-        if cached_data:
-            return {
-                "success": True,
-                "scores": cached_data.get("scores", {}),
-                "errors": [f"Données en cache utilisées: {quota_message}"],
-                "from_cache": True,
-                "cache_age_hours": round(cache_age, 1) if cache_age != float('inf') else None
-            }
-        else:
-            # Pas de cache pour cette période exacte - retourner indisponible
-            # (on ne mélange PAS les données d'autres périodes pour éviter de fausser les résultats)
-            return {
-                "success": False,
-                "scores": {kw: 0.0 for kw in keywords},
-                "errors": [f"Données indisponibles pour cette période: {quota_message}"],
-                "from_cache": False,
-                "quota_exhausted": True
-            }
-
     # Faire la requête API
     try:
         result = _fetch_google_trends_api(keywords, timeframe)
         scores = result.get("scores", {})
         errors = result.get("errors", [])
 
-        # Incrémenter le compteur de quota
-        increment_trends_quota()
+        has_valid_data = any(v > 0 for v in scores.values())
 
-        # Sauvegarder dans le cache si on a des résultats
-        if any(v > 0 for v in scores.values()):
+        if has_valid_data:
+            # Succès! Sauvegarder dans le cache ET dans last_valid
             cache = load_trends_cache()
             if "data" not in cache:
                 cache["data"] = {}
@@ -1353,17 +1524,29 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
             cache["last_refresh"] = datetime.now().isoformat()
             save_trends_cache(cache)
 
-        return {
-            "success": any(v > 0 for v in scores.values()),
-            "scores": scores,
-            "errors": errors if errors else None,
-            "from_cache": False
-        }
+            # Sauvegarder comme dernière donnée valide
+            save_trends_last_valid(period_type, scores, keywords)
+
+            # Incrémenter le compteur de refresh
+            increment_trends_period_refresh(period_type)
+
+            return {
+                "success": True,
+                "scores": scores,
+                "errors": errors if errors else None,
+                "from_cache": False
+            }
+        else:
+            # API a retourné 0 - utiliser fallback sans incrémenter
+            return return_with_fallback("API sans données")
 
     except ImportError:
-        return {"success": False, "scores": {kw: 0.0 for kw in keywords}, "errors": ["Module pytrends non installé"], "from_cache": False}
+        return return_with_fallback("Module pytrends manquant")
     except Exception as e:
-        return {"success": False, "scores": {kw: 0.0 for kw in keywords}, "errors": [str(e)[:100]], "from_cache": False}
+        error_str = str(e)[:100]
+        if "429" in error_str:
+            return return_with_fallback("Limite Google")
+        return return_with_fallback(f"Erreur: {error_str}")
 
 
 def _is_short(duration: str) -> bool:
@@ -1650,17 +1833,20 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
 
     progress.progress(0.1)
 
+    # Déterminer le type de période pour les règles de cache
+    period_type = get_period_type(start_date, end_date)
     expected_youtube_cost = len(candidate_ids) * YOUTUBE_COST_PER_CANDIDATE if youtube_key else 0
 
     if youtube_key:
-        # Vérifier si on peut rafraîchir YouTube
-        youtube_refresh_allowed, youtube_refresh_reason = can_refresh_youtube(
+        # Vérifier si on peut rafraîchir YouTube selon les règles par période
+        youtube_refresh_allowed, youtube_refresh_reason = can_refresh_youtube_for_period(
+            period_type=period_type,
             expected_cost=expected_youtube_cost
         )
         if youtube_refresh_allowed:
             youtube_mode = "api"
         else:
-            youtube_mode = "cache"  # Utiliser le cache si refresh non autorisé
+            youtube_mode = "cache"
     else:
         youtube_refresh_allowed = False
         youtube_refresh_reason = "Clé API YouTube manquante"
@@ -1686,19 +1872,18 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         if youtube_mode == "api":
             status.text(f"Analyse YouTube de {name}...")
             youtube = get_youtube_data(name, youtube_key, yt_start, yt_end)
-            # Ne cacher que si on a des vraies données (pas d'erreur, pas 0)
+            # Sauvegarder si données valides (le cache gère automatiquement last_valid)
             if youtube.get("total_views", 0) > 0 and not youtube.get("error"):
                 set_cached_youtube_data(name, youtube, yt_start, yt_end)
             youtube_api_called = True
         elif youtube_mode == "cache":
-            # Utiliser le cache UNIQUEMENT pour la période exacte (pas de fallback)
-            cached = get_cached_youtube_data_for_period(name, yt_start, yt_end, allow_fallback=False)
+            # Utiliser le cache avec fallback automatique (JAMAIS 0)
+            cached = get_cached_youtube_data_for_period(name, yt_start, yt_end)
             if cached and cached.get("total_views", 0) > 0:
                 youtube = dict(cached)
                 youtube["from_cache"] = True
-                youtube["available"] = True
             else:
-                # Pas de cache pour cette période = pas de données
+                # Aucun cache disponible
                 youtube = {"available": False, "total_views": 0, "videos": [], "from_cache": True, "no_cache": True}
         else:
             youtube = {"available": False, "total_views": 0, "videos": [], "disabled": True}
@@ -1747,7 +1932,7 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         results[cid]["score"] = score
 
     if youtube_api_called and expected_youtube_cost > 0:
-        increment_youtube_quota(cost=expected_youtube_cost)
+        increment_youtube_period_refresh(period_type=period_type, cost=expected_youtube_cost)
 
     progress.empty()
     status.empty()
