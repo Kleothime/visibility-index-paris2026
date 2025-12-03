@@ -1,56 +1,9 @@
 {
-  "last_refresh": "2025-12-03T20:18:21.964545",
-  "quota_date": "2025-12-03",
-  "quota_used": 808,
+  "last_refresh": null,
+  "quota_date": null,
+  "quota_used": 0,
   "data": {},
-  "period_refreshes": {
-    "14d": {
-      "date": "2025-12-03",
-      "count": 1,
-      "last_refresh": "2025-12-03T20:18:21.964545"
-    }
-  },
+  "period_refreshes": {},
   "last_valid": {},
-  "channel_ids": {
-    "Rachida Dati": {
-      "id": "",
-      "name": null,
-      "cached_at": "2025-12-03T20:17:38.879239"
-    },
-    "Emmanuel Grégoire": {
-      "id": "",
-      "name": null,
-      "cached_at": "2025-12-03T20:17:44.574415"
-    },
-    "Pierre-Yves Bournazel": {
-      "id": "",
-      "name": null,
-      "cached_at": "2025-12-03T20:17:50.526199"
-    },
-    "Ian Brossat": {
-      "id": "",
-      "name": null,
-      "cached_at": "2025-12-03T20:17:56.555668"
-    },
-    "David Belliard": {
-      "id": "",
-      "name": null,
-      "cached_at": "2025-12-03T20:18:03.069466"
-    },
-    "Sophia Chikirou": {
-      "id": "",
-      "name": null,
-      "cached_at": "2025-12-03T20:18:10.163067"
-    },
-    "Thierry Mariani": {
-      "id": "",
-      "name": null,
-      "cached_at": "2025-12-03T20:18:14.870920"
-    },
-    "Sarah Knafo": {
-      "id": "",
-      "name": null,
-      "cached_at": "2025-12-03T20:18:21.481949"
-    }
-  }
+  "channel_ids": {}
 }
