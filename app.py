@@ -1678,13 +1678,14 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
                 set_cached_youtube_data(name, youtube, yt_start, yt_end)
             youtube_api_called = True
         elif youtube_mode == "cache":
-            # Utiliser le cache avec fallback (mieux que 0 si période différente)
-            cached = get_cached_youtube_data_for_period(name, yt_start, yt_end, allow_fallback=True)
+            # Utiliser le cache UNIQUEMENT pour la période exacte (pas de fallback)
+            cached = get_cached_youtube_data_for_period(name, yt_start, yt_end, allow_fallback=False)
             if cached and cached.get("total_views", 0) > 0:
                 youtube = dict(cached)
                 youtube["from_cache"] = True
                 youtube["available"] = True
             else:
+                # Pas de cache pour cette période = pas de données
                 youtube = {"available": False, "total_views": 0, "videos": [], "from_cache": True, "no_cache": True}
         else:
             youtube = {"available": False, "total_views": 0, "videos": [], "disabled": True}
