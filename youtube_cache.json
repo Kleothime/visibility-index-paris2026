@@ -1,9 +1,31 @@
 {
-  "last_refresh": null,
-  "quota_date": null,
-  "quota_used": 0,
+  "last_refresh": "2025-12-03T20:25:17.586059",
+  "quota_date": "2025-12-03",
+  "quota_used": 2424,
   "data": {},
-  "period_refreshes": {},
+  "period_refreshes": {
+    "14d": {
+      "date": "2025-12-03",
+      "count": 1,
+      "last_refresh": "2025-12-03T20:23:40.180115"
+    },
+    "7d": {
+      "date": "2025-12-03",
+      "count": 1,
+      "last_refresh": "2025-12-03T20:24:27.302794"
+    },
+    "24h": {
+      "date": "2025-12-03",
+      "count": 1,
+      "last_refresh": "2025-12-03T20:25:17.586059"
+    }
+  },
   "last_valid": {},
-  "channel_ids": {}
+  "channel_ids": {
+    "Sarah Knafo": {
+      "id": "",
+      "name": null,
+      "cached_at": "2025-12-03T20:23:40.021193"
+    }
+  }
 }
