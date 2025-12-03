@@ -461,30 +461,43 @@ def get_cached_youtube_data_for_period(candidate_name: str, start_date: date, en
     """
     Récupère le cache YouTube.
     - Si allow_fallback=False: seulement si la période correspond exactement
-    - Si allow_fallback=True: retourne n'importe quel cache disponible (avec flag)
+    - Si allow_fallback=True: retourne le cache le plus récent disponible
     """
     cache = load_youtube_cache()
-    entry = cache.get("data", {}).get(candidate_name)
-    if not entry:
+    candidate_cache = cache.get("data", {}).get(candidate_name, {})
+
+    if not candidate_cache:
         return None
 
-    payload = entry.get("payload")
-    if not isinstance(payload, dict):
-        return None
+    # Clé de période exacte
+    period_key = f"{start_date.isoformat()}_{end_date.isoformat()}"
 
-    # Vérifier si la période correspond
-    exact_match = (entry.get("start") == start_date.isoformat() and entry.get("end") == end_date.isoformat())
+    # Chercher correspondance exacte
+    if period_key in candidate_cache:
+        entry = candidate_cache[period_key]
+        payload = entry.get("payload")
+        if isinstance(payload, dict) and payload.get("total_views", 0) > 0:
+            result = dict(payload)
+            result["cache_exact_match"] = True
+            return result
 
-    if exact_match:
-        result = dict(payload)
-        result["cache_exact_match"] = True
-        return result
-    elif allow_fallback:
-        # Retourner le cache même si période différente (mieux que 0)
-        result = dict(payload)
-        result["cache_exact_match"] = False
-        result["cache_period"] = f"{entry.get('start')} → {entry.get('end')}"
-        return result
+    # Fallback: chercher le cache le plus récent avec des vues > 0
+    if allow_fallback:
+        best_entry = None
+        best_date = None
+        for key, entry in candidate_cache.items():
+            payload = entry.get("payload", {})
+            if payload.get("total_views", 0) > 0:
+                entry_end = entry.get("end")
+                if entry_end and (best_date is None or entry_end > best_date):
+                    best_date = entry_end
+                    best_entry = entry
+
+        if best_entry:
+            result = dict(best_entry.get("payload", {}))
+            result["cache_exact_match"] = False
+            result["cache_period"] = f"{best_entry.get('start')} → {best_entry.get('end')}"
+            return result
 
     return None
 
@@ -494,11 +507,23 @@ def set_cached_youtube_data(candidate_name: str, data: Dict, start_date: date, e
     cache = load_youtube_cache()
     if "data" not in cache:
         cache["data"] = {}
-    cache["data"][candidate_name] = {
+    if candidate_name not in cache["data"]:
+        cache["data"][candidate_name] = {}
+
+    period_key = f"{start_date.isoformat()}_{end_date.isoformat()}"
+    cache["data"][candidate_name][period_key] = {
         "start": start_date.isoformat(),
         "end": end_date.isoformat(),
         "payload": data
     }
+
+    # Garder max 10 périodes par candidat (éviter explosion du cache)
+    if len(cache["data"][candidate_name]) > 10:
+        # Supprimer les plus anciennes
+        sorted_keys = sorted(cache["data"][candidate_name].keys())
+        for old_key in sorted_keys[:-10]:
+            del cache["data"][candidate_name][old_key]
+
     save_youtube_cache(cache)
 
 
