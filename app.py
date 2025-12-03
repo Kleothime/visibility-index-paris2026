@@ -1991,12 +1991,10 @@ def main():
                         title='Score de visibilite')
             fig.update_layout(
                 showlegend=False,
-                yaxis_range=[0, 100],
-                yaxis_title='Score',
-                xaxis_title='',
-                xaxis_tickangle=-45,  # Rotation labels pour mobile
-                margin=dict(b=100),  # Marge pour labels tournés
-                dragmode=False,  # Désactive drag
+                yaxis=dict(range=[0, 100], title='Score', fixedrange=True),
+                xaxis=dict(title='', tickangle=-45, fixedrange=True),
+                margin=dict(b=100),
+                dragmode=False,
             )
             fig.update_traces(
                 hovertemplate='<b>%{x}</b><br>Score: %{y:.1f}<extra></extra>'
@@ -2028,10 +2026,8 @@ def main():
                             'YouTube (10%)': '#dc2626'
                         })
             fig.update_layout(
-                yaxis_range=[0, 100],
-                yaxis_title='Points',
-                xaxis_title='',
-                xaxis_tickangle=-45,
+                yaxis=dict(range=[0, 100], title='Points', fixedrange=True),
+                xaxis=dict(title='', tickangle=-45, fixedrange=True),
                 margin=dict(b=100),
                 dragmode=False,
                 legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
@@ -2131,9 +2127,9 @@ def main():
             fig_latest.update_layout(
                 title=f"Intentions de vote - {latest_sondage['institut']} ({latest_sondage['date']})",
                 showlegend=False,
-                yaxis_title="Intentions de vote (%)",
-                yaxis_range=[0, max(item["Intentions"] for item in latest_data) + 10],
-                xaxis_title=""
+                yaxis=dict(title="Intentions de vote (%)", range=[0, max(item["Intentions"] for item in latest_data) + 10], fixedrange=True),
+                xaxis=dict(title="", fixedrange=True),
+                dragmode=False
             )
             st.plotly_chart(fig_latest, use_container_width=True, config=plotly_config)
 
@@ -2189,12 +2185,12 @@ def main():
                 title="Evolution des intentions de vote"
             )
             fig_evolution.update_layout(
-                yaxis_range=[0, 45],
-                yaxis_title="Intentions de vote (%)",
-                xaxis_title="",
+                yaxis=dict(range=[0, 45], title="Intentions de vote (%)", fixedrange=True),
+                xaxis=dict(title="", fixedrange=True),
                 legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
                 height=500,
-                margin=dict(b=100)
+                margin=dict(b=100),
+                dragmode=False
             )
             fig_evolution.update_traces(
                 hovertemplate='<b>%{fullData.name}</b><br>%{x}<br>%{y}%<extra></extra>'
@@ -2238,11 +2234,11 @@ def main():
                         )
                         fig.update_layout(
                             showlegend=False,
-                            yaxis_title="%",
-                            yaxis_range=[0, 40],
-                            xaxis_title="",
+                            yaxis=dict(title="%", range=[0, 40], fixedrange=True),
+                            xaxis=dict(title="", fixedrange=True),
                             height=300,
-                            margin=dict(t=10)
+                            margin=dict(t=10),
+                            dragmode=False
                         )
                         st.plotly_chart(fig, use_container_width=True, config=plotly_config)
 
@@ -2334,8 +2330,9 @@ def main():
             )
             fig.update_layout(
                 showlegend=False,
-                yaxis_title="Mentions",
-                xaxis_title=""
+                yaxis=dict(title="Mentions", fixedrange=True),
+                xaxis=dict(title="", fixedrange=True),
+                dragmode=False
             )
             fig.update_traces(
                 hovertemplate='<b>%{x}</b><br>%{y} mentions<extra></extra>'
@@ -2498,8 +2495,9 @@ def main():
             )
             fig.update_layout(
                 showlegend=False,
-                yaxis_title="Vues",
-                xaxis_title=""
+                yaxis=dict(title="Vues", fixedrange=True),
+                xaxis=dict(title="", fixedrange=True),
+                dragmode=False
             )
             fig.update_traces(
                 hovertemplate='<b>%{x}</b><br>%{y} vues<extra></extra>'
@@ -2517,9 +2515,9 @@ def main():
                 title=f"Variation vs {days_in_period} jours précédents"
             )
             fig.update_layout(
-                yaxis_range=[-100, 100],
-                yaxis_title="Variation (%)",
-                xaxis_title=""
+                yaxis=dict(range=[-100, 100], title="Variation (%)", fixedrange=True),
+                xaxis=dict(title="", fixedrange=True),
+                dragmode=False
             )
             fig.update_traces(
                 hovertemplate='<b>%{x}</b><br>%{y:+.1f} %<extra></extra>'
@@ -2541,8 +2539,9 @@ def main():
             )
             fig.update_layout(
                 showlegend=False,
-                yaxis_title="Articles",
-                xaxis_title=""
+                yaxis=dict(title="Articles", fixedrange=True),
+                xaxis=dict(title="", fixedrange=True),
+                dragmode=False
             )
             fig.update_traces(
                 hovertemplate='<b>%{x}</b><br>%{y} articles<extra></extra>'
