@@ -1562,20 +1562,45 @@ def _is_short(duration: str) -> bool:
     return (hours * 3600 + minutes * 60 + seconds) < 60
 
 
-def _search_youtube_channel(candidate_name: str, api_key: str) -> Optional[str]:
+def _get_cached_channel_id(candidate_name: str) -> Optional[str]:
+    """Récupère le channel ID depuis le cache (permanent)."""
+    cache = load_youtube_cache()
+    return cache.get("channel_ids", {}).get(candidate_name)
+
+
+def _save_channel_id_to_cache(candidate_name: str, channel_id: str, channel_name: str = None):
+    """Sauvegarde le channel ID dans le cache (permanent)."""
+    cache = load_youtube_cache()
+    if "channel_ids" not in cache:
+        cache["channel_ids"] = {}
+    cache["channel_ids"][candidate_name] = {
+        "id": channel_id,
+        "name": channel_name,
+        "cached_at": datetime.now().isoformat()
+    }
+    save_youtube_cache(cache)
+
+
+def _search_youtube_channel(candidate_name: str, api_key: str) -> tuple[Optional[str], Optional[str]]:
     """
     Recherche la chaîne YouTube officielle d'un candidat.
-    Retourne le channel ID si trouvé, None sinon.
+    Utilise le cache si disponible pour économiser le quota.
+    Retourne (channel_id, channel_name) ou (None, None).
     """
+    # === OPTIMISATION: Vérifier le cache d'abord ===
+    cached = _get_cached_channel_id(candidate_name)
+    if cached:
+        return cached.get("id"), cached.get("name")
+
+    # === Pas en cache: faire la recherche API ===
     search_url = "https://www.googleapis.com/youtube/v3/search"
     last_name = candidate_name.split()[-1]
 
-    # Rechercher des chaînes correspondant au nom
     params = {
         "part": "snippet",
         "q": candidate_name,
         "type": "channel",
-        "maxResults": 10,
+        "maxResults": 5,  # Réduit de 10 à 5 (suffisant)
         "key": api_key
     }
 
@@ -1584,25 +1609,32 @@ def _search_youtube_channel(candidate_name: str, api_key: str) -> Optional[str]:
         if response.status_code == 200:
             items = response.json().get("items", [])
 
-            # Chercher une chaîne dont le nom correspond bien au candidat
             name_lower = candidate_name.lower()
             last_name_lower = last_name.lower()
 
             for item in items:
-                channel_title = item.get("snippet", {}).get("channelTitle", "").lower()
+                channel_title = item.get("snippet", {}).get("channelTitle", "")
+                channel_title_lower = channel_title.lower()
                 channel_id = item.get("snippet", {}).get("channelId", "")
 
                 # Match exact ou partiel sur le nom de la chaîne
-                if name_lower in channel_title or channel_title in name_lower:
-                    return channel_id
+                if name_lower in channel_title_lower or channel_title_lower in name_lower:
+                    # Sauvegarder dans le cache pour les prochaines fois
+                    _save_channel_id_to_cache(candidate_name, channel_id, channel_title)
+                    return channel_id, channel_title
+
                 # Match sur le nom de famille uniquement
-                if last_name_lower in channel_title and len(last_name_lower) >= 4:
-                    return channel_id
+                if last_name_lower in channel_title_lower and len(last_name_lower) >= 4:
+                    _save_channel_id_to_cache(candidate_name, channel_id, channel_title)
+                    return channel_id, channel_title
+
+            # Aucune chaîne trouvée - sauvegarder "none" pour ne pas re-chercher
+            _save_channel_id_to_cache(candidate_name, "", None)
 
     except Exception:
         pass
 
-    return None
+    return None, None
 
 
 def _get_channel_videos(channel_id: str, api_key: str, start_date: date, end_date: date) -> List[Dict]:
@@ -1647,10 +1679,13 @@ def _get_channel_videos(channel_id: str, api_key: str, start_date: date, end_dat
     return videos
 
 
-def _search_videos_mentioning(candidate_name: str, api_key: str, start_date: date, end_date: date, exclude_channel_id: str = None) -> List[Dict]:
+def _search_videos_mentioning(candidate_name: str, api_key: str, start_date: date, end_date: date, exclude_channel_id: str = None, skip_lastname_search: bool = False) -> List[Dict]:
     """
     Recherche les vidéos mentionnant un candidat sur d'autres chaînes.
     Utilise plusieurs stratégies de recherche pour maximiser la couverture.
+
+    OPTIMISATION: Si skip_lastname_search=True, ne fait qu'une recherche avec le nom complet
+    (économise 1 appel API quand la chaîne officielle a déjà beaucoup de vidéos).
     """
     search_url = "https://www.googleapis.com/youtube/v3/search"
     videos = []
@@ -1660,10 +1695,10 @@ def _search_videos_mentioning(candidate_name: str, api_key: str, start_date: dat
     published_before = (end_date + timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
 
     # Stratégie 1: Recherche avec le nom complet
-    # Stratégie 2: Recherche avec le nom de famille seul
+    # Stratégie 2: Recherche avec le nom de famille seul (sauf si skip_lastname_search)
     last_name = candidate_name.split()[-1]
     search_queries = [candidate_name]
-    if len(last_name) >= 4:
+    if len(last_name) >= 4 and not skip_lastname_search:
         search_queries.append(last_name)
 
     for query in search_queries:
@@ -1787,14 +1822,14 @@ def _get_video_stats(video_ids: List[str], api_key: str) -> Dict[str, Dict]:
 @st.cache_data(ttl=1800, show_spinner=False)
 def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date: date) -> Dict:
     """
-    Récupère les données YouTube via double stratégie:
-    1. Vidéos de la chaîne officielle du candidat (si elle existe)
-    2. Vidéos mentionnant le candidat sur d'autres chaînes
+    Récupère les données YouTube via double stratégie OPTIMISÉE:
+    1. Vidéos de la chaîne officielle (channel ID en cache permanent)
+    2. Vidéos mentionnant le candidat (recherche adaptative)
 
-    Cette approche garantit:
-    - Toutes les vidéos de la chaîne officielle sont comptées (même sans le nom dans le titre)
-    - Les interviews et mentions sur d'autres chaînes sont aussi comptées
-    - Pas de doublons
+    OPTIMISATIONS QUOTA:
+    - Channel ID en cache permanent (0 appel après 1ère recherche)
+    - Recherche nom famille uniquement si peu de résultats
+    - Stats en batch unique
     """
     if not api_key or not api_key.strip():
         return {"available": False, "videos": [], "total_views": 0, "error": "Clé API manquante"}
@@ -1803,20 +1838,25 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
     official_channel_id = None
     official_channel_name = None
 
-    # === ÉTAPE 1: Chercher la chaîne officielle ===
-    official_channel_id = _search_youtube_channel(search_term, api_key)
+    # === ÉTAPE 1: Chercher la chaîne officielle (CACHE PERMANENT) ===
+    official_channel_id, official_channel_name = _search_youtube_channel(search_term, api_key)
 
     if official_channel_id:
         # Récupérer les vidéos de la chaîne officielle
         channel_videos = _get_channel_videos(official_channel_id, api_key, start_date, end_date)
         if channel_videos:
-            official_channel_name = channel_videos[0].get("channel", "")
+            if not official_channel_name:
+                official_channel_name = channel_videos[0].get("channel", "")
             all_videos.extend(channel_videos)
 
     # === ÉTAPE 2: Chercher les vidéos mentionnant le candidat ===
+    # OPTIMISATION: Si chaîne officielle a beaucoup de vidéos, on ne fait qu'une recherche
+    skip_lastname_search = len(all_videos) >= 5
+
     search_videos = _search_videos_mentioning(
         search_term, api_key, start_date, end_date,
-        exclude_channel_id=official_channel_id
+        exclude_channel_id=official_channel_id,
+        skip_lastname_search=skip_lastname_search
     )
 
     # Filtrer les vidéos de recherche pour garder les pertinentes
@@ -1834,7 +1874,7 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
     if not unique_videos:
         return {"available": False, "videos": [], "total_views": 0, "error": "Aucune vidéo trouvée"}
 
-    # === ÉTAPE 4: Récupérer les statistiques ===
+    # === ÉTAPE 4: Récupérer les statistiques (BATCH UNIQUE) ===
     video_ids = [v["id"] for v in unique_videos]
     stats_map = _get_video_stats(video_ids, api_key)
 
