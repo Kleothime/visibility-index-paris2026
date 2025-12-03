@@ -151,6 +151,14 @@ CANDIDATES_NATIONAL = {
         "wikipedia": "Fabien_Roussel",
         "search_terms": ["Fabien Roussel", "Roussel PCF", "Roussel communiste"],
     },
+    "olivier_faure": {
+        "name": "Olivier Faure",
+        "party": "PS",
+        "role": "Premier secrétaire PS",
+        "color": "#FF69B4",
+        "wikipedia": "Olivier_Faure",
+        "search_terms": ["Olivier Faure", "Faure PS", "Faure socialiste"],
+    },
     # --- CENTRE ---
     "edouard_philippe": {
         "name": "Édouard Philippe",
