@@ -1562,119 +1562,317 @@ def _is_short(duration: str) -> bool:
     return (hours * 3600 + minutes * 60 + seconds) < 60
 
 
-@st.cache_data(ttl=1800, show_spinner=False)
-def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date: date) -> Dict:
-    """Récupère les données YouTube via l'API officielle"""
-    if not api_key or not api_key.strip():
-        return {"available": False, "videos": [], "total_views": 0, "error": "Clé API manquante"}
-
+def _search_youtube_channel(candidate_name: str, api_key: str) -> Optional[str]:
+    """
+    Recherche la chaîne YouTube officielle d'un candidat.
+    Retourne le channel ID si trouvé, None sinon.
+    """
     search_url = "https://www.googleapis.com/youtube/v3/search"
-    all_videos = []
-    seen_ids = set()
+    last_name = candidate_name.split()[-1]
+
+    # Rechercher des chaînes correspondant au nom
+    params = {
+        "part": "snippet",
+        "q": candidate_name,
+        "type": "channel",
+        "maxResults": 10,
+        "key": api_key
+    }
+
+    try:
+        response = requests.get(search_url, params=params, timeout=10)
+        if response.status_code == 200:
+            items = response.json().get("items", [])
+
+            # Chercher une chaîne dont le nom correspond bien au candidat
+            name_lower = candidate_name.lower()
+            last_name_lower = last_name.lower()
+
+            for item in items:
+                channel_title = item.get("snippet", {}).get("channelTitle", "").lower()
+                channel_id = item.get("snippet", {}).get("channelId", "")
+
+                # Match exact ou partiel sur le nom de la chaîne
+                if name_lower in channel_title or channel_title in name_lower:
+                    return channel_id
+                # Match sur le nom de famille uniquement
+                if last_name_lower in channel_title and len(last_name_lower) >= 4:
+                    return channel_id
+
+    except Exception:
+        pass
+
+    return None
+
+
+def _get_channel_videos(channel_id: str, api_key: str, start_date: date, end_date: date) -> List[Dict]:
+    """
+    Récupère toutes les vidéos récentes d'une chaîne YouTube.
+    Pas de filtrage par nom - toutes les vidéos de la chaîne comptent.
+    """
+    search_url = "https://www.googleapis.com/youtube/v3/search"
+    videos = []
 
     published_after = start_date.strftime("%Y-%m-%dT00:00:00Z")
     published_before = (end_date + timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
 
     params = {
         "part": "snippet",
-        "q": search_term,
+        "channelId": channel_id,
         "type": "video",
-        "order": "relevance",
+        "order": "date",
         "maxResults": 50,
-        "regionCode": "FR",
-        "relevanceLanguage": "fr",
         "publishedAfter": published_after,
         "publishedBefore": published_before,
         "key": api_key
     }
 
-    error_msg = None
-
     try:
         response = requests.get(search_url, params=params, timeout=15)
-
         if response.status_code == 200:
             for item in response.json().get("items", []):
                 vid_id = item.get("id", {}).get("videoId", "")
-                if vid_id and vid_id not in seen_ids:
-                    seen_ids.add(vid_id)
-                    all_videos.append({
+                if vid_id:
+                    videos.append({
                         "id": vid_id,
                         "title": item.get("snippet", {}).get("title", ""),
                         "channel": item.get("snippet", {}).get("channelTitle", ""),
-                        "published": item.get("snippet", {}).get("publishedAt", "")[:10]
+                        "channel_id": channel_id,
+                        "published": item.get("snippet", {}).get("publishedAt", "")[:10],
+                        "source": "official_channel"
                     })
-        else:
-            try:
-                err_data = response.json()
-                error_msg = err_data.get("error", {}).get("message", f"Erreur HTTP {response.status_code}")
-            except:
-                error_msg = f"Erreur HTTP {response.status_code}"
+    except Exception:
+        pass
 
-    except Exception as e:
-        error_msg = str(e)[:50]
+    return videos
 
-    if error_msg and not all_videos:
-        return {"available": False, "videos": [], "total_views": 0, "error": error_msg}
 
-    if not all_videos:
-        return {"available": False, "videos": [], "total_views": 0, "error": "Aucune vidéo trouvée"}
+def _search_videos_mentioning(candidate_name: str, api_key: str, start_date: date, end_date: date, exclude_channel_id: str = None) -> List[Dict]:
+    """
+    Recherche les vidéos mentionnant un candidat sur d'autres chaînes.
+    Utilise plusieurs stratégies de recherche pour maximiser la couverture.
+    """
+    search_url = "https://www.googleapis.com/youtube/v3/search"
+    videos = []
+    seen_ids = set()
 
-    name_parts = search_term.lower().split()
-    filtered_videos = []
-    video_ids = []
+    published_after = start_date.strftime("%Y-%m-%dT00:00:00Z")
+    published_before = (end_date + timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
 
-    for v in all_videos:
-        title_lower = v["title"].lower()
-        if any(part in title_lower for part in name_parts if len(part) >= 3):
-            video_ids.append(v["id"])
-            filtered_videos.append({
-                "id": v["id"],
-                "title": v["title"],
-                "channel": v["channel"],
-                "published": v["published"],
-                "url": f"https://www.youtube.com/watch?v={v['id']}"
-            })
+    # Stratégie 1: Recherche avec le nom complet
+    # Stratégie 2: Recherche avec le nom de famille seul
+    last_name = candidate_name.split()[-1]
+    search_queries = [candidate_name]
+    if len(last_name) >= 4:
+        search_queries.append(last_name)
 
-    if not filtered_videos:
-        return {"available": False, "videos": [], "total_views": 0, "error": "Aucune vidéo pertinente"}
+    for query in search_queries:
+        params = {
+            "part": "snippet",
+            "q": query,
+            "type": "video",
+            "order": "relevance",
+            "maxResults": 30,
+            "regionCode": "FR",
+            "relevanceLanguage": "fr",
+            "publishedAfter": published_after,
+            "publishedBefore": published_before,
+            "key": api_key
+        }
 
-    total_views = 0
-    if video_ids:
         try:
-            stats_url = "https://www.googleapis.com/youtube/v3/videos"
-            stats_params = {
-                "part": "statistics,contentDetails",
-                "id": ",".join(video_ids[:50]),
-                "key": api_key
-            }
+            response = requests.get(search_url, params=params, timeout=15)
+            if response.status_code == 200:
+                for item in response.json().get("items", []):
+                    vid_id = item.get("id", {}).get("videoId", "")
+                    channel_id = item.get("snippet", {}).get("channelId", "")
 
-            stats_response = requests.get(stats_url, params=stats_params, timeout=10)
+                    # Skip si déjà vu ou si c'est la chaîne officielle (évite les doublons)
+                    if not vid_id or vid_id in seen_ids:
+                        continue
+                    if exclude_channel_id and channel_id == exclude_channel_id:
+                        continue
 
-            if stats_response.status_code == 200:
-                stats_map = {item["id"]: item for item in stats_response.json().get("items", [])}
-
-                for v in filtered_videos:
-                    if v["id"] in stats_map:
-                        item = stats_map[v["id"]]
-                        views = int(item.get("statistics", {}).get("viewCount", 0))
-                        duration = item.get("contentDetails", {}).get("duration", "")
-                        v["views"] = views
-                        v["duration"] = duration
-                        v["is_short"] = _is_short(duration)
-                        total_views += views
-        except:
+                    seen_ids.add(vid_id)
+                    videos.append({
+                        "id": vid_id,
+                        "title": item.get("snippet", {}).get("title", ""),
+                        "channel": item.get("snippet", {}).get("channelTitle", ""),
+                        "channel_id": channel_id,
+                        "published": item.get("snippet", {}).get("publishedAt", "")[:10],
+                        "source": "search"
+                    })
+        except Exception:
             pass
 
-    filtered_videos.sort(key=lambda x: x.get("views", 0), reverse=True)
+    return videos
+
+
+def _filter_relevant_videos(videos: List[Dict], candidate_name: str) -> List[Dict]:
+    """
+    Filtre les vidéos pour ne garder que celles vraiment pertinentes.
+    Les vidéos de la chaîne officielle passent automatiquement.
+    Les autres doivent mentionner le candidat dans le titre OU venir d'une chaîne média reconnue.
+    """
+    name_parts = [p.lower() for p in candidate_name.split() if len(p) >= 3]
+    last_name = candidate_name.split()[-1].lower()
+
+    # Médias connus (les vidéos de ces chaînes sont plus fiables)
+    known_media_keywords = [
+        "bfm", "cnews", "lci", "tf1", "france", "rmc", "europe1", "rtl",
+        "figaro", "monde", "parisien", "obs", "express", "point", "marianne",
+        "public sénat", "c dans l'air", "quotidien", "touche pas", "hanouna",
+        "morandini", "praud", "zemmour", "ruquier", "ardisson", "bourdin",
+        "pujadas", "calvi", "elkabbach", "aphatie", "joffrin", "onfray",
+        "mediapart", "brut", "konbini", "hugodecrypte", "blast", "frontières",
+        "livre noir", "thinkerview", "interdit", "femelliste", "front populaire"
+    ]
+
+    filtered = []
+    for v in videos:
+        # Les vidéos de la chaîne officielle passent toujours
+        if v.get("source") == "official_channel":
+            filtered.append(v)
+            continue
+
+        title_lower = v["title"].lower()
+        channel_lower = v["channel"].lower()
+
+        # Vérifier si le nom est dans le titre
+        name_in_title = any(part in title_lower for part in name_parts)
+        last_name_in_title = last_name in title_lower
+
+        # Vérifier si c'est un média connu
+        is_known_media = any(media in channel_lower for media in known_media_keywords)
+
+        # Accepter si: nom dans le titre OU (nom de famille dans titre ET média connu)
+        if name_in_title or (last_name_in_title and is_known_media):
+            filtered.append(v)
+
+    return filtered
+
+
+def _get_video_stats(video_ids: List[str], api_key: str) -> Dict[str, Dict]:
+    """Récupère les statistiques (vues, durée) pour une liste de vidéos."""
+    if not video_ids:
+        return {}
+
+    stats_url = "https://www.googleapis.com/youtube/v3/videos"
+    stats_map = {}
+
+    # L'API accepte max 50 IDs à la fois
+    for i in range(0, len(video_ids), 50):
+        batch_ids = video_ids[i:i+50]
+        params = {
+            "part": "statistics,contentDetails",
+            "id": ",".join(batch_ids),
+            "key": api_key
+        }
+
+        try:
+            response = requests.get(stats_url, params=params, timeout=10)
+            if response.status_code == 200:
+                for item in response.json().get("items", []):
+                    vid_id = item.get("id")
+                    stats_map[vid_id] = {
+                        "views": int(item.get("statistics", {}).get("viewCount", 0)),
+                        "duration": item.get("contentDetails", {}).get("duration", "")
+                    }
+        except Exception:
+            pass
+
+    return stats_map
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date: date) -> Dict:
+    """
+    Récupère les données YouTube via double stratégie:
+    1. Vidéos de la chaîne officielle du candidat (si elle existe)
+    2. Vidéos mentionnant le candidat sur d'autres chaînes
+
+    Cette approche garantit:
+    - Toutes les vidéos de la chaîne officielle sont comptées (même sans le nom dans le titre)
+    - Les interviews et mentions sur d'autres chaînes sont aussi comptées
+    - Pas de doublons
+    """
+    if not api_key or not api_key.strip():
+        return {"available": False, "videos": [], "total_views": 0, "error": "Clé API manquante"}
+
+    all_videos = []
+    official_channel_id = None
+    official_channel_name = None
+
+    # === ÉTAPE 1: Chercher la chaîne officielle ===
+    official_channel_id = _search_youtube_channel(search_term, api_key)
+
+    if official_channel_id:
+        # Récupérer les vidéos de la chaîne officielle
+        channel_videos = _get_channel_videos(official_channel_id, api_key, start_date, end_date)
+        if channel_videos:
+            official_channel_name = channel_videos[0].get("channel", "")
+            all_videos.extend(channel_videos)
+
+    # === ÉTAPE 2: Chercher les vidéos mentionnant le candidat ===
+    search_videos = _search_videos_mentioning(
+        search_term, api_key, start_date, end_date,
+        exclude_channel_id=official_channel_id
+    )
+
+    # Filtrer les vidéos de recherche pour garder les pertinentes
+    filtered_search_videos = _filter_relevant_videos(search_videos, search_term)
+    all_videos.extend(filtered_search_videos)
+
+    # === ÉTAPE 3: Dédupliquer par ID ===
+    seen_ids = set()
+    unique_videos = []
+    for v in all_videos:
+        if v["id"] not in seen_ids:
+            seen_ids.add(v["id"])
+            unique_videos.append(v)
+
+    if not unique_videos:
+        return {"available": False, "videos": [], "total_views": 0, "error": "Aucune vidéo trouvée"}
+
+    # === ÉTAPE 4: Récupérer les statistiques ===
+    video_ids = [v["id"] for v in unique_videos]
+    stats_map = _get_video_stats(video_ids, api_key)
+
+    total_views = 0
+    final_videos = []
+
+    for v in unique_videos:
+        vid_stats = stats_map.get(v["id"], {})
+        views = vid_stats.get("views", 0)
+        duration = vid_stats.get("duration", "")
+
+        final_videos.append({
+            "id": v["id"],
+            "title": v["title"],
+            "channel": v["channel"],
+            "published": v["published"],
+            "url": f"https://www.youtube.com/watch?v={v['id']}",
+            "views": views,
+            "duration": duration,
+            "is_short": _is_short(duration),
+            "source": v.get("source", "search"),
+            "is_official": v.get("source") == "official_channel"
+        })
+        total_views += views
+
+    # Trier par vues décroissantes
+    final_videos.sort(key=lambda x: x.get("views", 0), reverse=True)
 
     return {
         "available": True,
-        "videos": filtered_videos,
+        "videos": final_videos,
         "total_views": total_views,
-        "count": len(filtered_videos),
-        "shorts_count": sum(1 for v in filtered_videos if v.get("is_short", False)),
-        "long_count": sum(1 for v in filtered_videos if not v.get("is_short", False))
+        "count": len(final_videos),
+        "shorts_count": sum(1 for v in final_videos if v.get("is_short", False)),
+        "long_count": sum(1 for v in final_videos if not v.get("is_short", False)),
+        "official_channel": official_channel_name,
+        "official_videos_count": sum(1 for v in final_videos if v.get("is_official", False)),
+        "other_videos_count": sum(1 for v in final_videos if not v.get("is_official", False))
     }
 
 
