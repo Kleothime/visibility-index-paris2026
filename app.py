@@ -1746,7 +1746,7 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
 
 
 def _is_short(duration: str) -> bool:
-    """Détermine si une vidéo est un YouTube Short (< 60 secondes)"""
+    """Détermine si une vidéo est un YouTube Short (<= 60 secondes)"""
     if not duration:
         return False
     match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration)
@@ -1755,7 +1755,7 @@ def _is_short(duration: str) -> bool:
     hours = int(match.group(1) or 0)
     minutes = int(match.group(2) or 0)
     seconds = int(match.group(3) or 0)
-    return (hours * 3600 + minutes * 60 + seconds) < 60
+    return (hours * 3600 + minutes * 60 + seconds) <= 60
 
 
 def _get_cached_channel_id(candidate_name: str) -> Optional[str]:
@@ -2007,8 +2007,11 @@ def _get_video_stats(video_ids: List[str], api_key: str) -> Dict[str, Dict]:
             if response.status_code == 200:
                 for item in response.json().get("items", []):
                     vid_id = item.get("id")
+                    stats = item.get("statistics", {})
                     stats_map[vid_id] = {
-                        "views": int(item.get("statistics", {}).get("viewCount", 0)),
+                        "views": int(stats.get("viewCount", 0)),
+                        "likes": int(stats.get("likeCount", 0)),
+                        "comments": int(stats.get("commentCount", 0)),
                         "duration": item.get("contentDetails", {}).get("duration", "")
                     }
         except Exception:
@@ -2088,12 +2091,23 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
     stats_map = _get_video_stats(video_ids, api_key)
 
     total_views = 0
+    total_likes = 0
+    total_comments = 0
+    shorts_views = 0
+    shorts_likes = 0
+    shorts_comments = 0
+    long_views = 0
+    long_likes = 0
+    long_comments = 0
     final_videos = []
 
     for v in unique_videos:
         vid_stats = stats_map.get(v["id"], {})
         views = vid_stats.get("views", 0)
+        likes = vid_stats.get("likes", 0)
+        comments = vid_stats.get("comments", 0)
         duration = vid_stats.get("duration", "")
+        is_short = _is_short(duration)
 
         final_videos.append({
             "id": v["id"],
@@ -2102,11 +2116,23 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
             "published": v["published"],
             "url": f"https://www.youtube.com/watch?v={v['id']}",
             "views": views,
+            "likes": likes,
+            "comments": comments,
             "duration": duration,
-            "is_short": _is_short(duration),
+            "is_short": is_short,
             "is_official": v.get("source") == "official_channel"
         })
         total_views += views
+        total_likes += likes
+        total_comments += comments
+        if is_short:
+            shorts_views += views
+            shorts_likes += likes
+            shorts_comments += comments
+        else:
+            long_views += views
+            long_likes += likes
+            long_comments += comments
 
     # Trier par vues décroissantes
     final_videos.sort(key=lambda x: x.get("views", 0), reverse=True)
@@ -2115,6 +2141,14 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
         "available": True,
         "videos": final_videos,
         "total_views": total_views,
+        "total_likes": total_likes,
+        "total_comments": total_comments,
+        "shorts_views": shorts_views,
+        "shorts_likes": shorts_likes,
+        "shorts_comments": shorts_comments,
+        "long_views": long_views,
+        "long_likes": long_likes,
+        "long_comments": long_comments,
         "count": len(final_videos),
         "shorts_count": sum(1 for v in final_videos if v.get("is_short", False)),
         "long_count": sum(1 for v in final_videos if not v.get("is_short", False)),
@@ -2319,7 +2353,7 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             # Sauvegarder si données valides (le cache gère automatiquement last_valid)
             if youtube.get("total_views", 0) > 0 and not youtube.get("error"):
                 set_cached_youtube_data(name, youtube, yt_start, yt_end)
-            youtube_api_called = True
+                youtube_api_called = True  # Seulement si succès, pour ne pas griller le compteur
         elif youtube_mode == "cache":
             # Utiliser le cache avec fallback automatique (JAMAIS 0)
             cached = get_cached_youtube_data_for_period(name, yt_start, yt_end)
@@ -2553,11 +2587,6 @@ def main():
         )
 
         st.markdown("---")
-        if st.button("🔄 Rafraîchir les données", use_container_width=True):
-            st.cache_data.clear()
-            st.rerun()
-
-        st.markdown("---")
         st.markdown("### Pondération du score")
         st.caption("Presse 30% · Trends 30% · Wikipedia 25% · YouTube 15%")
 
@@ -2701,13 +2730,13 @@ def main():
 
     # Onglets différents selon le contexte (pas de Sondages pour National)
     if contexte == "national":
-        tab1, tab2, tab4, tab5, tab6, tab7 = st.tabs(
-            ['Scores', 'Themes', 'TV / Radio', 'Historique', 'Wikipedia', 'Presse']
+        tab1, tab2, tab4, tab5, tab6, tab7, tab8 = st.tabs(
+            ['Scores', 'Themes', 'TV / Radio', 'Historique', 'Wikipedia', 'Presse', 'YouTube']
         )
         tab3 = None  # Pas d'onglet Sondages pour National
     else:
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
-            ['Scores', 'Themes', 'Sondages', 'TV / Radio', 'Historique', 'Wikipedia', 'Presse']
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(
+            ['Scores', 'Themes', 'Sondages', 'TV / Radio', 'Historique', 'Wikipedia', 'Presse', 'YouTube']
         )
 
     names = [d['info']['name'] for _, d in sorted_data]
@@ -3305,6 +3334,194 @@ def main():
             )
             fig.update_traces(
                 hovertemplate='<b>%{label}</b><br>%{value} articles<br>%{percent}<extra></extra>'
+            )
+            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+
+    # TAB 8: YOUTUBE
+    with tab8:
+        # Vérifier si des données YouTube sont disponibles
+        has_youtube_data = any(d["youtube"].get("available") and d["youtube"].get("total_views", 0) > 0 for _, d in sorted_data)
+
+        if not has_youtube_data:
+            st.info("Aucune donnée YouTube disponible pour la période sélectionnée")
+        else:
+            # Préparer les données YouTube
+            yt_views = [d["youtube"].get("total_views", 0) for _, d in sorted_data]
+            yt_likes = [d["youtube"].get("total_likes", 0) for _, d in sorted_data]
+            yt_comments = [d["youtube"].get("total_comments", 0) for _, d in sorted_data]
+            yt_shorts_views = [d["youtube"].get("shorts_views", 0) for _, d in sorted_data]
+            yt_long_views = [d["youtube"].get("long_views", 0) for _, d in sorted_data]
+            yt_count = [d["youtube"].get("count", 0) for _, d in sorted_data]
+
+            # Graph 1: Barres comparatives - Vues totales
+            st.markdown("### Vues YouTube par candidat")
+            fig = px.bar(
+                x=names_html,
+                y=yt_views,
+                color=names,
+                color_discrete_sequence=colors,
+                title="Total des vues YouTube"
+            )
+            fig.update_layout(
+                showlegend=False,
+                yaxis=dict(title="Vues", fixedrange=True),
+                xaxis=dict(title="", fixedrange=True),
+                dragmode=False
+            )
+            fig.update_traces(
+                hovertemplate='<b>%{x}</b><br>%{y:,.0f} vues<extra></extra>'
+            )
+            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+
+            # Graph 2: Barres empilées - Shorts vs Vidéos longues
+            st.markdown("### Répartition Shorts vs Vidéos longues")
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                x=names_html,
+                y=yt_shorts_views,
+                name="Shorts (<60s)",
+                marker_color="#FF6B6B",
+                hovertemplate='<b>%{x}</b><br>Shorts: %{y:,.0f} vues<extra></extra>'
+            ))
+            fig.add_trace(go.Bar(
+                x=names_html,
+                y=yt_long_views,
+                name="Vidéos longues",
+                marker_color="#4ECDC4",
+                hovertemplate='<b>%{x}</b><br>Longues: %{y:,.0f} vues<extra></extra>'
+            ))
+            fig.update_layout(
+                barmode='stack',
+                title="Vues par format de vidéo",
+                showlegend=True,
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+                yaxis=dict(title="Vues", fixedrange=True),
+                xaxis=dict(title="", fixedrange=True),
+                dragmode=False
+            )
+            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+
+            # Graph 3: Scatter plot - Viralité vs Polémique (Shorts + Longues)
+            st.markdown("### Vues vs Taux de commentaires")
+
+            fig = go.Figure()
+            all_views = []
+
+            for i, ((_, d), name, color) in enumerate(zip(sorted_data, names, colors)):
+                # Vidéos longues (rond) - texte en haut
+                long_views = d["youtube"].get("long_views", 0)
+                long_comments = d["youtube"].get("long_comments", 0)
+                long_count = d["youtube"].get("long_count", 0)
+                if long_views > 0:
+                    long_ratio = (long_comments / long_views) * 100
+                    all_views.append(long_views)
+                    fig.add_trace(go.Scatter(
+                        x=[long_views],
+                        y=[long_ratio],
+                        mode='markers+text',
+                        name=f"{name} (Longues)",
+                        text=[name.split()[-1]],
+                        textposition='top center',
+                        marker=dict(
+                            size=30,
+                            color=color,
+                            symbol='circle',
+                            line=dict(width=2, color='white')
+                        ),
+                        hovertemplate=f'<b>{name}</b> (Longues)<br>Vues: %{{x:,.0f}}<br>Ratio: %{{y:.2f}}%<br>Vidéos: {long_count}<extra></extra>'
+                    ))
+
+                # Shorts (carré) - texte en bas pour éviter collision
+                shorts_views = d["youtube"].get("shorts_views", 0)
+                shorts_comments = d["youtube"].get("shorts_comments", 0)
+                shorts_count = d["youtube"].get("shorts_count", 0)
+                if shorts_views > 0:
+                    shorts_ratio = (shorts_comments / shorts_views) * 100
+                    all_views.append(shorts_views)
+                    fig.add_trace(go.Scatter(
+                        x=[shorts_views],
+                        y=[shorts_ratio],
+                        mode='markers+text',
+                        name=f"{name} (Shorts)",
+                        text=[name.split()[-1]],
+                        textposition='bottom center',
+                        marker=dict(
+                            size=30,
+                            color=color,
+                            symbol='square',
+                            line=dict(width=2, color='white')
+                        ),
+                        hovertemplate=f'<b>{name}</b> (Shorts)<br>Vues: %{{x:,.0f}}<br>Ratio: %{{y:.2f}}%<br>Vidéos: {shorts_count}<extra></extra>'
+                    ))
+
+            fig.update_layout(
+                title="Rond = Longues, Carré = Shorts",
+                xaxis=dict(title="Vues", fixedrange=True, type="log" if all_views and max(all_views) > 100000 else "linear"),
+                yaxis=dict(title="Commentaires / Vues (%)", fixedrange=True),
+                showlegend=False,
+                dragmode=False
+            )
+            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+
+            # Graph 4: Scatter plot - Vues vs Likes (Shorts + Longues)
+            st.markdown("### Vues vs Taux de likes")
+
+            fig = go.Figure()
+            all_views = []
+
+            for i, ((_, d), name, color) in enumerate(zip(sorted_data, names, colors)):
+                # Vidéos longues (rond) - texte en haut
+                long_views = d["youtube"].get("long_views", 0)
+                long_likes = d["youtube"].get("long_likes", 0)
+                long_count = d["youtube"].get("long_count", 0)
+                if long_views > 0:
+                    long_ratio = (long_likes / long_views) * 100
+                    all_views.append(long_views)
+                    fig.add_trace(go.Scatter(
+                        x=[long_views],
+                        y=[long_ratio],
+                        mode='markers+text',
+                        name=f"{name} (Longues)",
+                        text=[name.split()[-1]],
+                        textposition='top center',
+                        marker=dict(
+                            size=30,
+                            color=color,
+                            symbol='circle',
+                            line=dict(width=2, color='white')
+                        ),
+                        hovertemplate=f'<b>{name}</b> (Longues)<br>Vues: %{{x:,.0f}}<br>Ratio: %{{y:.2f}}%<br>Vidéos: {long_count}<extra></extra>'
+                    ))
+
+                # Shorts (carré) - texte en bas pour éviter collision
+                shorts_views = d["youtube"].get("shorts_views", 0)
+                shorts_likes = d["youtube"].get("shorts_likes", 0)
+                shorts_count = d["youtube"].get("shorts_count", 0)
+                if shorts_views > 0:
+                    shorts_ratio = (shorts_likes / shorts_views) * 100
+                    all_views.append(shorts_views)
+                    fig.add_trace(go.Scatter(
+                        x=[shorts_views],
+                        y=[shorts_ratio],
+                        mode='markers+text',
+                        name=f"{name} (Shorts)",
+                        text=[name.split()[-1]],
+                        textposition='bottom center',
+                        marker=dict(
+                            size=30,
+                            color=color,
+                            symbol='square',
+                            line=dict(width=2, color='white')
+                        ),
+                        hovertemplate=f'<b>{name}</b> (Shorts)<br>Vues: %{{x:,.0f}}<br>Ratio: %{{y:.2f}}%<br>Vidéos: {shorts_count}<extra></extra>'
+                    ))
+
+            fig.update_layout(
+                title="Rond = Longues, Carré = Shorts",
+                xaxis=dict(title="Vues", fixedrange=True, type="log" if all_views and max(all_views) > 100000 else "linear"),
+                yaxis=dict(title="Likes / Vues (%)", fixedrange=True),
+                showlegend=False,
+                dragmode=False
             )
             st.plotly_chart(fig, use_container_width=True, config=plotly_config)
 

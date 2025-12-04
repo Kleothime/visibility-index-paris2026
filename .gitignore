@@ -14,3 +14,9 @@ venv/
 # IDE
 .vscode/
 .idea/
+
+# Test files
+test_youtube_api.py
+
+# Secrets (ne jamais commit)
+.streamlit/secrets.toml
