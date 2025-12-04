@@ -1253,7 +1253,17 @@ STOP_WORDS = {
     "porte", "parole", "tour",
 
     # Verbes journalistiques supplémentaires
-    "soutiendra", "compare"
+    "soutiendra", "compare",
+
+    # Entités HTML mal parsées
+    "quot", "amp", "nbsp", "apos", "lt", "gt",
+
+    # Chaînes YouTube parasites
+    "davbe",
+
+    # Noms propres parasites hors sujet
+    "boulard", "touati", "machado", "kessaci", "medhi", "mehdi",
+    "consigny", "charles", "naulleau", "ernotte", "bompard", "manuel"
 }
 
 
@@ -1306,6 +1316,56 @@ def extract_keywords_from_articles(articles: List[Dict], candidate_name: str, to
     # Retourner les top mots-clés avec leurs articles associés
     top_keywords = word_counts.most_common(top_n)
     return [(word, count, word_articles.get(word, [])) for word, count in top_keywords]
+
+
+def extract_keywords_from_videos(videos: List[Dict], candidate_name: str, top_n: int = 10) -> List[tuple]:
+    """
+    Extrait les mots-clés les plus fréquents des titres de vidéos YouTube pour un candidat.
+    """
+    import html
+
+    if not videos:
+        return []
+
+    # Nom du candidat à exclure
+    name_parts = set(lemmatize_word(p) for p in candidate_name.lower().split())
+
+    word_counts = Counter()
+    word_videos = {}
+
+    for video in videos:
+        title = video.get("title", "")
+
+        # Décoder les entités HTML (&quot; -> ", &#39; -> ', etc.)
+        title = html.unescape(title)
+
+        # Gérer les apostrophes françaises
+        title_clean = re.sub(r"\b[lLdDqQnNsSmMtTcCjJ]['']\s*", "", title)
+
+        # Extraire les mots (min 4 caractères)
+        words = re.findall(r'\b[a-zA-ZàâäéèêëïîôùûüçœæÀÂÄÉÈÊËÏÎÔÙÛÜÇŒÆ]{4,}\b', title_clean.lower())
+
+        seen_in_video = set()
+        for word in words:
+            lemma = lemmatize_word(word)
+
+            if len(lemma) < 4:
+                continue
+
+            if lemma in STOP_WORDS or lemma in name_parts or lemma in MEDIA_NAMES:
+                continue
+
+            if lemma not in seen_in_video:
+                seen_in_video.add(lemma)
+                word_counts[lemma] += 1
+
+                if lemma not in word_videos:
+                    word_videos[lemma] = []
+                word_videos[lemma].append(video)
+
+    top_keywords = word_counts.most_common(top_n)
+    return [(word, count, word_videos.get(word, [])) for word, count in top_keywords]
+
 
 # =============================================================================
 # FONCTIONS DE COLLECTE
@@ -2369,7 +2429,10 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         trends_score = trends.get("scores", {}).get(name, 0)
 
         # Mots-clés extraits des articles de presse
-        keywords = extract_keywords_from_articles(press["articles"], name, top_n=5)
+        keywords_press = extract_keywords_from_articles(press["articles"], name, top_n=5)
+
+        # Mots-clés extraits des titres YouTube
+        keywords_youtube = extract_keywords_from_videos(youtube.get("videos", []), name, top_n=5)
 
         # Stocker les données brutes (score calculé après pour comparaison relative)
         results[cid] = {
@@ -2381,7 +2444,8 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             "trends_score": trends_score,
             "trends_success": trends.get("success", True),
             "trends_error": trends.get("error") or trends.get("errors"),
-            "keywords": keywords
+            "keywords": keywords_press,
+            "keywords_youtube": keywords_youtube
         }
 
         progress.progress((i + 1) / total)
@@ -2812,25 +2876,39 @@ def main():
 
     # TAB 2: THEMES / ANALYSE QUALITATIVE
     with tab2:
-        st.markdown('### Thèmes dans la presse')
-        st.markdown('*Mots-clés extraits des articles de presse pour chaque candidat*')
+        st.markdown('### Thèmes par source')
 
         for rank, (cid, d) in enumerate(sorted_data, 1):
-            keywords = d.get('keywords', [])
+            keywords_press = d.get('keywords', [])
+            keywords_youtube = d.get('keywords_youtube', [])
             name = d['info']['name']
-            # Sarah Knafo en gras dans le titre (uniquement Paris)
             is_knafo = name == "Sarah Knafo" and highlight_knafo
             expander_title = f'{rank}. **{name}**' if is_knafo else f'{rank}. {name}'
 
             with st.expander(expander_title):
-                if keywords:
-                    for word, count, articles in keywords:
-                        st.markdown(f"**{word}** ({count} mentions)")
-                        if articles:
-                            for art in articles[:5]:
-                                st.caption(f"- [{art.get('title', 'Sans titre')}]({art.get('url', '#')}) - {art.get('domain', '')}")
-                else:
-                    st.info('Aucun thème détecté')
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.markdown("**Presse**")
+                    if keywords_press:
+                        for word, count, articles in keywords_press:
+                            st.markdown(f"**{word}** ({count})")
+                            if articles:
+                                for art in articles[:3]:
+                                    st.caption(f"- [{art.get('title', 'Sans titre')[:40]}...]({art.get('url', '#')})")
+                    else:
+                        st.caption('Aucun thème')
+
+                with col2:
+                    st.markdown("**YouTube**")
+                    if keywords_youtube:
+                        for word, count, videos in keywords_youtube:
+                            st.markdown(f"**{word}** ({count})")
+                            if videos:
+                                for vid in videos[:3]:
+                                    st.caption(f"- [{vid.get('title', 'Sans titre')[:40]}...]({vid.get('url', '#')})")
+                    else:
+                        st.caption('Aucun thème')
 
         # === TABLEAU RECAPITULATIF ===
         st.markdown('---')
@@ -2838,18 +2916,22 @@ def main():
 
         recap_data = []
         for _, d in sorted_data:
-            keywords = d.get('keywords', [])[:3]
-            top_3 = [word for word, count, _ in keywords]
+            keywords_press = d.get('keywords', [])[:3]
+            keywords_youtube = d.get('keywords_youtube', [])[:3]
+            top_press = [word for word, count, _ in keywords_press]
+            top_youtube = [word for word, count, _ in keywords_youtube]
 
             recap_data.append({
                 'Candidat': d['info']['name'],
-                'Thème 1': top_3[0] if len(top_3) > 0 else '-',
-                'Thème 2': top_3[1] if len(top_3) > 1 else '-',
-                'Thème 3': top_3[2] if len(top_3) > 2 else '-',
+                'Presse 1': top_press[0] if len(top_press) > 0 else '-',
+                'Presse 2': top_press[1] if len(top_press) > 1 else '-',
+                'Presse 3': top_press[2] if len(top_press) > 2 else '-',
+                'YouTube 1': top_youtube[0] if len(top_youtube) > 0 else '-',
+                'YouTube 2': top_youtube[1] if len(top_youtube) > 1 else '-',
+                'YouTube 3': top_youtube[2] if len(top_youtube) > 2 else '-',
             })
 
         df_recap = pd.DataFrame(recap_data)
-        # Styler pour Sarah Knafo en gras (uniquement Paris)
         def highlight_knafo_recap(row):
             if row['Candidat'] == 'Sarah Knafo' and highlight_knafo:
                 return ['font-weight: bold; background-color: rgba(30, 58, 95, 0.15)'] * len(row)
