@@ -258,6 +258,15 @@ CANDIDATES_NATIONAL = {
         "search_terms": ["Sarah Knafo", "Knafo Reconquête", "Knafo politique"],
         "youtube_handle": "@SarahKnafo-Videos",
     },
+    "florian_philippot": {
+        "name": "Florian Philippot",
+        "party": "Les Patriotes",
+        "role": "Président des Patriotes",
+        "color": "#1E4D8C",
+        "wikipedia": "Florian_Philippot",
+        "search_terms": ["Florian Philippot", "Philippot Patriotes", "Philippot politique"],
+        "youtube_handle": "@florianphilippot1",
+    },
 }
 
 # Variable active (sera définie dynamiquement selon le contexte)
@@ -2085,7 +2094,7 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
     """
     Récupère les données YouTube:
     - Recherche simple de vidéos mentionnant le candidat
-    - Pour Knafo uniquement: aussi les vidéos de sa chaîne officielle
+    - Pour les candidats avec youtube_handle: aussi les vidéos de leur chaîne officielle
     """
     if not api_key or not api_key.strip():
         return {"available": False, "videos": [], "total_views": 0, "error": "Clé API manquante"}
@@ -2093,8 +2102,9 @@ def get_youtube_data(search_term: str, api_key: str, start_date: date, end_date:
     all_videos = []
     official_channel_name = None
 
-    # === Pour Knafo: récupérer aussi les vidéos de sa chaîne officielle ===
-    if "knafo" in search_term.lower():
+    # === Pour les candidats avec youtube_handle: récupérer aussi les vidéos de leur chaîne officielle ===
+    youtube_handle = _get_candidate_youtube_handle(search_term)
+    if youtube_handle:
         channel_id, channel_name = _search_youtube_channel(search_term, api_key)
         if channel_id:
             official_channel_name = channel_name
