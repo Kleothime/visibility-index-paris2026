@@ -3154,13 +3154,13 @@ def main():
 
     # Onglets différents selon le contexte (pas de Sondages pour National)
     if contexte == "national":
-        tab1, tab2, tab4, tab5, tab6, tab7, tab8 = st.tabs(
-            ['Scores', 'Themes', 'TV / Radio', 'Historique', 'Wikipedia', 'Presse', 'YouTube']
+        tab1, tab8, tab2, tab4, tab5, tab6, tab7 = st.tabs(
+            ['Scores', 'YouTube', 'Themes', 'TV / Radio', 'Historique', 'Wikipedia', 'Presse']
         )
         tab3 = None  # Pas d'onglet Sondages pour National
     else:
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(
-            ['Scores', 'Themes', 'Sondages', 'TV / Radio', 'Historique', 'Wikipedia', 'Presse', 'YouTube']
+        tab1, tab8, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+            ['Scores', 'YouTube', 'Themes', 'Sondages', 'TV / Radio', 'Historique', 'Wikipedia', 'Presse']
         )
 
     names = [d['info']['name'] for _, d in sorted_data]
