@@ -4039,6 +4039,12 @@ def main():
                                 st.session_state[show_all_videos_key] = True
                                 st.rerun()
 
+    # Footer discret avec quota YouTube
+    st.markdown("---")
+    yt_quota_remaining = get_youtube_quota_remaining()
+    yt_refresh_today = get_youtube_refresh_count_today()
+    st.caption(f"YouTube: {yt_refresh_today}/{YOUTUBE_MAX_REFRESH_PER_DAY} refresh aujourd'hui · Quota API: {yt_quota_remaining:,}/10,000")
+
 
 if __name__ == "__main__":
     main()
