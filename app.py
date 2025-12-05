@@ -129,11 +129,11 @@ CANDIDATES_NATIONAL = {
     },
     "francois_ruffin": {
         "name": "François Ruffin",
-        "party": "Picardie Debout",
+        "party": "Debout!",
         "role": "Député de la Somme",
         "color": "#E4032E",
         "wikipedia": "François_Ruffin",
-        "search_terms": ["François Ruffin", "Ruffin député", "Ruffin Picardie"],
+        "search_terms": ["François Ruffin", "Ruffin député", "Ruffin Debout"],
         "youtube_handle": "@francois_ruffin",
     },
     "raphael_glucksmann": {
@@ -146,11 +146,11 @@ CANDIDATES_NATIONAL = {
     },
     "marine_tondelier": {
         "name": "Marine Tondelier",
-        "party": "EELV",
-        "role": "Secrétaire nationale EELV",
+        "party": "Les Écologistes",
+        "role": "Secrétaire nationale",
         "color": "#00A86B",
         "wikipedia": "Marine_Tondelier",
-        "search_terms": ["Marine Tondelier", "Tondelier EELV", "Tondelier écologistes"],
+        "search_terms": ["Marine Tondelier", "Tondelier écologistes", "Tondelier verts"],
     },
     "fabien_roussel": {
         "name": "Fabien Roussel",
@@ -188,11 +188,11 @@ CANDIDATES_NATIONAL = {
     },
     "gerald_darmanin": {
         "name": "Gérald Darmanin",
-        "party": "Renaissance",
+        "party": "Renaissance / Les Populaires",
         "role": "Ex-ministre de l'Intérieur",
         "color": "#FFD700",
         "wikipedia": "Gérald_Darmanin",
-        "search_terms": ["Gérald Darmanin", "Darmanin ministre", "Darmanin Intérieur"],
+        "search_terms": ["Gérald Darmanin", "Darmanin ministre", "Darmanin Populaires"],
     },
     # --- DROITE ---
     "bruno_retailleau": {
@@ -205,7 +205,7 @@ CANDIDATES_NATIONAL = {
     },
     "david_lisnard": {
         "name": "David Lisnard",
-        "party": "LR",
+        "party": "LR / Nouvelle Énergie",
         "role": "Maire de Cannes",
         "color": "#0055A4",
         "wikipedia": "David_Lisnard",
@@ -256,11 +256,11 @@ CANDIDATES_NATIONAL = {
     },
     "marion_marechal": {
         "name": "Marion Maréchal",
-        "party": "Reconquête",
-        "role": "Vice-présidente Reconquête",
+        "party": "Identité-Libertés",
+        "role": "Présidente Identité-Libertés",
         "color": "#2C3E50",
         "wikipedia": "Marion_Maréchal",
-        "search_terms": ["Marion Maréchal", "Maréchal Reconquête", "Marion Maréchal Le Pen"],
+        "search_terms": ["Marion Maréchal", "Maréchal Identité", "Marion Maréchal Le Pen"],
         "youtube_handle": "@MarionMarechalOfficiel",
     },
     "sarah_knafo": {
@@ -3035,22 +3035,49 @@ def main():
             'Thèmes': themes_str,
             'Top Média': top_media_str,
             'Articles': d['press']['count'],
-            'Trends': f"{trends_val:.1f}" if trends_val > 0 else "-",
-            'Wikipedia': format_number(d['wikipedia']['views']),
-            'Vues YT': format_number(yt_views) if yt_views > 0 else "-",
+            'Trends': round(trends_val, 1) if trends_val > 0 else 0,
+            'Wikipedia': d['wikipedia']['views'],
+            'Vues YT': yt_views,
         }
         rows.append(row)
 
     df = pd.DataFrame(rows)
 
-    # Styler pour mettre Sarah Knafo en gras (uniquement Paris)
-    def highlight_knafo(row):
-        if row['Candidat'] == 'Sarah Knafo' and highlight_knafo:
+    # Fonction de formatage pour l'affichage
+    def format_wiki(val):
+        if val == 0:
+            return "-"
+        elif val >= 1_000_000:
+            return f"{val/1_000_000:.1f}M"
+        elif val >= 1_000:
+            return f"{val/1_000:.0f}k"
+        return str(val)
+
+    def format_yt(val):
+        if val == 0:
+            return "-"
+        elif val >= 1_000_000:
+            return f"{val/1_000_000:.1f}M"
+        elif val >= 1_000:
+            return f"{val/1_000:.0f}k"
+        return str(val)
+
+    def format_trends(val):
+        if val == 0:
+            return "-"
+        return f"{val:.1f}"
+
+    # Styler pour mettre Sarah Knafo en gras
+    def style_knafo(row):
+        if row['Candidat'] == 'Sarah Knafo':
             return ['font-weight: bold; background-color: rgba(30, 58, 95, 0.15)'] * len(row)
         return [''] * len(row)
 
-    styled_df = df.style.apply(highlight_knafo, axis=1).format({
-        'Score': '{:.1f}'
+    styled_df = df.style.apply(style_knafo, axis=1).format({
+        'Score': '{:.1f}',
+        'Trends': format_trends,
+        'Wikipedia': format_wiki,
+        'Vues YT': format_yt,
     })
 
     st.dataframe(styled_df, hide_index=True, use_container_width=True)
