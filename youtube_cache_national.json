@@ -1,1 +1,55 @@
-{"last_refresh": null, "quota_date": null, "quota_used": 0, "data": {}, "period_refreshes": {}, "last_valid": {}}
+{
+  "last_refresh": null,
+  "refresh_date": null,
+  "refresh_count": 0,
+  "quota_date": null,
+  "quota_used": 0,
+  "data": {},
+  "channel_ids": {
+    "Jean-Luc Mélenchon": {
+      "id": "",
+      "name": null,
+      "cached_at": "2025-12-04T20:38:27.978303"
+    },
+    "François Ruffin": {
+      "id": "",
+      "name": null,
+      "cached_at": "2025-12-04T20:38:28.265971"
+    },
+    "Gabriel Attal": {
+      "id": "",
+      "name": null,
+      "cached_at": "2025-12-04T20:38:29.360553"
+    },
+    "Jordan Bardella": {
+      "id": "",
+      "name": null,
+      "cached_at": "2025-12-04T20:38:30.643365"
+    },
+    "Marine Le Pen": {
+      "id": "",
+      "name": null,
+      "cached_at": "2025-12-04T20:38:30.969122"
+    },
+    "Éric Zemmour": {
+      "id": "",
+      "name": null,
+      "cached_at": "2025-12-04T20:38:32.179892"
+    },
+    "Marion Maréchal": {
+      "id": "",
+      "name": null,
+      "cached_at": "2025-12-04T20:38:32.543645"
+    },
+    "Sarah Knafo": {
+      "id": "",
+      "name": null,
+      "cached_at": "2025-12-04T20:38:32.843982"
+    },
+    "Florian Philippot": {
+      "id": "",
+      "name": null,
+      "cached_at": "2025-12-04T20:38:33.212292"
+    }
+  }
+}

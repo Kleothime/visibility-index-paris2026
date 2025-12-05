@@ -1,5 +1,5 @@
 {
-  "last_refresh": "2025-12-03T20:49:11.468919",
+  "last_refresh": "2025-12-05T04:40:07.042952",
   "data": {
     "2025-11-20 2025-12-03_David Belliard,Emmanuel Grégoire,Ian Brossat,Pierre-Yves Bournazel,Rachida Dati,Sarah Knafo,Sophia Chikirou,Thierry Mariani": {
       "scores": {
@@ -13,26 +13,52 @@
         "Sarah Knafo": 45.0
       },
       "timestamp": "2025-12-03T20:49:11.468919"
+    },
+    "2025-11-21 2025-12-04_David Belliard,Emmanuel Grégoire,Ian Brossat,Pierre-Yves Bournazel,Rachida Dati,Sarah Knafo,Sophia Chikirou,Thierry Mariani": {
+      "scores": {
+        "Rachida Dati": 59.4,
+        "Emmanuel Grégoire": 5.4,
+        "Pierre-Yves Bournazel": 0.1,
+        "Ian Brossat": 1.5,
+        "David Belliard": 1.9,
+        "Sophia Chikirou": 8.7,
+        "Thierry Mariani": 0.9,
+        "Sarah Knafo": 44.0
+      },
+      "timestamp": "2025-12-04T20:25:51.980234"
+    },
+    "2025-11-22 2025-12-05_David Belliard,Emmanuel Grégoire,Ian Brossat,Pierre-Yves Bournazel,Rachida Dati,Sarah Knafo,Sophia Chikirou,Thierry Mariani": {
+      "scores": {
+        "Rachida Dati": 57.5,
+        "Emmanuel Grégoire": 5.2,
+        "Pierre-Yves Bournazel": 0.3,
+        "Ian Brossat": 1.5,
+        "David Belliard": 1.8,
+        "Sophia Chikirou": 8.1,
+        "Thierry Mariani": 0.7,
+        "Sarah Knafo": 47.1
+      },
+      "timestamp": "2025-12-05T04:40:07.042952"
     }
   },
   "period_refreshes": {
     "14d": {
-      "date": "2025-12-03",
+      "date": "2025-12-05",
       "count": 1,
-      "last_refresh": "2025-12-03T20:49:11.488556"
+      "last_refresh": "2025-12-05T04:40:07.082007"
     }
   },
   "last_valid": {
     "14d": {
       "scores": {
-        "Rachida Dati": 60.1,
-        "Emmanuel Grégoire": 5.6,
-        "Pierre-Yves Bournazel": 0.2,
-        "Ian Brossat": 1.6,
+        "Rachida Dati": 57.5,
+        "Emmanuel Grégoire": 5.2,
+        "Pierre-Yves Bournazel": 0.3,
+        "Ian Brossat": 1.5,
         "David Belliard": 1.8,
-        "Sophia Chikirou": 9.0,
-        "Thierry Mariani": 0.9,
-        "Sarah Knafo": 45.0
+        "Sophia Chikirou": 8.1,
+        "Thierry Mariani": 0.7,
+        "Sarah Knafo": 47.1
       },
       "keywords": [
         "Rachida Dati",
@@ -44,7 +70,7 @@
         "Thierry Mariani",
         "Sarah Knafo"
       ],
-      "timestamp": "2025-12-03T20:49:11.479472"
+      "timestamp": "2025-12-05T04:40:07.055566"
     }
   }
 }

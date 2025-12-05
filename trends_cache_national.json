@@ -1,5 +1,5 @@
 {
-  "last_refresh": "2025-12-03T20:49:32.833190",
+  "last_refresh": "2025-12-04T20:30:33.584251",
   "data": {
     "2025-11-20 2025-12-03_Bruno Retailleau,David Lisnard,Fabien Roussel,François Ruffin,Gabriel Attal,Gérald Darmanin,Jean-Luc Mélenchon,Jordan Bardella,Laurent Wauquiez,Marine Le Pen,Marine Tondelier,Marion Maréchal,Raphaël Glucksmann,Édouard Philippe,Éric Ciotti,Éric Zemmour": {
       "scores": {
@@ -21,34 +21,61 @@
         "Marion Maréchal": 1.8
       },
       "timestamp": "2025-12-03T20:49:32.833190"
+    },
+    "2025-11-21 2025-12-04_Bruno Retailleau,David Lisnard,Fabien Roussel,Florian Philippot,François Ruffin,Gabriel Attal,Gérald Darmanin,Jean-Luc Mélenchon,Jordan Bardella,Laurent Wauquiez,Marine Le Pen,Marine Tondelier,Marion Maréchal,Olivier Faure,Raphaël Glucksmann,Sarah Knafo,Édouard Philippe,Éric Ciotti,Éric Zemmour": {
+      "scores": {
+        "Jean-Luc Mélenchon": 2.8,
+        "Marion Maréchal": 9.7,
+        "Sarah Knafo": 54.6,
+        "Florian Philippot": 8.1,
+        "François Ruffin": 0.0,
+        "Raphaël Glucksmann": 0.0,
+        "Marine Tondelier": 0.0,
+        "Fabien Roussel": 0.0,
+        "Olivier Faure": 0.0,
+        "Édouard Philippe": 0.0,
+        "Gabriel Attal": 0.0,
+        "Gérald Darmanin": 0.0,
+        "Bruno Retailleau": 0.0,
+        "David Lisnard": 0.0,
+        "Laurent Wauquiez": 0.0,
+        "Éric Ciotti": 0.0,
+        "Jordan Bardella": 0.0,
+        "Marine Le Pen": 0.0,
+        "Éric Zemmour": 0.0
+      },
+      "timestamp": "2025-12-04T20:30:33.584251"
     }
   },
   "period_refreshes": {
     "14d": {
-      "date": "2025-12-03",
+      "date": "2025-12-04",
       "count": 1,
-      "last_refresh": "2025-12-03T20:49:32.852524"
+      "last_refresh": "2025-12-04T20:30:33.600276"
     }
   },
   "last_valid": {
     "14d": {
       "scores": {
-        "Jean-Luc Mélenchon": 1.0,
-        "François Ruffin": 1.8,
-        "Raphaël Glucksmann": 9.7,
-        "Marine Tondelier": 9.7,
-        "Fabien Roussel": 1.8,
-        "Édouard Philippe": 1.0,
-        "Gabriel Attal": 8.8,
-        "Gérald Darmanin": 2.1,
-        "Bruno Retailleau": 3.1,
-        "David Lisnard": 2.4,
-        "Laurent Wauquiez": 3.2,
-        "Éric Ciotti": 1.1,
-        "Jordan Bardella": 42.1,
-        "Marine Le Pen": 11.5,
-        "Éric Zemmour": 1.2,
-        "Marion Maréchal": 1.8
+        "Jean-Luc Mélenchon": 2.8,
+        "Marion Maréchal": 9.7,
+        "Sarah Knafo": 54.6,
+        "Florian Philippot": 8.1,
+        "François Ruffin": 0.0,
+        "Raphaël Glucksmann": 0.0,
+        "Marine Tondelier": 0.0,
+        "Fabien Roussel": 0.0,
+        "Olivier Faure": 0.0,
+        "Édouard Philippe": 0.0,
+        "Gabriel Attal": 0.0,
+        "Gérald Darmanin": 0.0,
+        "Bruno Retailleau": 0.0,
+        "David Lisnard": 0.0,
+        "Laurent Wauquiez": 0.0,
+        "Éric Ciotti": 0.0,
+        "Jordan Bardella": 0.0,
+        "Marine Le Pen": 0.0,
+        "Éric Zemmour": 0.0
       },
       "keywords": [
         "Jean-Luc Mélenchon",
@@ -56,6 +83,7 @@
         "Raphaël Glucksmann",
         "Marine Tondelier",
         "Fabien Roussel",
+        "Olivier Faure",
         "Édouard Philippe",
         "Gabriel Attal",
         "Gérald Darmanin",
@@ -66,9 +94,11 @@
         "Jordan Bardella",
         "Marine Le Pen",
         "Éric Zemmour",
-        "Marion Maréchal"
+        "Marion Maréchal",
+        "Sarah Knafo",
+        "Florian Philippot"
       ],
-      "timestamp": "2025-12-03T20:49:32.842544"
+      "timestamp": "2025-12-04T20:30:33.592252"
     }
   }
 }
