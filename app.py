@@ -898,6 +898,9 @@ def get_chatbot_response(question: str, data_context: str, api_key: str) -> str:
     if not api_key:
         return "Assistant non configuré."
 
+    # DEBUG TEMPORAIRE - À RETIRER APRÈS DIAGNOSTIC
+    st.write(f"🔑 Clé Anthropic chargée (début) : {api_key[:12]}...")
+
     system_prompt = """Tu es un assistant pour Reconquête qui analyse la visibilité médiatique des personnalités politiques françaises.
 
 CONTEXTE :
@@ -954,15 +957,19 @@ DONNÉES ACTUELLES :
             messages=[{"role": "user", "content": question}]
         )
         return response.content[0].text
-    except anthropic.AuthenticationError:
+    except anthropic.AuthenticationError as e:
+        st.error(f"❌ Auth Anthropic: {e}")
         return "Demandez à Kléothime de recharger l'assistant."
-    except anthropic.RateLimitError:
+    except anthropic.RateLimitError as e:
+        st.error(f"❌ Rate limit Anthropic: {e}")
         return "Demandez à Kléothime de recharger l'assistant."
     except anthropic.APIStatusError as e:
+        st.error(f"❌ APIStatus Anthropic: {e}")
         if "insufficient" in str(e).lower() or "credit" in str(e).lower():
             return "Demandez à Kléothime de recharger l'assistant."
         return "Une erreur est survenue, réessayez plus tard."
-    except Exception:
+    except Exception as e:
+        st.error(f"❌ Exception générale: {e}")
         return "Une erreur est survenue, réessayez plus tard."
 
 
