@@ -2795,7 +2795,7 @@ def main():
     with col_btn1:
         if st.button(
             "Paris 2026",
-            use_container_width=True,
+            width="stretch",
             type="primary" if st.session_state.contexte == "paris" else "secondary"
         ):
             if st.session_state.contexte != "paris":
@@ -2805,7 +2805,7 @@ def main():
     with col_btn2:
         if st.button(
             "Politique nationale",
-            use_container_width=True,
+            width="stretch",
             type="primary" if st.session_state.contexte == "national" else "secondary"
         ):
             if st.session_state.contexte != "national":
@@ -3026,7 +3026,7 @@ def main():
         )
     with col_btn:
         st.markdown("<br>", unsafe_allow_html=True)  # Alignement vertical
-        if st.button("Envoyer", use_container_width=True, type="primary"):
+        if st.button("Envoyer", width="stretch", type="primary"):
             if user_question.strip():
                 if ANTHROPIC_API_KEY:
                     st.session_state.chatbot_question_to_process = user_question
@@ -3111,7 +3111,7 @@ def main():
         'Vues YT': format_yt,
     })
 
-    st.dataframe(styled_df, hide_index=True, use_container_width=True)
+    st.dataframe(styled_df, hide_index=True, width="stretch")
 
     # Message quota si données à 0 et quota épuisé
     all_trends_zero = all(d['trends_score'] == 0 for _, d in sorted_data)
@@ -3196,7 +3196,7 @@ def main():
             fig.update_traces(
                 hovertemplate='<b>%{x}</b><br>Score: %{y:.1f}<extra></extra>'
             )
-            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+            st.plotly_chart(fig, width="stretch", config=plotly_config)
 
         with col2:
             decomp_data = []
@@ -3232,7 +3232,7 @@ def main():
             fig.update_traces(
                 hovertemplate='%{y:.1f}<extra></extra>'
             )
-            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+            st.plotly_chart(fig, width="stretch", config=plotly_config)
 
     # TAB 2: THEMES / ANALYSE QUALITATIVE
     with tab2:
@@ -3296,7 +3296,7 @@ def main():
             if row['Candidat'] == 'Sarah Knafo' and highlight_knafo:
                 return ['font-weight: bold; background-color: rgba(30, 58, 95, 0.15)'] * len(row)
             return [''] * len(row)
-        st.dataframe(df_recap.style.apply(highlight_knafo_recap, axis=1), use_container_width=True, hide_index=True)
+        st.dataframe(df_recap.style.apply(highlight_knafo_recap, axis=1), width="stretch", hide_index=True)
     # TAB 3: SONDAGES (uniquement pour Paris)
     if tab3 is not None:
         with tab3:
@@ -3347,7 +3347,7 @@ def main():
                     xaxis=dict(title="", fixedrange=True),
                     dragmode=False
                 )
-                st.plotly_chart(fig_latest, use_container_width=True, config=plotly_config)
+                st.plotly_chart(fig_latest, width="stretch", config=plotly_config)
 
                 # Tableau du dernier sondage avec Sarah Knafo en gras (uniquement Paris)
                 df_latest = pd.DataFrame(latest_data)
@@ -3357,7 +3357,7 @@ def main():
                     return [''] * len(row)
                 st.dataframe(
                     df_latest.style.apply(highlight_knafo_sondage, axis=1),
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True
                 )
 
@@ -3411,7 +3411,7 @@ def main():
                 fig_evolution.update_traces(
                     hovertemplate='<b>%{fullData.name}</b><br>%{x}<br>%{y}%<extra></extra>'
                 )
-                st.plotly_chart(fig_evolution, use_container_width=True, config=plotly_config)
+                st.plotly_chart(fig_evolution, width="stretch", config=plotly_config)
 
                 st.markdown("---")
 
@@ -3456,7 +3456,7 @@ def main():
                                 margin=dict(t=10),
                                 dragmode=False
                             )
-                            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+                            st.plotly_chart(fig, width="stretch", config=plotly_config)
 
             else:
                 st.info("Aucun sondage disponible")
@@ -3553,7 +3553,7 @@ def main():
             fig.update_traces(
                 hovertemplate='<b>%{x}</b><br>%{y} mentions<extra></extra>'
             )
-            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+            st.plotly_chart(fig, width="stretch", config=plotly_config)
 
     # TAB 5: HISTORIQUE
     with tab5:
@@ -3654,7 +3654,7 @@ def main():
                     height=400,
                     margin=dict(l=40, r=120, t=40, b=40)
                 )
-                st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+                st.plotly_chart(fig, width="stretch", config=plotly_config)
 
                 # Tableau des variations
                 if unique_dates > 1:
@@ -3689,7 +3689,7 @@ def main():
                                 }
                             var_rows.append(row)
 
-                    st.dataframe(pd.DataFrame(var_rows), use_container_width=True, hide_index=True)
+                    st.dataframe(pd.DataFrame(var_rows), width="stretch", hide_index=True)
         else:
             st.info("Aucun historique disponible")
 
@@ -3720,7 +3720,7 @@ def main():
             fig.update_traces(
                 hovertemplate='<b>%{x}</b><br>%{y} vues<extra></extra>'
             )
-            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+            st.plotly_chart(fig, width="stretch", config=plotly_config)
 
         with col2:
             variations = [max(min(d["wikipedia"]["variation"], 100), -100) for _, d in sorted_data]
@@ -3740,7 +3740,7 @@ def main():
             fig.update_traces(
                 hovertemplate='<b>%{x}</b><br>%{y:+.1f} %<extra></extra>'
             )
-            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+            st.plotly_chart(fig, width="stretch", config=plotly_config)
 
     # TAB 7: PRESSE
     with tab7:
@@ -3764,7 +3764,7 @@ def main():
             fig.update_traces(
                 hovertemplate='<b>%{x}</b><br>%{y} articles<extra></extra>'
             )
-            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+            st.plotly_chart(fig, width="stretch", config=plotly_config)
 
         with col2:
             fig = px.pie(
@@ -3777,7 +3777,7 @@ def main():
             fig.update_traces(
                 hovertemplate='<b>%{label}</b><br>%{value} articles<br>%{percent}<extra></extra>'
             )
-            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+            st.plotly_chart(fig, width="stretch", config=plotly_config)
 
     # TAB 8: YOUTUBE
     with tab8:
@@ -3813,7 +3813,7 @@ def main():
             fig.update_traces(
                 hovertemplate='<b>%{x}</b><br>%{y:,.0f} vues<extra></extra>'
             )
-            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+            st.plotly_chart(fig, width="stretch", config=plotly_config)
 
             # Graph 2: Barres empilées - Shorts vs Vidéos longues
             st.markdown("### Répartition Shorts vs Vidéos longues")
@@ -3841,7 +3841,7 @@ def main():
                 xaxis=dict(title="", fixedrange=True),
                 dragmode=False
             )
-            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+            st.plotly_chart(fig, width="stretch", config=plotly_config)
 
             # Graph 3: Scatter plot - Viralité vs Polémique (Shorts + Longues)
             st.markdown("### Vues vs Taux de commentaires")
@@ -3907,7 +3907,7 @@ def main():
                 showlegend=False,
                 dragmode=False
             )
-            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+            st.plotly_chart(fig, width="stretch", config=plotly_config)
 
             # Graph 4: Scatter plot - Vues vs Likes (Shorts + Longues)
             st.markdown("### Vues vs Taux de likes")
@@ -3971,7 +3971,7 @@ def main():
                 showlegend=False,
                 dragmode=False
             )
-            st.plotly_chart(fig, use_container_width=True, config=plotly_config)
+            st.plotly_chart(fig, width="stretch", config=plotly_config)
 
     # === ARTICLES ===
     st.markdown("---")
