@@ -3849,6 +3849,8 @@ def main():
             fig = go.Figure()
             all_views = []
 
+            MIN_VIEWS_DISPLAY = 10000  # Seuil minimum pour l'axe X
+
             for i, ((_, d), name, color) in enumerate(zip(sorted_data, names, colors)):
                 # Vidéos longues (rond) - texte en haut
                 long_views = d["youtube"].get("long_views", 0)
@@ -3856,9 +3858,10 @@ def main():
                 long_count = d["youtube"].get("long_count", 0)
                 if long_views > 0:
                     long_ratio = (long_comments / long_views) * 100
-                    all_views.append(long_views)
+                    display_views = max(long_views, MIN_VIEWS_DISPLAY)
+                    all_views.append(display_views)
                     fig.add_trace(go.Scatter(
-                        x=[long_views],
+                        x=[display_views],
                         y=[long_ratio],
                         mode='markers+text',
                         name=f"{name} (Longues)",
@@ -3870,7 +3873,7 @@ def main():
                             symbol='circle',
                             line=dict(width=2, color='white')
                         ),
-                        hovertemplate=f'<b>{name}</b> (Longues)<br>Vues: %{{x:,.0f}}<br>Ratio: %{{y:.2f}}%<br>Vidéos: {long_count}<extra></extra>'
+                        hovertemplate=f'<b>{name}</b> (Longues)<br>Vues: {long_views:,.0f}<br>Ratio: %{{y:.2f}}%<br>Vidéos: {long_count}<extra></extra>'
                     ))
 
                 # Shorts (carré) - texte en bas pour éviter collision
@@ -3879,9 +3882,10 @@ def main():
                 shorts_count = d["youtube"].get("shorts_count", 0)
                 if shorts_views > 0:
                     shorts_ratio = (shorts_comments / shorts_views) * 100
-                    all_views.append(shorts_views)
+                    display_views = max(shorts_views, MIN_VIEWS_DISPLAY)
+                    all_views.append(display_views)
                     fig.add_trace(go.Scatter(
-                        x=[shorts_views],
+                        x=[display_views],
                         y=[shorts_ratio],
                         mode='markers+text',
                         name=f"{name} (Shorts)",
@@ -3893,12 +3897,12 @@ def main():
                             symbol='square',
                             line=dict(width=2, color='white')
                         ),
-                        hovertemplate=f'<b>{name}</b> (Shorts)<br>Vues: %{{x:,.0f}}<br>Ratio: %{{y:.2f}}%<br>Vidéos: {shorts_count}<extra></extra>'
+                        hovertemplate=f'<b>{name}</b> (Shorts)<br>Vues: {shorts_views:,.0f}<br>Ratio: %{{y:.2f}}%<br>Vidéos: {shorts_count}<extra></extra>'
                     ))
 
             fig.update_layout(
                 title="Rond = Longues, Carré = Shorts",
-                xaxis=dict(title="Vues", fixedrange=True, type="log" if all_views and max(all_views) > 100000 else "linear"),
+                xaxis=dict(title="Vues", fixedrange=True, type="log", range=[4, None]),  # log10(10000) = 4
                 yaxis=dict(title="Commentaires / Vues (%)", fixedrange=True),
                 showlegend=False,
                 dragmode=False
@@ -3918,9 +3922,10 @@ def main():
                 long_count = d["youtube"].get("long_count", 0)
                 if long_views > 0:
                     long_ratio = (long_likes / long_views) * 100
-                    all_views.append(long_views)
+                    display_views = max(long_views, MIN_VIEWS_DISPLAY)
+                    all_views.append(display_views)
                     fig.add_trace(go.Scatter(
-                        x=[long_views],
+                        x=[display_views],
                         y=[long_ratio],
                         mode='markers+text',
                         name=f"{name} (Longues)",
@@ -3932,7 +3937,7 @@ def main():
                             symbol='circle',
                             line=dict(width=2, color='white')
                         ),
-                        hovertemplate=f'<b>{name}</b> (Longues)<br>Vues: %{{x:,.0f}}<br>Ratio: %{{y:.2f}}%<br>Vidéos: {long_count}<extra></extra>'
+                        hovertemplate=f'<b>{name}</b> (Longues)<br>Vues: {long_views:,.0f}<br>Ratio: %{{y:.2f}}%<br>Vidéos: {long_count}<extra></extra>'
                     ))
 
                 # Shorts (carré) - texte en bas pour éviter collision
@@ -3941,9 +3946,10 @@ def main():
                 shorts_count = d["youtube"].get("shorts_count", 0)
                 if shorts_views > 0:
                     shorts_ratio = (shorts_likes / shorts_views) * 100
-                    all_views.append(shorts_views)
+                    display_views = max(shorts_views, MIN_VIEWS_DISPLAY)
+                    all_views.append(display_views)
                     fig.add_trace(go.Scatter(
-                        x=[shorts_views],
+                        x=[display_views],
                         y=[shorts_ratio],
                         mode='markers+text',
                         name=f"{name} (Shorts)",
@@ -3955,12 +3961,12 @@ def main():
                             symbol='square',
                             line=dict(width=2, color='white')
                         ),
-                        hovertemplate=f'<b>{name}</b> (Shorts)<br>Vues: %{{x:,.0f}}<br>Ratio: %{{y:.2f}}%<br>Vidéos: {shorts_count}<extra></extra>'
+                        hovertemplate=f'<b>{name}</b> (Shorts)<br>Vues: {shorts_views:,.0f}<br>Ratio: %{{y:.2f}}%<br>Vidéos: {shorts_count}<extra></extra>'
                     ))
 
             fig.update_layout(
                 title="Rond = Longues, Carré = Shorts",
-                xaxis=dict(title="Vues", fixedrange=True, type="log" if all_views and max(all_views) > 100000 else "linear"),
+                xaxis=dict(title="Vues", fixedrange=True, type="log", range=[4, None]),  # log10(10000) = 4
                 yaxis=dict(title="Likes / Vues (%)", fixedrange=True),
                 showlegend=False,
                 dragmode=False
