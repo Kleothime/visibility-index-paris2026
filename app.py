@@ -1938,47 +1938,78 @@ def get_google_trends(keywords: List[str], start_date: date, end_date: date) -> 
     # Vérifier si on peut faire un refresh selon les règles par période
     can_request, quota_message = can_refresh_trends(period_type)
 
-    if not can_request:
-        return return_with_fallback(quota_message)
+    # Identifier les candidats déjà OK dans le cache (score > 0) et ceux à retenter (score = 0)
+    cached_scores = cached_data.get("scores", {}) if cached_data else {}
+    keywords_ok = [kw for kw in keywords if cached_scores.get(kw, 0) > 0]
+    keywords_missing = [kw for kw in keywords if cached_scores.get(kw, 0) == 0]
 
-    # Si le cache est très frais (< 30min), l'utiliser directement
-    if cached_data and cache_age < 0.5 and any(v > 0 for v in cached_data.get("scores", {}).values()):
+    # Si tout le monde est OK et cache frais (< 30min), retourner le cache
+    if not keywords_missing and cache_age < 0.5:
         return {
             "success": True,
-            "scores": cached_data.get("scores", {}),
+            "scores": cached_scores,
             "errors": None,
             "from_cache": True,
             "cache_age_hours": round(cache_age, 1)
         }
 
-    # Faire la requête API
+    # Si on ne peut pas faire de requête, retourner le cache tel quel (avec fallback si besoin)
+    if not can_request:
+        # Mais si on a des données partielles, les retourner quand même
+        if keywords_ok:
+            return {
+                "success": True,
+                "scores": cached_scores,
+                "errors": [quota_message],
+                "from_cache": True,
+                "partial": True
+            }
+        return return_with_fallback(quota_message)
+
+    # Déterminer quoi requêter : seulement les manquants si on a déjà des données
+    keywords_to_fetch = keywords_missing if keywords_missing else keywords
+
+    # Faire la requête API uniquement pour les candidats manquants
     try:
-        result = _fetch_google_trends_api(keywords, timeframe)
-        scores = result.get("scores", {})
+        result = _fetch_google_trends_api(keywords_to_fetch, timeframe)
+        new_scores = result.get("scores", {})
         errors = result.get("errors", [])
 
-        has_valid_data = any(v > 0 for v in scores.values())
+        # Fusionner avec les scores existants
+        merged_scores = dict(cached_scores)  # Copie des scores existants
+        for kw, score in new_scores.items():
+            if score > 0 or kw not in merged_scores:  # Mettre à jour si nouveau score > 0 ou si pas encore de score
+                merged_scores[kw] = score
+
+        # S'assurer que tous les keywords demandés sont présents
+        for kw in keywords:
+            if kw not in merged_scores:
+                merged_scores[kw] = 0.0
+
+        has_valid_data = any(v > 0 for v in merged_scores.values())
 
         if has_valid_data:
             # Succès! Sauvegarder dans le cache ET dans last_valid
             cache = load_trends_cache()
             if "data" not in cache:
                 cache["data"] = {}
-            cache["data"][cache_key] = {"scores": scores, "timestamp": datetime.now().isoformat()}
+            cache["data"][cache_key] = {"scores": merged_scores, "timestamp": datetime.now().isoformat()}
             cache["last_refresh"] = datetime.now().isoformat()
             save_trends_cache(cache)
 
             # Sauvegarder comme dernière donnée valide
-            save_trends_last_valid(period_type, scores, keywords)
+            save_trends_last_valid(period_type, merged_scores, keywords)
 
-            # Incrémenter le compteur de refresh
+            # Incrémenter le compteur de refresh seulement si on a fait une vraie requête
             increment_trends_period_refresh(period_type)
 
             return {
                 "success": True,
-                "scores": scores,
+                "scores": merged_scores,
                 "errors": errors if errors else None,
-                "from_cache": False
+                "from_cache": False,
+                "fetched_count": len(keywords_to_fetch),
+                "cached_count": len(keywords_ok)
             }
         else:
             # API a retourné 0 - utiliser fallback sans incrémenter
