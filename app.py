@@ -469,12 +469,14 @@ def get_context_files(contexte: str) -> dict:
             "history": "history_national.json",
             "youtube_cache": "youtube_cache_national.json",
             "trends_cache": "trends_cache_national.json",
+            "press_cache": "press_cache_national.json",
         }
     else:  # paris
         return {
             "history": "history_paris.json",
             "youtube_cache": "youtube_cache_paris.json",
             "trends_cache": "trends_cache_paris.json",
+            "press_cache": "press_cache_paris.json",
         }
 
 # =============================================================================
@@ -758,6 +760,299 @@ def compute_youtube_stats_from_videos(videos: List[Dict]) -> Dict:
         "shorts_count": shorts_count,
         "long_count": long_count,
         "video_count": len(videos)
+    }
+
+
+# =============================================================================
+# CACHE PRESSE - SYSTÈME 30 JOURS
+# =============================================================================
+
+PRESS_CACHE_FILE = "press_cache_paris.json"
+PRESS_CACHE_DURATION_HOURS = 12  # Même durée que YouTube
+
+
+def load_press_cache() -> Dict:
+    """Charge le cache presse depuis le fichier"""
+    try:
+        with open(PRESS_CACHE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {"last_refresh": None, "data": {}}
+
+
+def save_press_cache(cache: Dict) -> bool:
+    """Sauvegarde le cache presse"""
+    try:
+        with open(PRESS_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False, indent=2)
+        return True
+    except:
+        return False
+
+
+def is_press_cache_valid() -> bool:
+    """Vérifie si le cache presse est encore valide (< 12h)"""
+    cache = load_press_cache()
+    last_refresh = cache.get("last_refresh")
+    if not last_refresh:
+        return False
+    try:
+        last_dt = datetime.fromisoformat(last_refresh)
+        return (datetime.now() - last_dt).total_seconds() < PRESS_CACHE_DURATION_HOURS * 3600
+    except:
+        return False
+
+
+def get_cached_press_data(candidate_name: str) -> Optional[Dict]:
+    """Récupère les articles en cache pour un candidat"""
+    cache = load_press_cache()
+    return cache.get("data", {}).get(candidate_name)
+
+
+def set_cached_press_data(candidate_name: str, articles: List[Dict]):
+    """Stocke les articles d'un candidat dans le cache"""
+    cache = load_press_cache()
+    if "data" not in cache:
+        cache["data"] = {}
+
+    cache["data"][candidate_name] = {
+        "articles": articles,
+        "fetched_at": datetime.now().isoformat()
+    }
+    cache["last_refresh"] = datetime.now().isoformat()
+
+    save_press_cache(cache)
+
+
+def filter_press_by_period(articles: List[Dict], start_date: date, end_date: date) -> List[Dict]:
+    """Filtre les articles par période"""
+    filtered = []
+    start_str = start_date.strftime("%Y-%m-%d")
+    end_str = end_date.strftime("%Y-%m-%d")
+
+    for art in articles:
+        art_date = art.get("date", "")
+        if art_date and start_str <= art_date <= end_str:
+            filtered.append(art)
+
+    return filtered
+
+
+# =============================================================================
+# CACHE SENTIMENT - ANALYSE IA DES TITRES
+# =============================================================================
+
+SENTIMENT_CACHE_FILE = "sentiment_cache.json"
+
+
+def load_sentiment_cache() -> Dict:
+    """Charge le cache sentiment"""
+    try:
+        with open(SENTIMENT_CACHE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {"titres": {}}
+
+
+def save_sentiment_cache(cache: Dict) -> bool:
+    """Sauvegarde le cache sentiment"""
+    try:
+        with open(SENTIMENT_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False, indent=2)
+        return True
+    except:
+        return False
+
+
+def get_title_hash(title: str) -> str:
+    """Génère un hash MD5 du titre pour clé de cache"""
+    import hashlib
+    return hashlib.md5(title.strip().lower().encode()).hexdigest()
+
+
+def get_cached_sentiment(title: str) -> Optional[float]:
+    """Récupère le score sentiment d'un titre depuis le cache"""
+    cache = load_sentiment_cache()
+    title_hash = get_title_hash(title)
+    entry = cache.get("titres", {}).get(title_hash)
+    if entry:
+        return entry.get("score")
+    return None
+
+
+def set_cached_sentiment(title: str, score: float):
+    """Stocke le score sentiment d'un titre"""
+    cache = load_sentiment_cache()
+    if "titres" not in cache:
+        cache["titres"] = {}
+
+    title_hash = get_title_hash(title)
+    cache["titres"][title_hash] = {
+        "score": score,
+        "title": title[:100],  # Garder un aperçu pour debug
+        "analyzed_at": datetime.now().isoformat()
+    }
+
+    save_sentiment_cache(cache)
+
+
+def analyze_sentiment_batch(titles: List[str], candidate_name: str, api_key: str) -> Dict[str, float]:
+    """
+    Analyse le sentiment d'un batch de titres via Claude.
+    Retourne un dict {titre: score} avec score de -1 à +1.
+    """
+    if not api_key or not titles:
+        return {}
+
+    # Construire le prompt
+    titles_text = "\n".join([f"[{i+1}] \"{t}\"" for i, t in enumerate(titles)])
+
+    prompt = f"""Tu analyses des titres de presse et YouTube concernant {candidate_name}.
+Pour chaque titre, donne un score de -1 (très négatif pour ce candidat) à +1 (très positif pour ce candidat).
+0 = neutre.
+
+IMPORTANT: Réponds UNIQUEMENT avec un JSON valide, format exact: {{"1": 0.3, "2": -0.5, ...}}
+Pas de texte avant ou après, juste le JSON.
+
+Titres à analyser:
+{titles_text}"""
+
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-sonnet-4-5-20250929",
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        response_text = response.content[0].text.strip()
+
+        # Parser le JSON
+        # Nettoyer si besoin (enlever ```json etc)
+        if response_text.startswith("```"):
+            response_text = response_text.split("```")[1]
+            if response_text.startswith("json"):
+                response_text = response_text[4:]
+        response_text = response_text.strip()
+
+        scores_dict = json.loads(response_text)
+
+        # Convertir en {titre: score}
+        result = {}
+        for i, title in enumerate(titles):
+            key = str(i + 1)
+            if key in scores_dict:
+                score = float(scores_dict[key])
+                # Clamp entre -1 et 1
+                score = max(-1, min(1, score))
+                result[title] = score
+
+        return result
+
+    except Exception as e:
+        # En cas d'erreur, retourner dict vide (on réessaiera plus tard)
+        return {}
+
+
+def analyze_and_cache_sentiments(titles: List[str], candidate_name: str, api_key: str) -> int:
+    """
+    Analyse les titres qui ne sont pas encore en cache.
+    Retourne le nombre de nouveaux titres analysés.
+    """
+    # Filtrer les titres pas encore analysés
+    new_titles = [t for t in titles if get_cached_sentiment(t) is None]
+
+    if not new_titles:
+        return 0
+
+    # Traiter par batches de 25
+    batch_size = 25
+    total_analyzed = 0
+
+    for i in range(0, len(new_titles), batch_size):
+        batch = new_titles[i:i + batch_size]
+        scores = analyze_sentiment_batch(batch, candidate_name, api_key)
+
+        # Stocker en cache
+        for title, score in scores.items():
+            set_cached_sentiment(title, score)
+            total_analyzed += 1
+
+    return total_analyzed
+
+
+def get_sentiment_for_items(items: List[Dict], title_key: str = "title", weight_key: str = None) -> Dict:
+    """
+    Calcule le sentiment moyen pour une liste d'items.
+    Si weight_key est fourni, pondère par cette valeur.
+    Retourne {avg: float, positive: int, neutral: int, negative: int, total: int}
+    """
+    scores = []
+    weights = []
+    positive = 0
+    neutral = 0
+    negative = 0
+
+    for item in items:
+        title = item.get(title_key, "")
+        if not title:
+            continue
+
+        score = get_cached_sentiment(title)
+        if score is None:
+            continue
+
+        weight = item.get(weight_key, 1) if weight_key else 1
+        scores.append(score)
+        weights.append(weight)
+
+        if score > 0.2:
+            positive += 1
+        elif score < -0.2:
+            negative += 1
+        else:
+            neutral += 1
+
+    if not scores:
+        return {"avg": 0, "positive": 0, "neutral": 0, "negative": 0, "total": 0}
+
+    # Moyenne pondérée
+    total_weight = sum(weights)
+    if total_weight > 0:
+        avg = sum(s * w for s, w in zip(scores, weights)) / total_weight
+    else:
+        avg = sum(scores) / len(scores)
+
+    return {
+        "avg": avg,
+        "positive": positive,
+        "neutral": neutral,
+        "negative": negative,
+        "total": len(scores)
+    }
+
+
+def compute_combined_sentiment(press_articles: List[Dict], youtube_videos: List[Dict]) -> Dict:
+    """
+    Calcule le sentiment combiné 50% presse + 50% YouTube.
+    """
+    press_sentiment = get_sentiment_for_items(press_articles, title_key="title")
+    youtube_sentiment = get_sentiment_for_items(youtube_videos, title_key="title", weight_key="views")
+
+    # Moyenne 50/50
+    if press_sentiment["total"] > 0 and youtube_sentiment["total"] > 0:
+        combined_avg = (press_sentiment["avg"] + youtube_sentiment["avg"]) / 2
+    elif press_sentiment["total"] > 0:
+        combined_avg = press_sentiment["avg"]
+    elif youtube_sentiment["total"] > 0:
+        combined_avg = youtube_sentiment["avg"]
+    else:
+        combined_avg = 0
+
+    return {
+        "combined_avg": combined_avg,
+        "press": press_sentiment,
+        "youtube": youtube_sentiment
     }
 
 
@@ -2627,6 +2922,26 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             youtube_api_called = True
             increment_youtube_refresh(cost=expected_youtube_cost)
 
+    # === PRESSE: Système de cache 30j (comme YouTube) ===
+    press_cache_valid = is_press_cache_valid()
+    press_refresh_needed = not press_cache_valid
+
+    if press_refresh_needed:
+        status.text("Rafraîchissement des données presse (30 jours)...")
+        # Récupérer les articles sur 30 jours pour tous les candidats
+        press_start = date.today() - timedelta(days=30)
+        press_end = date.today()
+        for i, cid in enumerate(candidate_ids):
+            c = CANDIDATES[cid]
+            name = c["name"]
+            status.text(f"Presse: {name} ({i+1}/{len(candidate_ids)})...")
+            # Récupérer tous les articles sur 30 jours
+            press_data = get_all_press_coverage(name, c["search_terms"], press_start, press_end)
+            # Stocker en cache
+            set_cached_press_data(name, press_data.get("articles", []))
+
+    progress.progress(0.15)
+
     total = len(candidate_ids)
 
     for i, cid in enumerate(candidate_ids):
@@ -2636,7 +2951,28 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         status.text(f"Analyse de {name} ({i+1}/{total})...")
 
         wiki = get_wikipedia_views(c["wikipedia"], start_date, end_date)
-        press = get_all_press_coverage(name, c["search_terms"], start_date, end_date)
+
+        # Presse: utiliser le cache et filtrer par période
+        cached_press = get_cached_press_data(name)
+        if cached_press:
+            all_articles = cached_press.get("articles", [])
+            filtered_articles = filter_press_by_period(all_articles, start_date, end_date)
+            # Recalculer les stats sur les articles filtrés
+            domains = set(art["domain"] for art in filtered_articles if art.get("domain"))
+            domain_counts = Counter(art["domain"] for art in filtered_articles if art.get("domain"))
+            top_media = domain_counts.most_common(1)[0] if domain_counts else (None, 0)
+            press = {
+                "articles": filtered_articles,
+                "count": len(filtered_articles),
+                "domains": len(domains),
+                "top_media": top_media[0],
+                "top_media_count": top_media[1],
+                "media_breakdown": domain_counts.most_common(5)
+            }
+        else:
+            # Fallback: requête directe si pas de cache
+            press = get_all_press_coverage(name, c["search_terms"], start_date, end_date)
+
         tv_radio = get_tv_radio_mentions(name, start_date, end_date)
 
         # YouTube: récupérer depuis le cache 30j et filtrer par période
@@ -2691,6 +3027,35 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
         )
         results[cid]["score"] = score
 
+    # === ANALYSE SENTIMENT (si clé Anthropic disponible) ===
+    sentiment_analyzed = 0
+    if ANTHROPIC_API_KEY:
+        status.text("Analyse sentiment des titres...")
+        for cid in candidate_ids:
+            d = results[cid]
+            name = d["info"]["name"]
+
+            # Collecter tous les titres (presse + YouTube)
+            all_titles = []
+            for art in d["press"].get("articles", []):
+                if art.get("title"):
+                    all_titles.append(art["title"])
+            for vid in d["youtube"].get("videos", []):
+                if vid.get("title"):
+                    all_titles.append(vid["title"])
+
+            # Analyser les nouveaux titres
+            if all_titles:
+                analyzed = analyze_and_cache_sentiments(all_titles, name, ANTHROPIC_API_KEY)
+                sentiment_analyzed += analyzed
+
+            # Calculer le sentiment combiné pour ce candidat
+            sentiment = compute_combined_sentiment(
+                d["press"].get("articles", []),
+                d["youtube"].get("videos", [])
+            )
+            results[cid]["sentiment"] = sentiment
+
     progress.empty()
     status.empty()
 
@@ -2729,7 +3094,7 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
 # =============================================================================
 
 def main():
-    global CANDIDATES, HISTORY_FILE, YOUTUBE_CACHE_FILE, TRENDS_CACHE_FILE
+    global CANDIDATES, HISTORY_FILE, YOUTUBE_CACHE_FILE, TRENDS_CACHE_FILE, PRESS_CACHE_FILE
 
     # Viewport meta pour iPhone + CSS responsive
     mobile_css = """
@@ -2829,6 +3194,7 @@ def main():
     HISTORY_FILE = context_files["history"]
     YOUTUBE_CACHE_FILE = context_files["youtube_cache"]
     TRENDS_CACHE_FILE = context_files["trends_cache"]
+    PRESS_CACHE_FILE = context_files["press_cache"]
 
     with st.sidebar:
         st.markdown("## Configuration")
@@ -3154,13 +3520,13 @@ def main():
 
     # Onglets différents selon le contexte (pas de Sondages pour National)
     if contexte == "national":
-        tab1, tab8, tab2, tab4, tab5, tab6, tab7 = st.tabs(
-            ['Scores', 'YouTube', 'Themes', 'TV / Radio', 'Historique', 'Wikipedia', 'Presse']
+        tab1, tab8, tab2, tab9, tab4, tab5, tab6, tab7 = st.tabs(
+            ['Scores', 'YouTube', 'Thèmes', 'Sentiment', 'TV / Radio', 'Historique', 'Wikipedia', 'Presse']
         )
         tab3 = None  # Pas d'onglet Sondages pour National
     else:
-        tab1, tab8, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
-            ['Scores', 'YouTube', 'Themes', 'Sondages', 'TV / Radio', 'Historique', 'Wikipedia', 'Presse']
+        tab1, tab8, tab2, tab9, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+            ['Scores', 'YouTube', 'Thèmes', 'Sentiment', 'Sondages', 'TV / Radio', 'Historique', 'Wikipedia', 'Presse']
         )
 
     names = [d['info']['name'] for _, d in sorted_data]
@@ -3297,6 +3663,220 @@ def main():
                 return ['font-weight: bold; background-color: rgba(30, 58, 95, 0.15)'] * len(row)
             return [''] * len(row)
         st.dataframe(df_recap.style.apply(highlight_knafo_recap, axis=1), width="stretch", hide_index=True)
+
+    # TAB 9: SENTIMENT
+    with tab9:
+        st.markdown("### Analyse de sentiment")
+
+        # Vérifier si les données sentiment sont disponibles
+        has_sentiment = any(d.get("sentiment") for _, d in sorted_data)
+
+        if not has_sentiment:
+            st.info("L'analyse de sentiment nécessite une clé API Anthropic configurée.")
+        else:
+            # === BAROMÈTRE GLOBAL ===
+            st.markdown("#### Baromètre par candidat")
+
+            # Préparer les données pour le graphique
+            sentiment_data = []
+            for _, d in sorted_data:
+                sentiment = d.get("sentiment", {})
+                sentiment_data.append({
+                    "name": d["info"]["name"],
+                    "color": d["info"]["color"],
+                    "combined_avg": sentiment.get("combined_avg", 0),
+                    "press_avg": sentiment.get("press", {}).get("avg", 0),
+                    "youtube_avg": sentiment.get("youtube", {}).get("avg", 0),
+                    "press_positive": sentiment.get("press", {}).get("positive", 0),
+                    "press_neutral": sentiment.get("press", {}).get("neutral", 0),
+                    "press_negative": sentiment.get("press", {}).get("negative", 0),
+                    "youtube_positive": sentiment.get("youtube", {}).get("positive", 0),
+                    "youtube_neutral": sentiment.get("youtube", {}).get("neutral", 0),
+                    "youtube_negative": sentiment.get("youtube", {}).get("negative", 0),
+                })
+
+            # Trier par sentiment combiné (du plus positif au plus négatif)
+            sentiment_data_sorted = sorted(sentiment_data, key=lambda x: x["combined_avg"], reverse=True)
+
+            # Graphique barres horizontales
+            fig = go.Figure()
+
+            names_sentiment = [s["name"] for s in sentiment_data_sorted]
+            values_sentiment = [s["combined_avg"] for s in sentiment_data_sorted]
+            colors_sentiment = [s["color"] for s in sentiment_data_sorted]
+
+            # Couleurs basées sur le score (rouge négatif, gris neutre, vert positif)
+            bar_colors = []
+            for v in values_sentiment:
+                if v > 0.2:
+                    bar_colors.append("#22c55e")  # Vert
+                elif v < -0.2:
+                    bar_colors.append("#ef4444")  # Rouge
+                else:
+                    bar_colors.append("#6b7280")  # Gris
+
+            fig.add_trace(go.Bar(
+                y=names_sentiment,
+                x=values_sentiment,
+                orientation='h',
+                marker_color=bar_colors,
+                hovertemplate='<b>%{y}</b><br>Score: %{x:.2f}<extra></extra>'
+            ))
+
+            fig.update_layout(
+                title="Score sentiment combiné (Presse 50% + YouTube 50%)",
+                xaxis=dict(
+                    title="Sentiment (-1 = négatif, 0 = neutre, +1 = positif)",
+                    range=[-1, 1],
+                    fixedrange=True,
+                    zeroline=True,
+                    zerolinecolor='white',
+                    zerolinewidth=2
+                ),
+                yaxis=dict(title="", fixedrange=True, autorange="reversed"),
+                showlegend=False,
+                dragmode=False,
+                height=max(400, len(sentiment_data) * 40)
+            )
+            st.plotly_chart(fig, width="stretch", config=plotly_config)
+
+            # === CLASSEMENT ===
+            st.markdown("#### Classement")
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown("**🟢 Plus positifs**")
+                for i, s in enumerate(sentiment_data_sorted[:5], 1):
+                    emoji = "🟢" if s["combined_avg"] > 0.2 else "⚪" if s["combined_avg"] > -0.2 else "🔴"
+                    st.markdown(f"{i}. {emoji} **{s['name']}** ({s['combined_avg']:.2f})")
+
+            with col2:
+                st.markdown("**🔴 Plus négatifs**")
+                for i, s in enumerate(reversed(sentiment_data_sorted[-5:]), 1):
+                    emoji = "🟢" if s["combined_avg"] > 0.2 else "⚪" if s["combined_avg"] > -0.2 else "🔴"
+                    st.markdown(f"{i}. {emoji} **{s['name']}** ({s['combined_avg']:.2f})")
+
+            # === ÉVOLUTION TEMPORELLE ===
+            st.markdown("---")
+            st.markdown("#### Évolution du sentiment (moyenne glissante 2 jours)")
+
+            # Calculer l'évolution par périodes de 2 jours
+            period_days = (end_date - start_date).days + 1
+
+            if period_days >= 4:
+                # Créer les périodes de 2 jours
+                evolution_data = []
+
+                for day_offset in range(0, period_days, 2):
+                    period_start = start_date + timedelta(days=day_offset)
+                    period_end = min(period_start + timedelta(days=1), end_date)
+                    period_label = period_start.strftime("%d/%m")
+
+                    for _, d in sorted_data:
+                        name = d["info"]["name"]
+                        color = d["info"]["color"]
+
+                        # Filtrer les articles et vidéos pour cette période
+                        articles_period = [
+                            art for art in d["press"].get("articles", [])
+                            if art.get("date") and period_start.strftime("%Y-%m-%d") <= art["date"] <= period_end.strftime("%Y-%m-%d")
+                        ]
+                        videos_period = [
+                            vid for vid in d["youtube"].get("videos", [])
+                            if vid.get("published") and period_start.strftime("%Y-%m-%d") <= vid["published"][:10] <= period_end.strftime("%Y-%m-%d")
+                        ]
+
+                        # Calculer le sentiment pour cette période
+                        sentiment_period = compute_combined_sentiment(articles_period, videos_period)
+
+                        # Seulement si on a des données
+                        total_items = sentiment_period["press"]["total"] + sentiment_period["youtube"]["total"]
+                        if total_items > 0:
+                            evolution_data.append({
+                                "date": period_label,
+                                "name": name,
+                                "color": color,
+                                "sentiment": sentiment_period["combined_avg"],
+                                "count": total_items
+                            })
+
+                if evolution_data:
+                    df_evolution = pd.DataFrame(evolution_data)
+
+                    fig = go.Figure()
+
+                    for name in names:
+                        df_candidate = df_evolution[df_evolution["name"] == name]
+                        if not df_candidate.empty:
+                            color = df_candidate["color"].iloc[0]
+                            fig.add_trace(go.Scatter(
+                                x=df_candidate["date"],
+                                y=df_candidate["sentiment"],
+                                mode='lines+markers',
+                                name=name,
+                                line=dict(color=color, width=2),
+                                marker=dict(size=8),
+                                hovertemplate=f'<b>{name}</b><br>Date: %{{x}}<br>Sentiment: %{{y:.2f}}<extra></extra>'
+                            ))
+
+                    fig.update_layout(
+                        xaxis=dict(title="", fixedrange=True),
+                        yaxis=dict(
+                            title="Sentiment",
+                            range=[-1, 1],
+                            fixedrange=True,
+                            zeroline=True,
+                            zerolinecolor='gray',
+                            zerolinewidth=1
+                        ),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+                        showlegend=True,
+                        dragmode=False,
+                        height=400
+                    )
+                    st.plotly_chart(fig, width="stretch", config=plotly_config)
+                else:
+                    st.info("Pas assez de données pour afficher l'évolution temporelle.")
+            else:
+                st.info("Sélectionnez une période d'au moins 4 jours pour voir l'évolution temporelle.")
+
+            # === DÉTAIL PAR SOURCE ===
+            st.markdown("---")
+            st.markdown("#### Détail par source")
+
+            detail_data = []
+            for s in sentiment_data_sorted:
+                press_total = s["press_positive"] + s["press_neutral"] + s["press_negative"]
+                youtube_total = s["youtube_positive"] + s["youtube_neutral"] + s["youtube_negative"]
+
+                detail_data.append({
+                    "Candidat": s["name"],
+                    "Presse (avg)": f"{s['press_avg']:.2f}" if press_total > 0 else "-",
+                    "Presse +": s["press_positive"],
+                    "Presse =": s["press_neutral"],
+                    "Presse -": s["press_negative"],
+                    "YouTube (avg)": f"{s['youtube_avg']:.2f}" if youtube_total > 0 else "-",
+                    "YouTube +": s["youtube_positive"],
+                    "YouTube =": s["youtube_neutral"],
+                    "YouTube -": s["youtube_negative"],
+                    "Combiné": f"{s['combined_avg']:.2f}"
+                })
+
+            df_detail = pd.DataFrame(detail_data)
+
+            def color_sentiment_row(row):
+                try:
+                    val = float(row["Combiné"])
+                    if val > 0.2:
+                        return ['background-color: rgba(34, 197, 94, 0.2)'] * len(row)
+                    elif val < -0.2:
+                        return ['background-color: rgba(239, 68, 68, 0.2)'] * len(row)
+                except:
+                    pass
+                return [''] * len(row)
+
+            st.dataframe(df_detail.style.apply(color_sentiment_row, axis=1), width="stretch", hide_index=True)
+
     # TAB 3: SONDAGES (uniquement pour Paris)
     if tab3 is not None:
         with tab3:
