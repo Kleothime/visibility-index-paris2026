@@ -3740,25 +3740,9 @@ def main():
             )
             st.plotly_chart(fig, width="stretch", config=plotly_config)
 
-            # === CLASSEMENT ===
-            st.markdown("#### Classement")
-            col1, col2 = st.columns(2)
-
-            with col1:
-                st.markdown("**🟢 Plus positifs**")
-                for i, s in enumerate(sentiment_data_sorted[:5], 1):
-                    emoji = "🟢" if s["combined_avg"] > 0.2 else "⚪" if s["combined_avg"] > -0.2 else "🔴"
-                    st.markdown(f"{i}. {emoji} **{s['name']}** ({s['combined_avg']:.2f})")
-
-            with col2:
-                st.markdown("**🔴 Plus négatifs**")
-                for i, s in enumerate(reversed(sentiment_data_sorted[-5:]), 1):
-                    emoji = "🟢" if s["combined_avg"] > 0.2 else "⚪" if s["combined_avg"] > -0.2 else "🔴"
-                    st.markdown(f"{i}. {emoji} **{s['name']}** ({s['combined_avg']:.2f})")
-
             # === ÉVOLUTION TEMPORELLE ===
             st.markdown("---")
-            st.markdown("#### Évolution du sentiment (moyenne glissante 2 jours)")
+            st.markdown("#### Évolution du sentiment")
 
             # Calculer l'évolution par périodes de 2 jours
             period_days = (end_date - start_date).days + 1
@@ -3802,24 +3786,45 @@ def main():
 
                 if evolution_data:
                     df_evolution = pd.DataFrame(evolution_data)
+                    color_map_sentiment = {d["info"]["name"]: d["info"]["color"] for _, d in sorted_data}
 
                     fig = go.Figure()
 
-                    for name in names:
-                        df_candidate = df_evolution[df_evolution["name"] == name]
+                    # D'abord ajouter tous les candidats sauf Knafo
+                    for candidate_name in color_map_sentiment.keys():
+                        if candidate_name == "Sarah Knafo" and highlight_knafo:
+                            continue
+
+                        df_candidate = df_evolution[df_evolution["name"] == candidate_name]
                         if not df_candidate.empty:
-                            color = df_candidate["color"].iloc[0]
+                            color = color_map_sentiment.get(candidate_name, "#888888")
                             fig.add_trace(go.Scatter(
                                 x=df_candidate["date"],
                                 y=df_candidate["sentiment"],
+                                name=candidate_name,
                                 mode='lines+markers',
-                                name=name,
                                 line=dict(color=color, width=2),
-                                marker=dict(size=8),
-                                hovertemplate=f'<b>{name}</b><br>Date: %{{x}}<br>Sentiment: %{{y:.2f}}<extra></extra>'
+                                marker=dict(symbol='circle', size=6, color=color),
+                                opacity=0.7,
+                                hovertemplate=f'<b>{candidate_name}</b><br>Date: %{{x}}<br>Sentiment: %{{y:.2f}}<extra></extra>'
+                            ))
+
+                    # Sarah Knafo : trait ÉPAIS, rouge vif, diamants
+                    if highlight_knafo:
+                        knafo_data = df_evolution[df_evolution["name"] == "Sarah Knafo"]
+                        if not knafo_data.empty:
+                            fig.add_trace(go.Scatter(
+                                x=knafo_data["date"],
+                                y=knafo_data["sentiment"],
+                                name="Sarah Knafo",
+                                mode='lines+markers',
+                                line=dict(color="#E63946", width=6),
+                                marker=dict(symbol='diamond', size=14, color="#E63946", line=dict(color='white', width=2)),
+                                hovertemplate='<b>Sarah Knafo</b><br>Date: %{x}<br>Sentiment: %{y:.2f}<extra></extra>'
                             ))
 
                     fig.update_layout(
+                        title="Évolution temporelle",
                         xaxis=dict(title="", fixedrange=True),
                         yaxis=dict(
                             title="Sentiment",
@@ -3829,10 +3834,18 @@ def main():
                             zerolinecolor='gray',
                             zerolinewidth=1
                         ),
-                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
-                        showlegend=True,
                         dragmode=False,
-                        height=400
+                        legend=dict(
+                            orientation="v",
+                            yanchor="top",
+                            y=1,
+                            xanchor="left",
+                            x=1.02,
+                            font=dict(size=10),
+                            itemsizing="constant"
+                        ),
+                        height=400,
+                        margin=dict(l=40, r=120, t=40, b=40)
                     )
                     st.plotly_chart(fig, width="stretch", config=plotly_config)
                 else:
@@ -3852,30 +3865,18 @@ def main():
                 detail_data.append({
                     "Candidat": s["name"],
                     "Presse (avg)": f"{s['press_avg']:.2f}" if press_total > 0 else "-",
-                    "Presse +": s["press_positive"],
-                    "Presse =": s["press_neutral"],
-                    "Presse -": s["press_negative"],
+                    "Presse positif": s["press_positive"],
+                    "Presse neutre": s["press_neutral"],
+                    "Presse négatif": s["press_negative"],
                     "YouTube (avg)": f"{s['youtube_avg']:.2f}" if youtube_total > 0 else "-",
-                    "YouTube +": s["youtube_positive"],
-                    "YouTube =": s["youtube_neutral"],
-                    "YouTube -": s["youtube_negative"],
+                    "YouTube positif": s["youtube_positive"],
+                    "YouTube neutre": s["youtube_neutral"],
+                    "YouTube négatif": s["youtube_negative"],
                     "Combiné": f"{s['combined_avg']:.2f}"
                 })
 
             df_detail = pd.DataFrame(detail_data)
-
-            def color_sentiment_row(row):
-                try:
-                    val = float(row["Combiné"])
-                    if val > 0.2:
-                        return ['background-color: rgba(34, 197, 94, 0.2)'] * len(row)
-                    elif val < -0.2:
-                        return ['background-color: rgba(239, 68, 68, 0.2)'] * len(row)
-                except:
-                    pass
-                return [''] * len(row)
-
-            st.dataframe(df_detail.style.apply(color_sentiment_row, axis=1), width="stretch", hide_index=True)
+            st.dataframe(df_detail, width="stretch", hide_index=True)
 
     # TAB 3: SONDAGES (uniquement pour Paris)
     if tab3 is not None:
