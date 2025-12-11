@@ -483,66 +483,6 @@ def get_context_files(contexte: str) -> dict:
             "press_cache": "press_cache_paris.json",
         }
 
-# =============================================================================
-# LEMMATISATION BASIQUE FRANÇAIS
-# =============================================================================
-
-LEMMA_DICT = {
-    # Logement
-    "logements": "logement", "loger": "logement", "logé": "logement", "logée": "logement",
-    "loyers": "loyer", "locataire": "loyer", "locataires": "loyer",
-    "immobilière": "immobilier", "immobiliers": "immobilier",
-    # Sécurité
-    "sécuritaire": "sécurité", "sécuritaires": "sécurité",
-    "policier": "police", "policiers": "police", "policière": "police",
-    "délinquant": "délinquance", "délinquants": "délinquance",
-    # Transport
-    "transports": "transport", "transporteur": "transport",
-    "vélos": "vélo", "cycliste": "vélo", "cyclistes": "vélo", "cyclable": "vélo",
-    "voitures": "voiture", "automobiliste": "voiture", "automobilistes": "voiture",
-    # Propreté
-    "propre": "propreté", "propres": "propreté",
-    "poubelles": "poubelle", "ordure": "poubelle", "ordures": "poubelle",
-    "rats": "rat",
-    "déchets": "déchet",
-    # Immigration
-    "immigré": "immigration", "immigrés": "immigration", "immigrée": "immigration",
-    "migrants": "migrant", "migrante": "migrant", "migrantes": "migrant",
-    "étrangers": "étranger", "étrangère": "étranger", "étrangères": "étranger",
-    "clandestins": "clandestin", "clandestine": "clandestin",
-    # Économie
-    "économique": "économie", "économiques": "économie",
-    "emplois": "emploi", "employé": "emploi", "employés": "emploi",
-    "entreprises": "entreprise", "entrepreneur": "entreprise",
-    "commerces": "commerce", "commerçant": "commerce", "commerçants": "commerce",
-    # Écologie
-    "écologique": "écologie", "écologiques": "écologie", "écologiste": "écologie",
-    "environnemental": "environnement", "environnementaux": "environnement",
-    "pollué": "pollution", "polluée": "pollution", "polluant": "pollution",
-    "verts": "vert", "verte": "vert", "vertes": "vert",
-    "climatique": "climat", "climatiques": "climat",
-    # Culture
-    "culturel": "culture", "culturelle": "culture", "culturels": "culture",
-    "musées": "musée",
-    "spectacles": "spectacle",
-    "arts": "art", "artistique": "art", "artistiques": "art",
-    # Politique générale
-    "électorale": "électoral", "électoraux": "électoral",
-    "programmes": "programme",
-    "projets": "projet",
-    "propositions": "proposition",
-    # Pluriels courants
-    "parisiens": "parisien", "parisiennes": "parisien",
-    "habitants": "habitant", "habitante": "habitant",
-    "citoyens": "citoyen", "citoyenne": "citoyen",
-}
-
-
-def lemmatize_word(word: str) -> str:
-    """Applique une lemmatisation basique au mot"""
-    word_lower = word.lower()
-    return LEMMA_DICT.get(word_lower, word_lower)
-
 
 # =============================================================================
 # CACHE YOUTUBE PERSISTANT + QUOTA MANAGEMENT
@@ -552,23 +492,6 @@ YOUTUBE_QUOTA_DAILY_LIMIT = 10000
 YOUTUBE_COST_PER_CANDIDATE = 101  # 100 (search) + 1 (videos)
 YOUTUBE_COOLDOWN_HOURS = 2
 YOUTUBE_CACHE_DURATION_HOURS = 12  # Cache YouTube pendant 12h
-
-# Noms de médias à exclure des mots-clés extraits
-MEDIA_NAMES = {
-    "gala", "figaro", "monde", "parisien", "liberation", "libération", "humanite", "humanité",
-    "express", "point", "obs", "nouvelobs", "marianne", "valeurs", "actuelles", "cnews",
-    "bfmtv", "bfm", "lci", "tf1", "france", "info", "infos", "rfi", "rmc", "europe",
-    "rtl", "radio", "télé", "tele", "20minutes", "minutes", "huffpost", "huffington",
-    "mediapart", "lexpress", "lepoint", "lemonde", "lefigaro", "leparisien", "ouest",
-    "sudouest", "voici", "closer", "public", "purepeople", "people", "madame", "elle",
-    "paris", "match", "parismatch", "afp", "reuters", "actu", "news", "info", "presse",
-    "journal", "quotidien", "hebdo", "magazine", "média", "media", "article", "source",
-    "interview", "vidéo", "video", "photo", "image", "exclusif", "breaking", "alerte",
-    "direct", "live", "replay", "podcast", "émission", "emission",
-    # Ajouts
-    "jdd", "lejdd", "opinion", "lopinion", "tribune", "latribune", "echos", "lesechos",
-    "telegramme", "dépêche", "depeche", "provençal", "provencal", "dauphine", "dauphiné"
-}
 
 
 def load_youtube_cache() -> Dict:
@@ -1061,6 +984,160 @@ def compute_combined_sentiment(press_articles: List[Dict], youtube_videos: List[
 
 
 # =============================================================================
+# CACHE THÈMES - ANALYSE IA DES THÈMES MÉDIATIQUES
+# =============================================================================
+
+THEMES_CACHE_FILE = "themes_cache.json"
+
+
+def load_themes_cache() -> Dict:
+    """Charge le cache des thèmes"""
+    try:
+        with open(THEMES_CACHE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {}
+
+
+def save_themes_cache(cache: Dict) -> bool:
+    """Sauvegarde le cache des thèmes"""
+    try:
+        with open(THEMES_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False, indent=2)
+        return True
+    except:
+        return False
+
+
+def get_themes_cache_key(candidate_name: str, start_date: date, end_date: date) -> str:
+    """Génère la clé de cache pour un candidat et une période"""
+    return f"{candidate_name}|{start_date.isoformat()}|{end_date.isoformat()}"
+
+
+def get_cached_themes(candidate_name: str, start_date: date, end_date: date) -> Optional[List[Dict]]:
+    """Récupère les thèmes en cache pour un candidat et une période"""
+    cache = load_themes_cache()
+    key = get_themes_cache_key(candidate_name, start_date, end_date)
+    entry = cache.get(key)
+    if entry:
+        return entry.get("themes")
+    return None
+
+
+def set_cached_themes(candidate_name: str, start_date: date, end_date: date, themes: List[Dict]):
+    """Stocke les thèmes analysés pour un candidat et une période"""
+    cache = load_themes_cache()
+    key = get_themes_cache_key(candidate_name, start_date, end_date)
+    cache[key] = {
+        "themes": themes,
+        "analyzed_at": datetime.now().isoformat()
+    }
+    save_themes_cache(cache)
+
+
+def analyze_themes_with_claude(
+    candidate_name: str,
+    press_titles: List[str],
+    youtube_titles: List[str],
+    api_key: str
+) -> List[Dict]:
+    """
+    Analyse les thèmes principaux via Claude à partir des titres presse et YouTube.
+    Retourne une liste de thèmes avec count et tonalité.
+    """
+    if not api_key:
+        return []
+
+    total_titles = len(press_titles) + len(youtube_titles)
+    if total_titles == 0:
+        return []
+
+    # Formater les titres
+    press_formatted = "\n".join([f"- {t}" for t in press_titles[:50]]) if press_titles else "(aucun article)"
+    youtube_formatted = "\n".join([f"- {t}" for t in youtube_titles[:50]]) if youtube_titles else "(aucune vidéo)"
+
+    prompt = f"""Analyse ces titres d'articles de presse et vidéos YouTube concernant {candidate_name}.
+
+ARTICLES DE PRESSE ({len(press_titles)} titres):
+{press_formatted}
+
+VIDÉOS YOUTUBE ({len(youtube_titles)} titres):
+{youtube_formatted}
+
+Identifie les 3 à 5 thèmes principaux qui ressortent de cette couverture médiatique.
+Pour chaque thème:
+- Formulation concise (3-8 mots maximum)
+- Nombre approximatif de titres concernés
+- Tonalité générale pour {candidate_name}: "positif", "neutre" ou "négatif"
+
+IMPORTANT: Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après:
+[
+  {{"theme": "...", "count": X, "tone": "positif|neutre|négatif"}},
+  ...
+]"""
+
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-sonnet-4-5-20250929",
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        response_text = response.content[0].text.strip()
+
+        # Nettoyer si besoin (enlever ```json etc)
+        if response_text.startswith("```"):
+            response_text = response_text.split("```")[1]
+            if response_text.startswith("json"):
+                response_text = response_text[4:]
+        response_text = response_text.strip()
+
+        themes = json.loads(response_text)
+
+        # Valider et nettoyer
+        valid_themes = []
+        for t in themes:
+            if isinstance(t, dict) and "theme" in t:
+                valid_themes.append({
+                    "theme": str(t.get("theme", ""))[:100],
+                    "count": int(t.get("count", 0)),
+                    "tone": t.get("tone", "neutre") if t.get("tone") in ["positif", "neutre", "négatif"] else "neutre"
+                })
+
+        return valid_themes[:5]
+
+    except Exception as e:
+        return []
+
+
+def get_or_analyze_themes(
+    candidate_name: str,
+    start_date: date,
+    end_date: date,
+    press_titles: List[str],
+    youtube_titles: List[str],
+    api_key: str
+) -> List[Dict]:
+    """
+    Récupère les thèmes depuis le cache ou lance l'analyse Claude.
+    """
+    # Vérifier le cache
+    cached = get_cached_themes(candidate_name, start_date, end_date)
+    if cached is not None:
+        return cached
+
+    # Analyser avec Claude
+    themes = analyze_themes_with_claude(candidate_name, press_titles, youtube_titles, api_key)
+
+    # Stocker en cache
+    if themes:
+        set_cached_themes(candidate_name, start_date, end_date, themes)
+
+    return themes
+
+
+# =============================================================================
 # CHATBOT IA - ANALYSE DES DONNÉES
 # =============================================================================
 
@@ -1123,9 +1200,8 @@ def build_chatbot_context(result: Dict, contexte: str, period_label: str) -> str
         yt_shorts_count = youtube.get("shorts_count", 0)
         yt_long_count = youtube.get("long_count", 0)
 
-        # Mots-clés
-        keywords_press = data.get("keywords", [])
-        keywords_youtube = data.get("keywords_youtube", [])
+        # Thèmes (analyse IA)
+        themes = data.get("themes", [])
 
         # Construire le contexte pour ce candidat
         context_parts.append(f"## {name}")
@@ -1179,13 +1255,10 @@ def build_chatbot_context(result: Dict, contexte: str, period_label: str) -> str
                 pub_date = v.get("published", "")
                 context_parts.append(f"    - \"{title}\" | {views:,} vues | {channel} | {pub_date}")
 
-        # Mots-clés (tuples de 3: word, count, articles)
-        if keywords_press:
-            kw_str = ", ".join([f"{kw}({count})" for kw, count, _ in keywords_press[:5]])
-            context_parts.append(f"THEMES PRESSE: {kw_str}")
-        if keywords_youtube:
-            kw_str = ", ".join([f"{kw}({count})" for kw, count, _ in keywords_youtube[:5]])
-            context_parts.append(f"THEMES YOUTUBE: {kw_str}")
+        # Thèmes médiatiques (analyse IA)
+        if themes:
+            themes_str = ", ".join([f"{t['theme']} ({t.get('count', 0)} mentions, {t.get('tone', 'neutre')})" for t in themes[:5]])
+            context_parts.append(f"THEMES MEDIATIQUES: {themes_str}")
 
         context_parts.append("")
 
@@ -1635,264 +1708,6 @@ def format_candidate_name(name: str, html: bool = False, contexte: str = "paris"
 def is_sarah_knafo(name: str, contexte: str = "paris") -> bool:
     """Vérifie si c'est Sarah Knafo (et contexte Paris)"""
     return name == "Sarah Knafo" and contexte == "paris"
-
-
-# Mots vides français à ignorer dans l'analyse
-STOP_WORDS = {
-    # Mots grammaticaux de base
-    "le", "la", "les", "de", "du", "des", "un", "une", "et", "en", "à", "au", "aux",
-    "pour", "par", "sur", "avec", "dans", "qui", "que", "son", "sa", "ses", "ce",
-    "cette", "ces", "est", "sont", "a", "été", "être", "avoir", "fait", "faire",
-    "plus", "moins", "très", "tout", "tous", "toute", "toutes", "comme", "mais",
-    "ou", "où", "donc", "car", "ni", "ne", "pas", "si", "se", "qu", "leur", "leurs",
-    "elle", "elles", "il", "ils", "nous", "vous", "on", "lui", "eux", "y", "dont",
-    "c", "d", "l", "n", "s", "j", "m", "t", "quand", "après", "avant", "entre",
-    "sous", "sans", "vers", "chez", "contre", "depuis", "pendant", "selon",
-    "aussi", "bien", "encore", "déjà", "alors", "ainsi", "peut", "doit", "va",
-    "veut", "dit", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix",
-    "premier", "première", "nouveau", "nouvelle", "nouveaux", "nouvelles",
-    "via", "the", "of", "and", "to", "in", "for", "is", "on", "that", "by", "this",
-    "video", "vidéo", "photo", "photos", "images", "image", "article", "articles",
-    "mon", "ma", "mes", "ton", "ta", "tes", "notre", "nos", "votre", "vos",
-    "quel", "quelle", "quels", "quelles", "lequel", "laquelle", "lesquels", "lesquelles",
-    "chaque", "quelque", "quelques", "certain", "certaine", "certains", "certaines",
-    "aucun", "aucune", "tel", "telle", "tels", "telles", "tant", "peu", "beaucoup",
-    "trop", "assez", "autant", "combien", "comment", "pourquoi", "parce",
-
-    # Lieux génériques
-    "paris", "parisien", "parisiens", "parisienne", "parisiennes", "capitale",
-    "france", "français", "française", "françaises", "ile", "île",
-    "ville", "villes", "arrondissement", "arrondissements", "quartier", "quartiers",
-    "rue", "avenue", "boulevard", "place", "métro", "metro",
-
-    # Élections / politique générique
-    "municipales", "municipal", "municipale", "élection", "élections", "vote", "votes", "voter",
-    "candidat", "candidate", "candidats", "candidates", "candidature", "candidatures",
-    "mairie", "maire", "maires", "campagne", "campagnes", "électeur", "électeurs", "électoral",
-    "ministre", "ministère", "député", "députée", "députés", "sénateur", "sénatrice",
-    "politique", "politiques", "gouvernement", "parti", "partis", "droite", "gauche",
-    "opposition", "majorité", "assemblée", "sénat", "élysée", "matignon",
-
-    # Médias et journalisme
-    "bfm", "bfmtv", "rtl", "cnews", "rmc", "lci", "tf1", "france", "radio",
-    "agence", "presse", "afp", "reuters", "média", "médias", "journal", "journaux",
-    "figaro", "monde", "libération", "liberation", "parisien", "ouest", "sud",
-    "actu", "actualités", "actualites", "news", "info", "infos", "minutes",
-    "interview", "interviews", "émission", "plateau", "direct", "live",
-    "exclusif", "exclusivité", "révélation", "scoop", "breaking",
-
-    # Verbes journalistiques et génériques (infinitifs + conjugaisons)
-    "lance", "annonce", "révèle", "affirme", "confie", "déclare", "explique",
-    "raconte", "officialise", "présente", "veut", "souhaite", "demande",
-    "assure", "réclame", "réagit", "estime", "juge", "plaide", "dénonce",
-    "charge", "tranche", "maintient", "redit", "accepte", "rejette", "refuse", "obtient",
-    "utilisera", "propos", "déclaration", "entretien", "exclu", "réaction",
-    "faut", "falloir", "doit", "peut", "pourrait", "devrait", "soit", "être",
-    "mettre", "créer", "faire", "aller", "allant", "avoir", "venir", "prendre",
-    "pris", "prise", "dit", "dire", "parle", "parler", "parlé", "montre", "montrer",
-    "trouve", "trouver", "sait", "savoir", "croit", "croire", "pense", "penser",
-    "reste", "rester", "devient", "devenir", "tient", "tenir", "donne", "donner",
-    "met", "mis", "mise", "prend", "rendu", "rendue", "laisse", "laisser",
-    "sort", "sortir", "sorti", "sortie", "entre", "entrer", "entré", "entrée",
-    "répond", "répondre", "répondu", "pose", "poser", "posé", "posée",
-    "attend", "attendre", "attendu", "propose", "proposer", "proposé",
-    "revient", "revenir", "revenu", "revenue", "appelle", "appeler", "appelé",
-    # Verbes conjugués courants (imparfait, passé, etc.)
-    "pouvait", "devait", "avait", "était", "allait", "faisait", "disait", "voyait",
-    "voulait", "savait", "venait", "tenait", "prenait", "mettait", "donnait",
-    "perdre", "perdu", "perdue", "perdait", "perd", "gagne", "gagner", "gagné",
-    "marcher", "marche", "marchait", "marché", "courir", "court", "courait",
-    "tomber", "tombe", "tombé", "tombait", "monter", "monte", "monté", "montait",
-    "descendre", "descend", "descendu", "descendait", "passer", "passe", "passé", "passait",
-    "commencer", "commence", "commencé", "commençait", "finir", "finit", "fini", "finissait",
-    "continuer", "continue", "continué", "continuait", "arrêter", "arrête", "arrêté",
-    "essayer", "essaie", "essayé", "essayait", "tenter", "tente", "tenté", "tentait",
-    "réussir", "réussit", "réussi", "réussissait", "échouer", "échoue", "échoué",
-    "changer", "change", "changé", "changeait", "garder", "garde", "gardé", "gardait",
-    "lancer", "lancé", "lançait", "ouvrir", "ouvre", "ouvert", "ouvrait",
-    "fermer", "ferme", "fermé", "fermait", "suivre", "suit", "suivi", "suivait",
-    # Mots tronqués et fragments
-    "quelqu", "lorsqu", "puisqu", "quoiqu", "jusqu", "aujourd",
-
-    # Mots de temps
-    "ans", "année", "années", "jour", "jours", "mois", "semaine", "semaines",
-    "heure", "heures", "minute", "minutes", "seconde", "secondes", "moment", "moments",
-    "temps", "fois", "date", "dates", "hier", "aujourd", "demain", "soir", "matin",
-    "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche",
-    "janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août",
-    "septembre", "octobre", "novembre", "décembre", "2024", "2025", "2026",
-
-    # Mots génériques divers
-    "tête", "idée", "idées", "fin", "début", "face", "côté", "suis", "sera", "serait",
-    "ceux", "celle", "celles", "celui", "autres", "autre", "même", "mêmes",
-    "public", "publique", "publics", "publiques", "plutôt", "encore",
-    "cours", "course", "investie", "investi", "officiellement", "officiel", "officielle",
-    "chose", "choses", "cas", "façon", "manière", "genre", "type", "sorte",
-    "part", "parts", "partie", "parties", "place", "places", "point", "points",
-    "sens", "mot", "mots", "nom", "noms", "titre", "titres", "sujet", "sujets",
-    "question", "questions", "réponse", "réponses", "problème", "problèmes",
-    "raison", "raisons", "cause", "causes", "effet", "effets", "résultat", "résultats",
-    "fond", "forme", "formes", "niveau", "niveaux", "ligne", "lignes",
-    "homme", "hommes", "femme", "femmes", "personne", "personnes", "gens",
-    "monde", "vie", "vies", "mort", "pays", "état", "états",
-    "grand", "grande", "grands", "grandes", "petit", "petite", "petits", "petites",
-    "bon", "bonne", "bons", "bonnes", "mauvais", "mauvaise", "meilleur", "meilleure",
-    "vrai", "vraie", "vrais", "vraies", "faux", "fausse", "possible", "impossible",
-    "seul", "seule", "seuls", "seules", "dernier", "dernière", "derniers", "dernières",
-    "prochain", "prochaine", "prochains", "prochaines", "ancien", "ancienne", "anciens",
-    "haut", "haute", "hauts", "hautes", "bas", "basse", "long", "longue",
-    "plein", "pleine", "pleins", "pleines", "entier", "entière", "total", "totale",
-
-    # Prénoms et noms communs
-    "anne", "éric", "eric", "yves", "pierre", "jean", "marie", "michel", "jacques",
-    "nicolas", "françois", "bruno", "gérald", "gerald", "olivier", "laurent",
-    "rachida", "hidalgo", "darmanin", "attal", "zohra", "dati", "sarah", "knafo",
-    "emmanuel", "grégoire", "ian", "brossat", "david", "belliard", "sophia", "chikirou",
-    "thierry", "mariani", "bournazel", "macron", "mélenchon", "bardella", "lepen",
-    "zemmour", "ciotti", "wauquiez", "retailleau", "philippe", "hollande", "sarkozy",
-    "jordan", "marine", "edouard", "sébastien", "christian", "jean-luc", "raphaël",
-    "gabriel", "fabien", "marion", "maud", "joyce",
-
-    # Faits divers / bruit / hors sujet
-    "fille", "fils", "enfant", "enfants", "enlèvement", "tentative", "bayonne",
-    "psg", "football", "match", "sport", "sports", "équipe", "joueur", "joueurs",
-    "euro", "euros", "million", "millions", "milliard", "milliards", "nombre", "chiffre",
-    "prix", "coût", "budget", "argent", "somme", "montant",
-
-    # Mots de liaison et expressions
-    "alors", "donc", "ainsi", "cependant", "toutefois", "néanmoins", "pourtant",
-    "ailleurs", "davantage", "désormais", "dorénavant", "notamment", "surtout",
-    "vraiment", "simplement", "seulement", "justement", "exactement", "absolument",
-    "totalement", "complètement", "entièrement", "parfaitement", "clairement",
-    "aujourd", "hui", "maintenant", "actuellement", "récemment", "bientôt",
-    "toujours", "jamais", "souvent", "parfois", "rarement", "longtemps",
-    "enfin", "finalement", "devant", "mieux", "aura", "sauf", "second",
-
-    # Adverbes/adjectifs vagues
-    "définitivement", "civil", "dimension",
-
-    # Vocabulaire judiciaire générique
-    "suspect",
-
-    # Fragments média/URL
-    "orange", "actus", "lamarseillaise", "honte", "francebleu",
-
-    # Fragments de mots composés
-    "porte", "parole", "tour",
-
-    # Verbes journalistiques supplémentaires
-    "soutiendra", "compare",
-
-    # Entités HTML mal parsées
-    "quot", "amp", "nbsp", "apos", "lt", "gt",
-
-    # Chaînes YouTube parasites
-    "davbe",
-
-    # Noms propres parasites hors sujet
-    "boulard", "touati", "machado", "kessaci", "medhi", "mehdi",
-    "consigny", "charles", "naulleau", "ernotte", "bompard", "manuel"
-}
-
-
-def extract_keywords_from_articles(articles: List[Dict], candidate_name: str, top_n: int = 10) -> List[tuple]:
-    """
-    Extrait les mots-clés les plus fréquents des titres d'articles pour un candidat.
-    Gère les apostrophes françaises et applique une lemmatisation basique.
-    """
-    if not articles:
-        return []
-
-    # Nom du candidat à exclure (lemmatisé aussi)
-    name_parts = set(lemmatize_word(p) for p in candidate_name.lower().split())
-
-    word_counts = Counter()
-    word_articles = {}  # Stocke les articles par mot-clé (lemme)
-
-    for article in articles:
-        title = article.get("title", "")
-
-        # Étape 1: Gérer les apostrophes françaises
-        # Remplacer l', d', qu', n', s', j', m', t', c' par un espace
-        title_clean = re.sub(r"\b[lLdDqQnNsSmMtTcCjJ]['']\s*", "", title)
-
-        # Étape 2: Extraire les mots (min 4 caractères pour éviter bruit)
-        words = re.findall(r'\b[a-zA-ZàâäéèêëïîôùûüçœæÀÂÄÉÈÊËÏÎÔÙÛÜÇŒÆ]{4,}\b', title_clean.lower())
-
-        # Étape 3: Lemmatiser et filtrer
-        seen_in_article = set()  # Éviter de compter plusieurs fois le même lemme dans un article
-        for word in words:
-            lemma = lemmatize_word(word)
-
-            # Ignorer mots trop courts après lemmatisation
-            if len(lemma) < 4:
-                continue
-
-            # Ignorer stop words, nom du candidat et noms de médias
-            if lemma in STOP_WORDS or lemma in name_parts or lemma in MEDIA_NAMES:
-                continue
-
-            # Compter une seule fois par article
-            if lemma not in seen_in_article:
-                seen_in_article.add(lemma)
-                word_counts[lemma] += 1
-
-                if lemma not in word_articles:
-                    word_articles[lemma] = []
-                word_articles[lemma].append(article)
-
-    # Retourner les top mots-clés avec leurs articles associés
-    top_keywords = word_counts.most_common(top_n)
-    return [(word, count, word_articles.get(word, [])) for word, count in top_keywords]
-
-
-def extract_keywords_from_videos(videos: List[Dict], candidate_name: str, top_n: int = 10) -> List[tuple]:
-    """
-    Extrait les mots-clés les plus fréquents des titres de vidéos YouTube pour un candidat.
-    """
-    import html
-
-    if not videos:
-        return []
-
-    # Nom du candidat à exclure
-    name_parts = set(lemmatize_word(p) for p in candidate_name.lower().split())
-
-    word_counts = Counter()
-    word_videos = {}
-
-    for video in videos:
-        title = video.get("title", "")
-
-        # Décoder les entités HTML (&quot; -> ", &#39; -> ', etc.)
-        title = html.unescape(title)
-
-        # Gérer les apostrophes françaises
-        title_clean = re.sub(r"\b[lLdDqQnNsSmMtTcCjJ]['']\s*", "", title)
-
-        # Extraire les mots (min 4 caractères)
-        words = re.findall(r'\b[a-zA-ZàâäéèêëïîôùûüçœæÀÂÄÉÈÊËÏÎÔÙÛÜÇŒÆ]{4,}\b', title_clean.lower())
-
-        seen_in_video = set()
-        for word in words:
-            lemma = lemmatize_word(word)
-
-            if len(lemma) < 4:
-                continue
-
-            if lemma in STOP_WORDS or lemma in name_parts or lemma in MEDIA_NAMES:
-                continue
-
-            if lemma not in seen_in_video:
-                seen_in_video.add(lemma)
-                word_counts[lemma] += 1
-
-                if lemma not in word_videos:
-                    word_videos[lemma] = []
-                word_videos[lemma].append(video)
-
-    top_keywords = word_counts.most_common(top_n)
-    return [(word, count, word_videos.get(word, [])) for word, count in top_keywords]
 
 
 # =============================================================================
@@ -3027,12 +2842,6 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
 
         trends_score = trends.get("scores", {}).get(name, 0)
 
-        # Mots-clés extraits des articles de presse
-        keywords_press = extract_keywords_from_articles(press["articles"], name, top_n=5)
-
-        # Mots-clés extraits des titres YouTube
-        keywords_youtube = extract_keywords_from_videos(youtube.get("videos", []), name, top_n=5)
-
         # Stocker les données brutes (score calculé après pour comparaison relative)
         results[cid] = {
             "info": c,
@@ -3043,8 +2852,7 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
             "trends_score": trends_score,
             "trends_success": trends.get("success", True),
             "trends_error": trends.get("error") or trends.get("errors"),
-            "keywords": keywords_press,
-            "keywords_youtube": keywords_youtube
+            "themes": []  # Sera rempli après si API dispo
         }
 
         progress.progress((i + 1) / total)
@@ -3100,6 +2908,28 @@ def collect_data(candidate_ids: List[str], start_date: date, end_date: date, you
                 d["youtube"].get("videos", [])
             )
             results[cid]["sentiment"] = sentiment
+
+    # === ANALYSE THÈMES (si clé Anthropic disponible) ===
+    if ANTHROPIC_API_KEY:
+        status.text("Analyse des thèmes médiatiques...")
+        for cid in candidate_ids:
+            d = results[cid]
+            name = d["info"]["name"]
+
+            # Collecter les titres presse et YouTube
+            press_titles = [art.get("title") for art in d["press"].get("articles", []) if art.get("title")]
+            youtube_titles = [vid.get("title") for vid in d["youtube"].get("videos", []) if vid.get("title")]
+
+            # Analyser les thèmes (avec cache)
+            themes = get_or_analyze_themes(
+                name,
+                start_date,
+                end_date,
+                press_titles,
+                youtube_titles,
+                ANTHROPIC_API_KEY
+            )
+            results[cid]["themes"] = themes
 
     progress.empty()
     status.empty()
@@ -3466,9 +3296,9 @@ def main():
 
     rows = []
     for rank, (cid, d) in enumerate(sorted_data, 1):
-        # Mots-clés extraits des articles de presse
-        top_keywords = d.get('keywords', [])[:3]
-        themes_str = ' · '.join([word for word, count, arts in top_keywords]) if top_keywords else '-'
+        # Thèmes médiatiques (analyse IA)
+        themes = d.get('themes', [])[:2]
+        themes_str = ' · '.join([t['theme'] for t in themes]) if themes else '-'
 
         # Top média
         top_media = d['press'].get('top_media', '-')
@@ -3654,69 +3484,70 @@ def main():
             )
             st.plotly_chart(fig, width="stretch", config=plotly_config)
 
-    # TAB 2: THEMES / ANALYSE QUALITATIVE
+    # TAB 2: THEMES / ANALYSE QUALITATIVE (via IA)
     with tab2:
-        st.markdown('### Thèmes par source')
+        st.markdown('### Thèmes médiatiques (analyse IA)')
 
-        for rank, (cid, d) in enumerate(sorted_data, 1):
-            keywords_press = d.get('keywords', [])
-            keywords_youtube = d.get('keywords_youtube', [])
-            name = d['info']['name']
-            is_knafo = name == "Sarah Knafo" and highlight_knafo
-            expander_title = f'{rank}. **{name}**' if is_knafo else f'{rank}. {name}'
+        # Vérifier si les données thèmes sont disponibles
+        has_themes = any(d.get("themes") for _, d in sorted_data)
 
-            with st.expander(expander_title):
-                col1, col2 = st.columns(2)
+        if not has_themes:
+            st.info("L'analyse des thèmes nécessite une clé API Anthropic configurée.")
+        else:
+            # === TABLEAU RÉCAPITULATIF ===
+            st.markdown("#### Vue d'ensemble")
 
-                with col1:
-                    st.markdown("**Presse**")
-                    if keywords_press:
-                        for word, count, articles in keywords_press:
-                            st.markdown(f"**{word}** ({count})")
-                            if articles:
-                                for art in articles[:3]:
-                                    st.caption(f"- [{art.get('title', 'Sans titre')[:40]}...]({art.get('url', '#')})")
+            # Fonction pour afficher l'emoji de tonalité
+            def tone_emoji(tone: str) -> str:
+                if tone == "positif":
+                    return "🟢"
+                elif tone == "négatif":
+                    return "🔴"
+                return "⚪"
+
+            recap_data = []
+            for _, d in sorted_data:
+                themes = d.get('themes', [])
+                name = d['info']['name']
+
+                row = {'Candidat': name}
+                for i in range(3):
+                    if i < len(themes):
+                        t = themes[i]
+                        emoji = tone_emoji(t.get('tone', 'neutre'))
+                        row[f'Thème {i+1}'] = f"{emoji} {t['theme']} ({t.get('count', 0)})"
                     else:
-                        st.caption('Aucun thème')
+                        row[f'Thème {i+1}'] = '-'
+                recap_data.append(row)
 
-                with col2:
-                    st.markdown("**YouTube**")
-                    if keywords_youtube:
-                        for word, count, videos in keywords_youtube:
-                            st.markdown(f"**{word}** ({count})")
-                            if videos:
-                                for vid in videos[:3]:
-                                    st.caption(f"- [{vid.get('title', 'Sans titre')[:40]}...]({vid.get('url', '#')})")
+            df_recap = pd.DataFrame(recap_data)
+
+            def highlight_knafo_themes(row):
+                if row['Candidat'] == 'Sarah Knafo' and highlight_knafo:
+                    return ['font-weight: bold; background-color: rgba(30, 58, 95, 0.15)'] * len(row)
+                return [''] * len(row)
+
+            st.dataframe(df_recap.style.apply(highlight_knafo_themes, axis=1), width="stretch", hide_index=True)
+
+            # === DÉTAILS PAR CANDIDAT ===
+            st.markdown('---')
+            st.markdown('#### Détails par candidat')
+
+            for rank, (cid, d) in enumerate(sorted_data, 1):
+                themes = d.get('themes', [])
+                name = d['info']['name']
+                is_knafo = name == "Sarah Knafo" and highlight_knafo
+                expander_title = f'{rank}. **{name}**' if is_knafo else f'{rank}. {name}'
+
+                with st.expander(expander_title):
+                    if themes:
+                        for t in themes:
+                            emoji = tone_emoji(t.get('tone', 'neutre'))
+                            tone_label = t.get('tone', 'neutre').capitalize()
+                            st.markdown(f"**{emoji} {t['theme']}**")
+                            st.caption(f"{t.get('count', 0)} mentions · Tonalité: {tone_label}")
                     else:
-                        st.caption('Aucun thème')
-
-        # === TABLEAU RECAPITULATIF ===
-        st.markdown('---')
-        st.markdown('### Tableau récapitulatif')
-
-        recap_data = []
-        for _, d in sorted_data:
-            keywords_press = d.get('keywords', [])[:3]
-            keywords_youtube = d.get('keywords_youtube', [])[:3]
-            top_press = [word for word, count, _ in keywords_press]
-            top_youtube = [word for word, count, _ in keywords_youtube]
-
-            recap_data.append({
-                'Candidat': d['info']['name'],
-                'Presse 1': top_press[0] if len(top_press) > 0 else '-',
-                'Presse 2': top_press[1] if len(top_press) > 1 else '-',
-                'Presse 3': top_press[2] if len(top_press) > 2 else '-',
-                'YouTube 1': top_youtube[0] if len(top_youtube) > 0 else '-',
-                'YouTube 2': top_youtube[1] if len(top_youtube) > 1 else '-',
-                'YouTube 3': top_youtube[2] if len(top_youtube) > 2 else '-',
-            })
-
-        df_recap = pd.DataFrame(recap_data)
-        def highlight_knafo_recap(row):
-            if row['Candidat'] == 'Sarah Knafo' and highlight_knafo:
-                return ['font-weight: bold; background-color: rgba(30, 58, 95, 0.15)'] * len(row)
-            return [''] * len(row)
-        st.dataframe(df_recap.style.apply(highlight_knafo_recap, axis=1), width="stretch", hide_index=True)
+                        st.caption('Aucun thème identifié')
 
     # TAB 9: SENTIMENT
     with tab9:
