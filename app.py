@@ -3432,7 +3432,7 @@ def main():
                     response=response,
                     contexte=contexte,
                     period=period_label_chat,
-                    candidats=[CANDIDATES[c]["name"] for c in selected_candidates]
+                    candidats=[d["info"]["name"] for cid, d in data.items()]
                 )
 
     # Interface chatbot
