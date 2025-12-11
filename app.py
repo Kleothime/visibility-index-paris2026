@@ -3515,12 +3515,14 @@ def main():
             recap_data = []
             for _, d in sorted_data:
                 themes = d.get('themes', [])
+                # Trier les thèmes par nombre de mentions (décroissant)
+                themes_sorted = sorted(themes, key=lambda x: x.get('count', 0), reverse=True)
                 name = d['info']['name']
 
                 row = {'Candidat': name}
                 for i in range(3):
-                    if i < len(themes):
-                        t = themes[i]
+                    if i < len(themes_sorted):
+                        t = themes_sorted[i]
                         emoji = tone_emoji(t.get('tone', 'neutre'))
                         row[f'Thème {i+1}'] = f"{emoji} {t['theme']} ({t.get('count', 0)})"
                     else:
@@ -3542,13 +3544,15 @@ def main():
 
             for rank, (cid, d) in enumerate(sorted_data, 1):
                 themes = d.get('themes', [])
+                # Trier les thèmes par nombre de mentions (décroissant)
+                themes_sorted = sorted(themes, key=lambda x: x.get('count', 0), reverse=True)
                 name = d['info']['name']
                 is_knafo = name == "Sarah Knafo" and highlight_knafo
                 expander_title = f'{rank}. **{name}**' if is_knafo else f'{rank}. {name}'
 
                 with st.expander(expander_title):
-                    if themes:
-                        for t in themes:
+                    if themes_sorted:
+                        for t in themes_sorted:
                             emoji = tone_emoji(t.get('tone', 'neutre'))
                             tone_label = t.get('tone', 'neutre').capitalize()
                             st.markdown(f"**{emoji} {t['theme']}**")
