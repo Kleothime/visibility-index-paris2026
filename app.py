@@ -1065,7 +1065,14 @@ VIDÉOS YOUTUBE ({len(youtube_titles)} titres):
 {youtube_formatted}
 
 Tu dois fournir:
-1. Un court résumé (2-3 phrases) expliquant pourquoi {candidate_name} fait parler d'elle/lui dans les médias sur cette période
+
+1. UN RÉSUMÉ PERCUTANT (2-3 phrases, style journalistique):
+   - Commence par le fait marquant principal de la période
+   - Sois factuel et précis : cite des émissions, des déclarations, des événements concrets
+   - Évite les formulations bateau ("multiplie les apparitions", "fait polémique", "se positionne comme")
+   - Ton NEUTRE et FACTUEL : pas de qualificatifs politiques à charge (pas de "droite radicale", "extrême droite", etc.)
+   - Style direct et accrocheur, pas encyclopédique
+
 2. Les 3 à 5 thèmes principaux avec pour chacun:
    - Formulation concise (3-8 mots maximum)
    - Nombre approximatif de titres concernés
@@ -1074,7 +1081,7 @@ Tu dois fournir:
 
 IMPORTANT: Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après:
 {{
-  "summary": "Court résumé de 2-3 phrases...",
+  "summary": "Résumé percutant de 2-3 phrases...",
   "themes": [
     {{"theme": "...", "count": X, "tone": "positif|neutre|négatif", "examples": ["titre 1", "titre 2"]}},
     ...
