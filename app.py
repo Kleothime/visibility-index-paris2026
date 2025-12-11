@@ -1064,18 +1064,22 @@ ARTICLES DE PRESSE ({len(press_titles)} titres):
 VIDÉOS YOUTUBE ({len(youtube_titles)} titres):
 {youtube_formatted}
 
-Identifie les 3 à 5 thèmes principaux qui ressortent de cette couverture médiatique.
-Pour chaque thème:
-- Formulation concise (3-8 mots maximum)
-- Nombre approximatif de titres concernés
-- Tonalité générale pour {candidate_name}: "positif", "neutre" ou "négatif"
-- 2 à 3 exemples de titres (copie exacte depuis la liste ci-dessus)
+Tu dois fournir:
+1. Un court résumé (2-3 phrases) expliquant pourquoi {candidate_name} fait parler d'elle/lui dans les médias sur cette période
+2. Les 3 à 5 thèmes principaux avec pour chacun:
+   - Formulation concise (3-8 mots maximum)
+   - Nombre approximatif de titres concernés
+   - Tonalité générale pour {candidate_name}: "positif", "neutre" ou "négatif"
+   - 2 à 3 exemples de titres (copie exacte depuis la liste ci-dessus)
 
 IMPORTANT: Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après:
-[
-  {{"theme": "...", "count": X, "tone": "positif|neutre|négatif", "examples": ["titre 1", "titre 2"]}},
-  ...
-]"""
+{{
+  "summary": "Court résumé de 2-3 phrases...",
+  "themes": [
+    {{"theme": "...", "count": X, "tone": "positif|neutre|négatif", "examples": ["titre 1", "titre 2"]}},
+    ...
+  ]
+}}"""
 
     try:
         client = anthropic.Anthropic(api_key=api_key)
@@ -1094,11 +1098,21 @@ IMPORTANT: Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après:
                 response_text = response_text[4:]
         response_text = response_text.strip()
 
-        themes = json.loads(response_text)
+        data = json.loads(response_text)
 
-        # Valider et nettoyer
+        # Gérer les deux formats possibles (ancien: liste, nouveau: dict avec summary)
+        if isinstance(data, list):
+            # Ancien format (liste de thèmes)
+            themes_raw = data
+            summary = ""
+        else:
+            # Nouveau format (dict avec summary et themes)
+            themes_raw = data.get("themes", [])
+            summary = str(data.get("summary", ""))[:500]
+
+        # Valider et nettoyer les thèmes
         valid_themes = []
-        for t in themes:
+        for t in themes_raw:
             if isinstance(t, dict) and "theme" in t:
                 examples = t.get("examples", [])
                 if isinstance(examples, list):
@@ -1112,10 +1126,10 @@ IMPORTANT: Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après:
                     "examples": examples
                 })
 
-        return valid_themes[:5]
+        return {"summary": summary, "themes": valid_themes[:5]}
 
     except Exception as e:
-        return []
+        return {"summary": "", "themes": []}
 
 
 def get_or_analyze_themes(
@@ -1125,23 +1139,27 @@ def get_or_analyze_themes(
     press_titles: List[str],
     youtube_titles: List[str],
     api_key: str
-) -> List[Dict]:
+) -> Dict:
     """
     Récupère les thèmes depuis le cache ou lance l'analyse Claude.
+    Retourne {"summary": "...", "themes": [...]}
     """
     # Vérifier le cache
     cached = get_cached_themes(candidate_name, start_date, end_date)
     if cached is not None:
+        # Compatibilité avec ancien cache (liste) vs nouveau (dict)
+        if isinstance(cached, list):
+            return {"summary": "", "themes": cached}
         return cached
 
     # Analyser avec Claude
-    themes = analyze_themes_with_claude(candidate_name, press_titles, youtube_titles, api_key)
+    result = analyze_themes_with_claude(candidate_name, press_titles, youtube_titles, api_key)
 
     # Stocker en cache
-    if themes:
-        set_cached_themes(candidate_name, start_date, end_date, themes)
+    if result and result.get("themes"):
+        set_cached_themes(candidate_name, start_date, end_date, result)
 
-    return themes
+    return result
 
 
 # =============================================================================
@@ -1208,7 +1226,14 @@ def build_chatbot_context(result: Dict, contexte: str, period_label: str) -> str
         yt_long_count = youtube.get("long_count", 0)
 
         # Thèmes (analyse IA)
-        themes = data.get("themes", [])
+        themes_data = data.get("themes", {})
+        if isinstance(themes_data, list):
+            # Ancien format
+            themes = themes_data
+            themes_summary = ""
+        else:
+            themes = themes_data.get("themes", [])
+            themes_summary = themes_data.get("summary", "")
 
         # Construire le contexte pour ce candidat
         context_parts.append(f"## {name}")
@@ -1263,6 +1288,8 @@ def build_chatbot_context(result: Dict, contexte: str, period_label: str) -> str
                 context_parts.append(f"    - \"{title}\" | {views:,} vues | {channel} | {pub_date}")
 
         # Thèmes médiatiques (analyse IA)
+        if themes_summary:
+            context_parts.append(f"RESUME MEDIATIQUE: {themes_summary}")
         if themes:
             themes_str = ", ".join([f"{t['theme']} ({t.get('count', 0)} mentions, {t.get('tone', 'neutre')})" for t in themes[:5]])
             context_parts.append(f"THEMES MEDIATIQUES: {themes_str}")
@@ -3299,7 +3326,8 @@ def main():
     rows = []
     for rank, (cid, d) in enumerate(sorted_data, 1):
         # Thèmes médiatiques (analyse IA) triés par mentions
-        themes = d.get('themes', [])
+        themes_data = d.get('themes', {})
+        themes = themes_data.get('themes', []) if isinstance(themes_data, dict) else themes_data
         themes_sorted = sorted(themes, key=lambda x: x.get('count', 0), reverse=True)[:2]
         themes_str = ' · '.join([f"{tone_emoji_main(t.get('tone', 'neutre'))} {t['theme']}" for t in themes_sorted]) if themes_sorted else '-'
 
@@ -3491,8 +3519,21 @@ def main():
     with tab2:
         st.markdown('### Thèmes médiatiques')
 
+        # Fonction helper pour extraire themes depuis la nouvelle structure
+        def get_themes_list(d):
+            themes_data = d.get('themes', {})
+            if isinstance(themes_data, dict):
+                return themes_data.get('themes', [])
+            return themes_data if isinstance(themes_data, list) else []
+
+        def get_themes_summary(d):
+            themes_data = d.get('themes', {})
+            if isinstance(themes_data, dict):
+                return themes_data.get('summary', '')
+            return ''
+
         # Vérifier si les données thèmes sont disponibles
-        has_themes = any(d.get("themes") for _, d in sorted_data)
+        has_themes = any(get_themes_list(d) for _, d in sorted_data)
 
         if not has_themes:
             st.info("L'analyse des thèmes nécessite une clé API Anthropic configurée.")
@@ -3510,7 +3551,7 @@ def main():
 
             recap_data = []
             for _, d in sorted_data:
-                themes = d.get('themes', [])
+                themes = get_themes_list(d)
                 # Trier les thèmes par nombre de mentions (décroissant)
                 themes_sorted = sorted(themes, key=lambda x: x.get('count', 0), reverse=True)
                 name = d['info']['name']
@@ -3539,7 +3580,8 @@ def main():
             st.markdown('#### Détails par candidat')
 
             for rank, (cid, d) in enumerate(sorted_data, 1):
-                themes = d.get('themes', [])
+                themes = get_themes_list(d)
+                summary = get_themes_summary(d)
                 # Trier les thèmes par nombre de mentions (décroissant)
                 themes_sorted = sorted(themes, key=lambda x: x.get('count', 0), reverse=True)
                 name = d['info']['name']
@@ -3547,6 +3589,11 @@ def main():
                 expander_title = f'{rank}. **{name}**' if is_knafo else f'{rank}. {name}'
 
                 with st.expander(expander_title):
+                    # Afficher le résumé en premier
+                    if summary:
+                        st.markdown(f"*{summary}*")
+                        st.markdown("")
+
                     if themes_sorted:
                         for t in themes_sorted:
                             emoji = tone_emoji(t.get('tone', 'neutre'))
