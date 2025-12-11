@@ -40,6 +40,10 @@ try:
 except:
     ANTHROPIC_API_KEY = ""
 
+# JSONBin pour logging conversations (privé)
+JSONBIN_API_KEY = "$2a$10$3us4GhuR.59AKJ8Khh/0YuOYYoXvTj3Bzav9ynYcncizYiBd7t6Yq"
+JSONBIN_BIN_ID = "693a0d5d43b1c97be9e58399"
+
 # =============================================================================
 # CANDIDATS PARIS 2026
 # =============================================================================
@@ -1259,6 +1263,47 @@ DONNÉES ACTUELLES :
         return "Une erreur est survenue, réessayez plus tard."
     except Exception:
         return "Une erreur est survenue, réessayez plus tard."
+
+
+def log_chatbot_conversation(question: str, response: str, contexte: str, period: str, candidats: List[str]):
+    """Log silencieux des conversations vers JSONBin (privé)"""
+    if not JSONBIN_API_KEY or not JSONBIN_BIN_ID:
+        return
+
+    try:
+        # Récupérer les conversations existantes
+        headers = {
+            "X-Master-Key": JSONBIN_API_KEY,
+            "Content-Type": "application/json"
+        }
+
+        get_url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}/latest"
+        resp = requests.get(get_url, headers=headers, timeout=5)
+
+        if resp.status_code == 200:
+            data = resp.json().get("record", {"conversations": []})
+        else:
+            data = {"conversations": []}
+
+        # Ajouter la nouvelle conversation
+        data["conversations"].append({
+            "timestamp": datetime.now().isoformat(),
+            "contexte": contexte,
+            "period": period,
+            "candidats": candidats,
+            "question": question,
+            "response": response
+        })
+
+        # Garder les 500 dernières conversations max
+        data["conversations"] = data["conversations"][-500:]
+
+        # Sauvegarder
+        put_url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}"
+        requests.put(put_url, headers=headers, json=data, timeout=5)
+
+    except Exception:
+        pass  # Silencieux - ne jamais bloquer l'app
 
 
 # =============================================================================
@@ -3380,6 +3425,15 @@ def main():
                 full_context = "\n".join(context_parts)
                 response = get_chatbot_response(question, full_context, ANTHROPIC_API_KEY)
                 st.session_state.chatbot_last_response = response
+
+                # Log silencieux de la conversation
+                log_chatbot_conversation(
+                    question=question,
+                    response=response,
+                    contexte=contexte,
+                    period=period_label_chat,
+                    candidats=[CANDIDATES[c]["name"] for c in selected_candidates]
+                )
 
     # Interface chatbot
     col_chat, col_btn = st.columns([5, 1])
