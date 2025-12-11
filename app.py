@@ -1069,10 +1069,11 @@ Pour chaque thème:
 - Formulation concise (3-8 mots maximum)
 - Nombre approximatif de titres concernés
 - Tonalité générale pour {candidate_name}: "positif", "neutre" ou "négatif"
+- 2 à 3 exemples de titres (copie exacte depuis la liste ci-dessus)
 
 IMPORTANT: Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après:
 [
-  {{"theme": "...", "count": X, "tone": "positif|neutre|négatif"}},
+  {{"theme": "...", "count": X, "tone": "positif|neutre|négatif", "examples": ["titre 1", "titre 2"]}},
   ...
 ]"""
 
@@ -1099,10 +1100,16 @@ IMPORTANT: Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après:
         valid_themes = []
         for t in themes:
             if isinstance(t, dict) and "theme" in t:
+                examples = t.get("examples", [])
+                if isinstance(examples, list):
+                    examples = [str(e)[:150] for e in examples[:3]]
+                else:
+                    examples = []
                 valid_themes.append({
                     "theme": str(t.get("theme", ""))[:100],
                     "count": int(t.get("count", 0)),
-                    "tone": t.get("tone", "neutre") if t.get("tone") in ["positif", "neutre", "négatif"] else "neutre"
+                    "tone": t.get("tone", "neutre") if t.get("tone") in ["positif", "neutre", "négatif"] else "neutre",
+                    "examples": examples
                 })
 
         return valid_themes[:5]
@@ -3484,9 +3491,9 @@ def main():
             )
             st.plotly_chart(fig, width="stretch", config=plotly_config)
 
-    # TAB 2: THEMES / ANALYSE QUALITATIVE (via IA)
+    # TAB 2: THEMES / ANALYSE QUALITATIVE
     with tab2:
-        st.markdown('### Thèmes médiatiques (analyse IA)')
+        st.markdown('### Thèmes médiatiques')
 
         # Vérifier si les données thèmes sont disponibles
         has_themes = any(d.get("themes") for _, d in sorted_data)
@@ -3546,6 +3553,11 @@ def main():
                             tone_label = t.get('tone', 'neutre').capitalize()
                             st.markdown(f"**{emoji} {t['theme']}**")
                             st.caption(f"{t.get('count', 0)} mentions · Tonalité: {tone_label}")
+                            # Afficher les exemples de titres
+                            examples = t.get('examples', [])
+                            if examples:
+                                for ex in examples:
+                                    st.markdown(f"<span style='color: #888; font-size: 0.85em;'>→ {ex}</span>", unsafe_allow_html=True)
                     else:
                         st.caption('Aucun thème identifié')
 
