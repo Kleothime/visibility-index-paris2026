@@ -3299,7 +3299,7 @@ def main():
         top_media_count = d['press'].get('top_media_count', 0)
         top_media_str = f"{top_media} ({top_media_count})" if top_media else '-'
 
-        trends_val = d['trends_score']
+        trends_val = d['score']['trends']  # Score normalisé 0-100 (utilisé dans le calcul)
         yt_views = d['youtube'].get('total_views', 0)
 
         row = {
