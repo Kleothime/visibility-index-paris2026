@@ -1295,8 +1295,8 @@ def log_chatbot_conversation(question: str, response: str, contexte: str, period
             "response": response
         })
 
-        # Garder les 500 dernières conversations max
-        data["conversations"] = data["conversations"][-500:]
+        # Garder les 100 dernières conversations max (limite 100KB JSONBin gratuit)
+        data["conversations"] = data["conversations"][-100:]
 
         # Sauvegarder
         put_url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}"
