@@ -3589,9 +3589,9 @@ def main():
                 expander_title = f'{rank}. **{name}**' if is_knafo else f'{rank}. {name}'
 
                 with st.expander(expander_title):
-                    # Afficher le résumé en premier (gras, police plus grande)
+                    # Afficher le résumé en premier (gras, police 2x plus grande)
                     if summary:
-                        st.markdown(f"<p style='font-size: 1.2em; font-weight: bold; margin-bottom: 1em;'>{summary}</p>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='font-size: 2em; font-weight: bold; margin-bottom: 1em;'>{summary}</p>", unsafe_allow_html=True)
 
                     if themes_sorted:
                         for t in themes_sorted:
