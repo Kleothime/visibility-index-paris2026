@@ -3084,24 +3084,11 @@ def main():
         # Période
         st.markdown("### Période d'analyse")
 
-        period_type = st.radio("Type de période", ["Prédéfinie", "Personnalisée"], horizontal=True)
-
-        if period_type == "Prédéfinie":
-            period_options = {"24 heures": 1, "7 jours": 7, "14 jours": 14, "30 jours": 30}
-            period_label = st.selectbox("Durée", list(period_options.keys()), index=2)  # 14 jours par défaut
-            period_days = period_options[period_label]
-            end_date = date.today()
-            start_date = end_date - timedelta(days=period_days - 1)
-        else:
-            col1, col2 = st.columns(2)
-            with col1:
-                start_date = st.date_input("Début", value=date.today() - timedelta(days=7))
-            with col2:
-                end_date = st.date_input("Fin", value=date.today(), max_value=date.today())
-
-            if start_date > end_date:
-                st.error("La date de début doit être antérieure à la date de fin")
-                return
+        period_options = {"24 heures": 1, "7 jours": 7, "14 jours": 14, "30 jours": 30}
+        period_label = st.selectbox("Durée", list(period_options.keys()), index=2)  # 14 jours par défaut
+        period_days = period_options[period_label]
+        end_date = date.today()
+        start_date = end_date - timedelta(days=period_days - 1)
 
         st.caption(f"{start_date.strftime('%d/%m/%Y')} → {end_date.strftime('%d/%m/%Y')}")
 
