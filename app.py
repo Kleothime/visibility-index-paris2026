@@ -1068,6 +1068,7 @@ Tu dois fournir:
 
 1. UN RÉSUMÉ PERCUTANT (2-3 phrases, style journalistique):
    - RÈGLE ABSOLUE : ne mentionne QUE des noms, événements et faits qui apparaissent EXPLICITEMENT dans les titres ci-dessus. N'invente JAMAIS de noms de personnes ou d'événements.
+   - NE FAIS PAS de liens de causalité entre titres différents. Chaque titre est un fait indépendant. Ne dis jamais "X lui vaut Y" ou "X entraîne Y" sauf si c'est explicite dans UN MÊME titre.
    - Commence par le fait marquant principal de la période
    - Sois factuel et précis : cite des émissions, des déclarations, des événements concrets UNIQUEMENT s'ils sont dans les titres
    - Évite les formulations bateau ("multiplie les apparitions", "fait polémique", "se positionne comme")
