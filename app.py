@@ -1067,8 +1067,9 @@ VIDÉOS YOUTUBE ({len(youtube_titles)} titres):
 Tu dois fournir:
 
 1. UN RÉSUMÉ PERCUTANT (2-3 phrases, style journalistique):
+   - RÈGLE ABSOLUE : ne mentionne QUE des noms, événements et faits qui apparaissent EXPLICITEMENT dans les titres ci-dessus. N'invente JAMAIS de noms de personnes ou d'événements.
    - Commence par le fait marquant principal de la période
-   - Sois factuel et précis : cite des émissions, des déclarations, des événements concrets
+   - Sois factuel et précis : cite des émissions, des déclarations, des événements concrets UNIQUEMENT s'ils sont dans les titres
    - Évite les formulations bateau ("multiplie les apparitions", "fait polémique", "se positionne comme")
    - Ton NEUTRE et FACTUEL : pas de qualificatifs politiques à charge (pas de "droite radicale", "extrême droite", etc.)
    - Style direct et accrocheur, pas encyclopédique
