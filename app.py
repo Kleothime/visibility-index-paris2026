@@ -3288,11 +3288,20 @@ def main():
     st.markdown("---")
     st.markdown("## Classement général")
 
+    # Fonction pour emoji de tonalité
+    def tone_emoji_main(tone: str) -> str:
+        if tone == "positif":
+            return "🟢"
+        elif tone == "négatif":
+            return "🔴"
+        return "⚪"
+
     rows = []
     for rank, (cid, d) in enumerate(sorted_data, 1):
-        # Thèmes médiatiques (analyse IA)
-        themes = d.get('themes', [])[:2]
-        themes_str = ' · '.join([t['theme'] for t in themes]) if themes else '-'
+        # Thèmes médiatiques (analyse IA) triés par mentions
+        themes = d.get('themes', [])
+        themes_sorted = sorted(themes, key=lambda x: x.get('count', 0), reverse=True)[:2]
+        themes_str = ' · '.join([f"{tone_emoji_main(t.get('tone', 'neutre'))} {t['theme']}" for t in themes_sorted]) if themes_sorted else '-'
 
         # Top média
         top_media = d['press'].get('top_media', '-')
