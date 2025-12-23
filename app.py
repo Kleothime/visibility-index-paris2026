@@ -16,6 +16,16 @@ from urllib.parse import quote_plus
 import xml.etree.ElementTree as ET
 from collections import Counter
 import anthropic
+import logging
+import sys
+
+# Configuration logging pour Streamlit Cloud
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # CONFIG
@@ -876,11 +886,11 @@ Titres à analyser:
                 score = max(-1, min(1, score))
                 result[title] = score
 
-        print(f"[SENTIMENT OK] {candidate_name}: {len(result)} titres analysés")  # Logs serveur
+        logger.info(f"[SENTIMENT OK] {candidate_name}: {len(result)} titres analysés")
         return result
 
     except Exception as e:
-        print(f"[SENTIMENT ERROR] {candidate_name}: {e}")  # Logs serveur
+        logger.error(f"[SENTIMENT ERROR] {candidate_name}: {e}")
         st.warning(f"⚠️ Erreur sentiment {candidate_name}: {e}")  # UI
         return {}
 
@@ -894,10 +904,10 @@ def analyze_and_cache_sentiments(titles: List[str], candidate_name: str, api_key
     new_titles = [t for t in titles if get_cached_sentiment(t) is None]
 
     if not new_titles:
-        print(f"[SENTIMENT CACHE JSON] {candidate_name}: {len(titles)} titres déjà en cache")
+        logger.info(f"[SENTIMENT CACHE JSON] {candidate_name}: {len(titles)} titres déjà en cache")
         return 0
 
-    print(f"[SENTIMENT CLAUDE] {candidate_name}: {len(new_titles)} nouveaux titres à analyser")
+    logger.info(f"[SENTIMENT CLAUDE] {candidate_name}: {len(new_titles)} nouveaux titres à analyser")
 
     # Traiter par batches de 25
     batch_size = 25
@@ -1146,11 +1156,11 @@ IMPORTANT: Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après:
                     "examples": examples
                 })
 
-        print(f"[THEMES OK] {candidate_name}: {len(valid_themes)} thèmes trouvés")  # Logs serveur
+        logger.info(f"[THEMES OK] {candidate_name}: {len(valid_themes)} thèmes trouvés")
         return {"summary": summary, "themes": valid_themes[:5]}
 
     except Exception as e:
-        print(f"[THEMES ERROR] {candidate_name}: {e}")  # Logs serveur
+        logger.error(f"[THEMES ERROR] {candidate_name}: {e}")
         st.warning(f"⚠️ Erreur thèmes {candidate_name}: {e}")  # UI
         return {"summary": "", "themes": []}
 
@@ -1170,13 +1180,13 @@ def get_or_analyze_themes(
     # Vérifier le cache JSON
     cached = get_cached_themes(candidate_name, start_date, end_date)
     if cached is not None:
-        print(f"[THEMES CACHE JSON] {candidate_name}: utilisé depuis cache fichier")
+        logger.info(f"[THEMES CACHE JSON] {candidate_name}: utilisé depuis cache fichier")
         if isinstance(cached, list):
             return {"summary": "", "themes": cached}
         return cached
 
     # Analyser avec Claude (ou cache Streamlit)
-    print(f"[THEMES CLAUDE] {candidate_name}: appel Claude ou cache Streamlit")
+    logger.info(f"[THEMES CLAUDE] {candidate_name}: appel Claude ou cache Streamlit")
     result = analyze_themes_with_claude(candidate_name, tuple(press_titles), tuple(youtube_titles), api_key)
 
     # Stocker en cache
