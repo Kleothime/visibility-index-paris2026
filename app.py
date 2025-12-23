@@ -894,7 +894,10 @@ def analyze_and_cache_sentiments(titles: List[str], candidate_name: str, api_key
     new_titles = [t for t in titles if get_cached_sentiment(t) is None]
 
     if not new_titles:
+        print(f"[SENTIMENT CACHE JSON] {candidate_name}: {len(titles)} titres déjà en cache")
         return 0
+
+    print(f"[SENTIMENT CLAUDE] {candidate_name}: {len(new_titles)} nouveaux titres à analyser")
 
     # Traiter par batches de 25
     batch_size = 25
@@ -1164,15 +1167,16 @@ def get_or_analyze_themes(
     Récupère les thèmes depuis le cache ou lance l'analyse Claude.
     Retourne {"summary": "...", "themes": [...]}
     """
-    # Vérifier le cache
+    # Vérifier le cache JSON
     cached = get_cached_themes(candidate_name, start_date, end_date)
     if cached is not None:
-        # Compatibilité avec ancien cache (liste) vs nouveau (dict)
+        print(f"[THEMES CACHE JSON] {candidate_name}: utilisé depuis cache fichier")
         if isinstance(cached, list):
             return {"summary": "", "themes": cached}
         return cached
 
-    # Analyser avec Claude
+    # Analyser avec Claude (ou cache Streamlit)
+    print(f"[THEMES CLAUDE] {candidate_name}: appel Claude ou cache Streamlit")
     result = analyze_themes_with_claude(candidate_name, tuple(press_titles), tuple(youtube_titles), api_key)
 
     # Stocker en cache
