@@ -823,11 +823,13 @@ def set_cached_sentiment(title: str, score: float):
     save_sentiment_cache(cache)
 
 
-def analyze_sentiment_batch(titles: List[str], candidate_name: str, api_key: str) -> Dict[str, float]:
+@st.cache_data(ttl=43200, show_spinner=False)  # Cache 12h partagé entre utilisateurs
+def analyze_sentiment_batch(titles: tuple, candidate_name: str, api_key: str) -> Dict[str, float]:
     """
     Analyse le sentiment d'un batch de titres via Claude.
     Retourne un dict {titre: score} avec score de -1 à +1.
     """
+    titles = list(titles)  # Reconvertir en list pour le traitement
     if not api_key or not titles:
         return {}
 
@@ -847,7 +849,7 @@ Titres à analyser:
     try:
         client = anthropic.Anthropic(api_key=api_key)
         response = client.messages.create(
-            model="claude-sonnet-4-5-20250929",
+            model="claude-3-haiku-20240307",
             max_tokens=1024,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -874,10 +876,12 @@ Titres à analyser:
                 score = max(-1, min(1, score))
                 result[title] = score
 
+        print(f"[SENTIMENT OK] {candidate_name}: {len(result)} titres analysés")  # Logs serveur
         return result
 
     except Exception as e:
-        # En cas d'erreur, retourner dict vide (on réessaiera plus tard)
+        print(f"[SENTIMENT ERROR] {candidate_name}: {e}")  # Logs serveur
+        st.warning(f"⚠️ Erreur sentiment {candidate_name}: {e}")  # UI
         return {}
 
 
@@ -898,7 +902,7 @@ def analyze_and_cache_sentiments(titles: List[str], candidate_name: str, api_key
 
     for i in range(0, len(new_titles), batch_size):
         batch = new_titles[i:i + batch_size]
-        scores = analyze_sentiment_batch(batch, candidate_name, api_key)
+        scores = analyze_sentiment_batch(tuple(batch), candidate_name, api_key)
 
         # Stocker en cache
         for title, score in scores.items():
@@ -1035,16 +1039,20 @@ def set_cached_themes(candidate_name: str, start_date: date, end_date: date, the
     save_themes_cache(cache)
 
 
+@st.cache_data(ttl=43200, show_spinner=False)  # Cache 12h partagé entre utilisateurs
 def analyze_themes_with_claude(
     candidate_name: str,
-    press_titles: List[str],
-    youtube_titles: List[str],
+    press_titles: tuple,
+    youtube_titles: tuple,
     api_key: str
 ) -> List[Dict]:
     """
     Analyse les thèmes principaux via Claude à partir des titres presse et YouTube.
     Retourne une liste de thèmes avec count et tonalité.
     """
+    press_titles = list(press_titles)  # Reconvertir en list
+    youtube_titles = list(youtube_titles)
+
     if not api_key:
         return []
 
@@ -1093,7 +1101,7 @@ IMPORTANT: Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après:
     try:
         client = anthropic.Anthropic(api_key=api_key)
         response = client.messages.create(
-            model="claude-sonnet-4-5-20250929",
+            model="claude-3-haiku-20240307",
             max_tokens=1024,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -1135,9 +1143,12 @@ IMPORTANT: Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après:
                     "examples": examples
                 })
 
+        print(f"[THEMES OK] {candidate_name}: {len(valid_themes)} thèmes trouvés")  # Logs serveur
         return {"summary": summary, "themes": valid_themes[:5]}
 
     except Exception as e:
+        print(f"[THEMES ERROR] {candidate_name}: {e}")  # Logs serveur
+        st.warning(f"⚠️ Erreur thèmes {candidate_name}: {e}")  # UI
         return {"summary": "", "themes": []}
 
 
@@ -1162,7 +1173,7 @@ def get_or_analyze_themes(
         return cached
 
     # Analyser avec Claude
-    result = analyze_themes_with_claude(candidate_name, press_titles, youtube_titles, api_key)
+    result = analyze_themes_with_claude(candidate_name, tuple(press_titles), tuple(youtube_titles), api_key)
 
     # Stocker en cache
     if result and result.get("themes"):
@@ -1363,7 +1374,7 @@ DONNÉES ACTUELLES :
     try:
         client = anthropic.Anthropic(api_key=api_key)
         response = client.messages.create(
-            model="claude-sonnet-4-5-20250929",
+            model="claude-3-haiku-20240307",
             max_tokens=1024,
             system=system_prompt,
             messages=[{"role": "user", "content": question}]
